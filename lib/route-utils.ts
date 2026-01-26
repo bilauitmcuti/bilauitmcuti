@@ -1,0 +1,79 @@
+// Utility functions for route-to-program mapping
+
+export type ProgramValue = 
+  | 'Foundation/Professional' 
+  | 'All' 
+  | 'PreDiploma' 
+  | 'Diploma' 
+  | 'DiplomaPartTime' 
+  | 'Bachelor' 
+  | 'BachelorPartTime' 
+  | 'Master' 
+  | 'PhD';
+
+// Map route segment to program value
+export function getProgramFromRoute(route: string | null | undefined): ProgramValue {
+  if (!route) return 'All';
+  
+  const routeMap: Record<string, ProgramValue> = {
+    'foundation-professional': 'Foundation/Professional',
+    'pre-diploma': 'PreDiploma',
+    'diploma': 'Diploma',
+    'diploma-part-time': 'DiplomaPartTime',
+    'bachelor': 'Bachelor',
+    'bachelor-part-time': 'BachelorPartTime',
+    'master': 'Master',
+    'phd': 'PhD',
+  };
+  
+  return routeMap[route] || 'All';
+}
+
+// Map program value to route segment
+export function getRouteFromProgram(program: ProgramValue): string {
+  const programMap: Record<ProgramValue, string> = {
+    'Foundation/Professional': 'foundation-professional',
+    'All': '',
+    'PreDiploma': 'pre-diploma',
+    'Diploma': 'diploma',
+    'DiplomaPartTime': 'diploma-part-time',
+    'Bachelor': 'bachelor',
+    'BachelorPartTime': 'bachelor-part-time',
+    'Master': 'master',
+    'PhD': 'phd',
+  };
+  
+  return programMap[program] || '';
+}
+
+// Get route path for a program and view mode
+export function getRoutePath(program: ProgramValue, viewMode: 'grid' | 'list'): string {
+  const routeSegment = getRouteFromProgram(program);
+  
+  if (program === 'All') {
+    // Homepage routes
+    return viewMode === 'grid' ? '/' : '/list';
+  }
+  
+  // Program-specific routes
+  const basePath = `/${routeSegment}`;
+  return viewMode === 'grid' ? basePath : `${basePath}/list`;
+}
+
+// Check if route is valid
+export function isValidProgramRoute(route: string | null | undefined): boolean {
+  if (!route) return true; // Empty route means "All"
+  
+  const validRoutes = [
+    'foundation-professional',
+    'pre-diploma',
+    'diploma',
+    'diploma-part-time',
+    'bachelor',
+    'bachelor-part-time',
+    'master',
+    'phd',
+  ];
+  
+  return validRoutes.includes(route);
+}

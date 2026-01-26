@@ -1,0 +1,66 @@
+# Cuti UiTM - Academic Calendar 2026
+
+## Project Overview
+Cuti UiTM is an interactive academic calendar application for UiTM (Universiti Teknologi MARA) showing scheduled activities for 2026, including registration, lectures, examinations, and break periods.
+
+## Key Features
+- **Multiple View Modes**: List, Grid, and Month views for different browsing experiences
+- **Program Selection**: Support for 7 different programs (Foundation, Professional, Pre-Diploma, Diploma, Bachelor, Master, PhD)
+- **Group-based Schedules**: Different schedules for Group A and Group B programs
+- **Activity Filtering**: Toggle visibility of Registration, Lecture, Examination, and Break activities
+- **KKT State Support**: Special dates for Kedah, Kelantan, and Terengganu states
+- **Theme Support**: Light and Dark mode with smooth transitions
+- **Responsive Design**: Works seamlessly across desktop and mobile devices
+- **Persistent Preferences**: User selections saved to localStorage
+
+## Technology Stack
+- **Framework**: Next.js 16+ with App Router
+- **UI Library**: shadcn/ui components
+- **Styling**: Tailwind CSS v4
+- **State Management**: React hooks with localStorage persistence
+- **Typography**: Geist font family
+
+## Color Scheme
+- Registration: #ff6b00 (Orange)
+- Lecture: #8b5cf6 (Purple)
+- Examination: #dc2626 (Red)
+- Break: #10b981 (Green)
+
+## Data Structure
+Activities are organized by:
+- Month and Year
+- Program Group (A or B)
+- Activity Type (registration, lecture, examination, break)
+- Start and end dates
+- Optional states for KKT variation
+
+## User Settings
+Users can customize:
+- Selected program
+- View mode (list/grid/month)
+- Activity type visibility
+- KKT date display
+- Theme (light/dark)
+
+All settings are persisted in localStorage with keys:
+- selectedProgram
+- viewMode
+- showKKT
+- theme
+- showRegistration, showLecture, showExamination, showBreak
+
+## Components
+- CalendarHeader: Displays title and legend
+- CalendarControls: Program selector, view mode buttons, and settings
+- ListView: List view of all activities grouped by month
+- MonthView: Single month calendar with full month display
+- GridView: Multi-month calendar grid with mini calendars
+
+## SEO Metadata
+- Title: Cuti UiTM - Academic Calendar 2026
+- Description: UiTM academic calendar for 2026 with registration, lecture, and examination dates
+- Keywords: UiTM, academic calendar, 2026, registration, examination, Malaysia
+- Open Graph and Twitter card support
+
+## Author
+Created by @shahrulestar (shahrulestar.com)
