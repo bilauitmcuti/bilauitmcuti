@@ -1,6 +1,5 @@
 // Export types for use in other components
 export type ViewMode = 'list' | 'grid';
-export type Theme = 'light' | 'dark';
 
 import { SharedCalendarLayout } from '@/components/shared-calendar-layout';
 

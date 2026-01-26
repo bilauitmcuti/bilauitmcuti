@@ -16,20 +16,19 @@ html.light {
 }
 
 /* Prevent flash of wrong theme during page load */
+/* CRITICAL: Don't set default background - let inline styles from script handle it */
 html {
-  /* Default to dark theme to prevent white flash */
-  background-color: #1a1a1a;
-  color: #ffffff;
+  /* No default background - script will set it based on localStorage */
 }
 
 html.light {
-  background-color: #ffffff;
-  color: #1a1a1a;
+  background-color: #ffffff !important;
+  color: #1a1a1a !important;
 }
 
 html.dark {
-  background-color: #1a1a1a;
-  color: #ffffff;
+  background-color: #1a1a1a !important;
+  color: #ffffff !important;
 }
 
 /* Remove transitions from main page containers */

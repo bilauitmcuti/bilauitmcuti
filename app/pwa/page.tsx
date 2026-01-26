@@ -4,45 +4,14 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import type { Theme } from '@/app/page';
-
 export default function PWAPage() {
   const router = useRouter();
-  const [theme, setTheme] = useState<Theme>('dark');
   const [isInstalled, setIsInstalled] = useState(false);
 
-  // Apply initial theme class immediately for FCP
-  useEffect(() => {
-    document.documentElement.classList.add('dark');
-  }, []);
-
-  // Sync with system and localStorage preference (non-blocking)
+  // Check if already installed as PWA
   useEffect(() => {
     if (typeof window === 'undefined') return;
-
-    const storedTheme = localStorage.getItem('theme') as Theme | null;
-    if (storedTheme) {
-      setTheme(storedTheme);
-      document.documentElement.classList.toggle('dark', storedTheme === 'dark');
-      document.documentElement.classList.toggle('light', storedTheme === 'light');
-    } else {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const initialTheme = prefersDark ? 'dark' : 'light';
-      setTheme(initialTheme);
-      document.documentElement.classList.toggle('dark', initialTheme === 'dark');
-      document.documentElement.classList.toggle('light', initialTheme === 'light');
-    }
-
-    const handleThemeChange = (e: StorageEvent) => {
-      if (e.key === 'theme' && e.newValue) {
-        const newTheme = e.newValue as Theme;
-        setTheme(newTheme);
-        document.documentElement.classList.toggle('dark', newTheme === 'dark');
-        document.documentElement.classList.toggle('light', newTheme === 'light');
-      }
-    };
-
-    // Check if already installed as PWA
+    
     const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches;
     const isInFullScreenMode = document.fullscreenElement !== null;
     const isInMinimalUIMode = (window.navigator as any).standalone === true;
@@ -50,20 +19,11 @@ export default function PWAPage() {
     if (isInStandaloneMode || isInFullScreenMode || isInMinimalUIMode) {
       setIsInstalled(true);
     }
-
-    window.addEventListener('storage', handleThemeChange);
-    return () => window.removeEventListener('storage', handleThemeChange);
   }, []);
 
-  // Apply theme changes
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-    document.documentElement.classList.toggle('light', theme === 'light');
-  }, [theme]);
-
-  const textClass = theme === 'dark' ? 'text-white' : 'text-[#1a1a1a]';
-  const bgClass = theme === 'dark' ? 'bg-[#1a1a1a] text-white' : 'bg-white text-[#1a1a1a]';
-  const mutedClass = theme === 'dark' ? 'text-muted-foreground' : 'text-gray-600';
+  const textClass = 'text-[#1a1a1a]';
+  const bgClass = 'bg-white text-[#1a1a1a]';
+  const mutedClass = 'text-gray-600';
 
   const handleBack = () => {
     router.push('/');
@@ -154,7 +114,7 @@ export default function PWAPage() {
               <li>✓ Offline access to academic calendar</li>
               <li>✓ Installable as native app</li>
               <li>✓ Fast loading and responsive design</li>
-              <li>✓ Dark and light theme support</li>
+              <li>✓ Light theme</li>
               <li>✓ Regional schedule variations (KKT states)</li>
               <li>✓ Group-specific calendars (Group A & B)</li>
             </ul>

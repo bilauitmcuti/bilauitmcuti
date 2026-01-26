@@ -1,11 +1,9 @@
-import { memo, useState, useEffect } from 'react';
+import { memo, useState, useLayoutEffect } from 'react';
 import { getActivitiesForMonth, formatDateRange, type ProgramGroup } from '@/lib/data';
-import type { Theme } from '@/app/page';
 
 interface ListViewProps {
   selectedProgram: string;
   showKKT: boolean;
-  theme: Theme;
   showRegistration: boolean;
   showLecture: boolean;
   showSemesterPendek: boolean;
@@ -20,7 +18,6 @@ interface ListViewProps {
 export const ListView = memo(function ListView({ 
   selectedProgram, 
   showKKT,
-  theme,
   showRegistration,
   showLecture,
   showSemesterPendek,
@@ -33,7 +30,7 @@ export const ListView = memo(function ListView({
 }: ListViewProps) {
   const [isMounted, setIsMounted] = useState(false);
   
-  useEffect(() => {
+  useLayoutEffect(() => {
     setIsMounted(true);
   }, []);
   
@@ -96,10 +93,12 @@ export const ListView = memo(function ListView({
     new Map(activities.map(a => [a.name + a.startDate, a])).values()
   ).sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
 
-  // Group activities by month
+  // Group activities by month - use UTC to ensure consistency
   const groupedByMonth = uniqueActivities.reduce((acc, activity) => {
-    const date = new Date(activity.startDate);
-    const monthKey = date.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    const [year, month, day] = activity.startDate.split('-').map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const monthKey = `${monthNames[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
     if (!acc[monthKey]) {
       acc[monthKey] = [];
     }
@@ -181,10 +180,10 @@ export const ListView = memo(function ListView({
     return acc;
   }, {} as Record<string, typeof uniqueActivities>);
 
-  const bgClass = theme === 'dark' ? 'bg-[#1a1a1a]' : 'bg-white';
-  const textClass = theme === 'dark' ? 'text-white' : 'text-[#1a1a1a]';
-  const mutedClass = theme === 'dark' ? 'text-muted-foreground' : 'text-gray-600';
-  const borderClass = theme === 'dark' ? 'border-secondary' : 'border-gray-300';
+  const bgClass = 'bg-white';
+  const textClass = 'text-[#1a1a1a]';
+  const mutedClass = 'text-gray-600';
+  const borderClass = 'border-gray-300';
 
   return (
     <div className={`space-y-8 ${bgClass}`} suppressHydrationWarning>
@@ -195,12 +194,12 @@ export const ListView = memo(function ListView({
         }
         
         return (
-        <div key={month}>
-          <div className="-mx-3 pb-4 pt-3">
-            <h3 className={`font-semibold text-xl leading-7 text-left ${textClass} px-3`}>{month}</h3>
+        <div key={month} suppressHydrationWarning>
+          <div className="-mx-3 pb-4 pt-3" suppressHydrationWarning>
+            <h3 className={`font-semibold text-xl leading-7 text-left ${textClass} px-3`} suppressHydrationWarning>{month}</h3>
           </div>
           
-          <div className="space-y-4">
+          <div className="space-y-4" suppressHydrationWarning>
             {filteredGroupedByMonth[month] && filteredGroupedByMonth[month].length > 0 ? (
               filteredGroupedByMonth[month].map((activity) => {
                 // Use regional dates if KKT filter is on
@@ -224,7 +223,7 @@ export const ListView = memo(function ListView({
                 const hasKKTVariant = activity.regionalStartDate || activity.regionalEndDate;
 
                 return (
-                  <div key={activity.name + activity.startDate} className="flex gap-4 p-3 rounded-lg px-0">
+                  <div key={activity.name + activity.startDate} className="flex gap-4 p-3 rounded-lg px-0" suppressHydrationWarning>
                     {/* Date column */}
                     <div className={`flex w-20 flex-col items-start text-xs ${mutedClass}`} suppressHydrationWarning>
                       <div suppressHydrationWarning>{isMounted ? dayName : '\u00A0'}</div>
@@ -232,44 +231,42 @@ export const ListView = memo(function ListView({
                     </div>
                     
                     {/* Activity info */}
-                    <div className="flex flex-1 flex-col">
+                    <div className="flex flex-1 flex-col" suppressHydrationWarning>
                       {/* Dot and Badge row */}
-                      {getProgramBadgeColor(activity) && (
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className={`h-2 w-2 shrink-0 rounded-full ${getActivityColor(activity)}`} />
-                          <div className={`inline-block py-1 rounded-full text-xs font-medium px-3 ${theme === 'dark' ? getProgramBadgeColor(activity)?.darkBg : getProgramBadgeColor(activity)?.lightBg} ${theme === 'dark' ? getProgramBadgeColor(activity)?.darkText : getProgramBadgeColor(activity)?.lightText}`}>
+                      {getProgramBadgeColor(activity) ? (
+                        <div className="flex items-center gap-2 mb-2" suppressHydrationWarning>
+                          <div className={`h-2 w-2 shrink-0 rounded-full ${getActivityColor(activity)}`} suppressHydrationWarning />
+                          <div className={`inline-block py-1 rounded-full text-xs font-medium px-3 ${getProgramBadgeColor(activity)?.lightBg} ${getProgramBadgeColor(activity)?.lightText}`} suppressHydrationWarning>
                             {getProgramBadgeColor(activity)?.label}
                           </div>
                         </div>
-                      )}
-                      {/* Dot only (no badge) */}
-                      {!getProgramBadgeColor(activity) && (
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className={`h-2 w-2 shrink-0 rounded-full ${getActivityColor(activity)}`} />
+                      ) : (
+                        <div className="flex items-center gap-2 mb-2" suppressHydrationWarning>
+                          <div className={`h-2 w-2 shrink-0 rounded-full ${getActivityColor(activity)}`} suppressHydrationWarning />
                         </div>
                       )}
-                      <div className="w-full">
-                        <h3 className={`font-medium text-base leading-6 break-words ${textClass}`}>{activity.name}</h3>
-                        <p className={`mt-1 text-sm leading-5 break-words ${mutedClass}`}>
+                      <div className="w-full" suppressHydrationWarning>
+                        <h3 className={`font-medium text-base leading-6 break-words ${textClass}`} suppressHydrationWarning>{activity.name}</h3>
+                        <p className={`mt-1 text-sm leading-5 break-words ${mutedClass}`} suppressHydrationWarning>
                           {showKKT && activity.regionalStartDate
                             ? formatDateRange(activity.regionalStartDate, activity.regionalEndDate)
                             : formatDateRange(activity.startDate, activity.endDate)}
                         </p>
-                        {activity.duration && (
-                          <p className={`mt-1 text-xs leading-4 break-words ${mutedClass}`}>
+                        {activity.duration ? (
+                          <p className={`mt-1 text-xs leading-4 break-words ${mutedClass}`} suppressHydrationWarning>
                             Duration: {activity.duration}
                           </p>
-                        )}
-                        {activity.details && (
-                          <p className={`mt-1 text-xs leading-4 break-words ${mutedClass}`}>
+                        ) : null}
+                        {activity.details ? (
+                          <p className={`mt-1 text-xs leading-4 break-words ${mutedClass}`} suppressHydrationWarning>
                             {activity.details}
                           </p>
-                        )}
-                        {hasKKTVariant && showKKT && (
-                          <p className="mt-1 text-xs leading-4 text-blue-500 italic">
+                        ) : null}
+                        {hasKKTVariant && showKKT ? (
+                          <p className="mt-1 text-xs leading-4 text-blue-500 italic" suppressHydrationWarning>
                             *Kedah, Kelantan & Terengganu
                           </p>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                   </div>

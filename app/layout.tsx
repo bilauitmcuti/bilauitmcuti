@@ -84,63 +84,13 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <meta name="theme-color" content="#1a1a1a" />
+        <meta name="theme-color" content="#ffffff" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="canonical" href="https://cutiuitm.xyz" />
         <script
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
-                // CRITICAL: Apply theme IMMEDIATELY before any rendering to prevent flash
-                // This must execute synchronously before React hydration
-                try {
-                  const savedTheme = localStorage.getItem('theme');
-                  const htmlEl = document.documentElement;
-                  
-                  // Remove both classes first to ensure clean state
-                  htmlEl.classList.remove('dark', 'light');
-                  
-                  // Determine theme to apply
-                  let themeToApply = 'dark'; // Default
-                  if (savedTheme === 'light') {
-                    themeToApply = 'light';
-                  } else if (savedTheme === 'dark') {
-                    themeToApply = 'dark';
-                  }
-                  
-                  // Apply inline style FIRST for instant visual feedback (before class)
-                  // This ensures background color is applied even before CSS loads
-                  if (themeToApply === 'light') {
-                    htmlEl.style.backgroundColor = '#ffffff';
-                    htmlEl.style.color = '#1a1a1a';
-                  } else {
-                    htmlEl.style.backgroundColor = '#1a1a1a';
-                    htmlEl.style.color = '#ffffff';
-                  }
-                  
-                  // Then apply theme class
-                  htmlEl.classList.add(themeToApply);
-                  
-                  // Update browser tab/window chrome color
-                  const metaThemeColor = document.querySelector('meta[name="theme-color"]');
-                  if (metaThemeColor) {
-                    metaThemeColor.setAttribute('content', themeToApply === 'dark' ? '#1a1a1a' : '#ffffff');
-                  }
-                } catch (e) {
-                  // Fallback to dark if localStorage fails
-                  const htmlEl = document.documentElement;
-                  htmlEl.style.backgroundColor = '#1a1a1a';
-                  htmlEl.style.color = '#ffffff';
-                  htmlEl.classList.remove('light');
-                  htmlEl.classList.add('dark');
-                  
-                  // Set theme-color to dark
-                  const metaThemeColor = document.querySelector('meta[name="theme-color"]');
-                  if (metaThemeColor) {
-                    metaThemeColor.setAttribute('content', '#1a1a1a');
-                  }
-                }
-                
                 // Store filter states in data attributes for synchronous access
                 // This prevents flicker when filters are applied - MUST run before React hydration
                 try {

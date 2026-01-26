@@ -742,24 +742,33 @@ export function getActivityForDate(dateStr: string, group: ProgramGroup, showKKT
 
 // Format date range in English
 export function formatDateRange(startDate: string, endDate?: string): string {
-  const start = new Date(startDate);
-  const end = endDate ? new Date(endDate) : start;
+  // Parse dates as UTC to ensure consistency between server and client
+  const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
+  const start = new Date(Date.UTC(startYear, startMonth - 1, startDay));
+  
+  let end: Date;
+  if (endDate) {
+    const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
+    end = new Date(Date.UTC(endYear, endMonth - 1, endDay));
+  } else {
+    end = start;
+  }
   
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   
   if (!endDate || startDate === endDate) {
-    return `${start.getDate()} ${monthNames[start.getMonth()]}`;
+    return `${start.getUTCDate()} ${monthNames[start.getUTCMonth()]}`;
   }
   
-  if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
-    return `${start.getDate()} - ${end.getDate()} ${monthNames[end.getMonth()]}`;
+  if (start.getUTCMonth() === end.getUTCMonth() && start.getUTCFullYear() === end.getUTCFullYear()) {
+    return `${start.getUTCDate()} - ${end.getUTCDate()} ${monthNames[end.getUTCMonth()]}`;
   }
   
-  if (start.getFullYear() === end.getFullYear()) {
-    return `${start.getDate()} ${monthNames[start.getMonth()]} - ${end.getDate()} ${monthNames[end.getMonth()]}`;
+  if (start.getUTCFullYear() === end.getUTCFullYear()) {
+    return `${start.getUTCDate()} ${monthNames[start.getUTCMonth()]} - ${end.getUTCDate()} ${monthNames[end.getUTCMonth()]}`;
   }
   
-  return `${start.getDate()} ${monthNames[start.getMonth()]} ${start.getFullYear()} - ${end.getDate()} ${monthNames[end.getMonth()]} ${end.getFullYear()}`;
+  return `${start.getUTCDate()} ${monthNames[start.getUTCMonth()]} ${start.getUTCFullYear()} - ${end.getUTCDate()} ${monthNames[end.getUTCMonth()]} ${end.getUTCFullYear()}`;
 }
 
 // Get months that should be displayed for a group based on available activities

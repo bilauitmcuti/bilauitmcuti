@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { List, Settings, Sun, Moon, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
+import { List, Settings, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -19,7 +19,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { programOptions, allActivities } from '@/lib/data';
 import { getRoutePath } from '@/lib/route-utils';
-import type { ViewMode, Theme } from '@/app/page';
+import type { ViewMode } from '@/app/page';
 import type { ProgramValue } from '@/lib/route-utils';
 
 interface CalendarControlsProps {
@@ -27,8 +27,6 @@ interface CalendarControlsProps {
   viewMode: ViewMode;
   showKKT: boolean;
   onShowKKTChange: (show: boolean) => void;
-  theme: Theme;
-  onThemeChange: (theme: Theme) => void;
   showRegistration: boolean;
   onShowRegistrationChange: (show: boolean) => void;
   showLecture: boolean;
@@ -51,8 +49,6 @@ export function CalendarControls({
   viewMode,
   showKKT,
   onShowKKTChange,
-  theme,
-  onThemeChange,
   showRegistration,
   onShowRegistrationChange,
   showLecture,
@@ -127,10 +123,10 @@ export function CalendarControls({
     [selectedProgram]
   );
   
-  // Theme classes (simple computations, no need for useMemo)
-  const bgClass = theme === 'dark' ? 'bg-[#1a1a1a]' : 'bg-white';
-  const borderClass = theme === 'dark' ? 'border-secondary bg-secondary/50' : 'border-gray-200 bg-gray-100';
-  const textClass = theme === 'dark' ? 'text-white' : 'text-[#1a1a1a]';
+  // Always use light theme classes
+  const bgClass = 'bg-white';
+  const borderClass = 'border-gray-200 bg-gray-100';
+  const textClass = 'text-[#1a1a1a]';
 
   // Memoize current group determination
   const currentGroup = useMemo(() => 
@@ -171,8 +167,8 @@ export function CalendarControls({
       suppressHydrationWarning
       style={{
         // Inline style to prevent flash during hydration
-        backgroundColor: theme === 'dark' ? '#1a1a1a' : '#ffffff',
-        color: theme === 'dark' ? '#ffffff' : '#1a1a1a',
+        backgroundColor: '#ffffff',
+        color: '#1a1a1a',
       }}
     >
       <div 
@@ -180,7 +176,7 @@ export function CalendarControls({
         suppressHydrationWarning
         style={{
           // Inline style to prevent flash during hydration
-          backgroundColor: theme === 'dark' ? '#1a1a1a' : '#ffffff',
+          backgroundColor: '#ffffff',
         }}
       >
         {/* Program selector - Left */}
@@ -198,10 +194,10 @@ export function CalendarControls({
                 )}
               </div>
             </SelectTrigger>
-            <SelectContent className={`min-w-[250px] pt-4 pb-4 pl-3 pr-3 ${theme === 'dark' ? 'bg-[#2a2a2a]' : 'bg-white'} border ${theme === 'dark' ? 'border-[#4a4a4a]' : 'border-gray-200'}`}>
+            <SelectContent className="min-w-[250px] pt-4 pb-4 pl-3 pr-3 bg-white border border-gray-200" suppressHydrationWarning>
               {/* Group A */}
               <div className="w-full">
-                <div className={`text-xs font-semibold ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'} mb-2`}>GROUP A</div>
+                <div className="text-xs font-semibold text-gray-600 mb-2">GROUP A</div>
                 <div className="space-y-0">
                   {groupAOptions.map((option) => (
                     <div key={option.value} className="w-full py-0.5 cursor-pointer hover:bg-secondary/10 rounded-md transition-colors" onClick={() => {
@@ -215,11 +211,11 @@ export function CalendarControls({
                 </div>
               </div>
               
-              <div className={`my-3 h-px ${theme === 'dark' ? 'bg-border' : 'bg-gray-200'}`} />
+              <div className="my-3 h-px bg-gray-200" />
               
               {/* Group B */}
               <div className="w-full">
-                <div className={`text-xs font-semibold ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'} mb-2`}>GROUP B</div>
+                <div className="text-xs font-semibold text-gray-600 mb-2">GROUP B</div>
                 <div className="space-y-0">
                   {groupBOptions.map((option) => (
                     <div key={option.value} className="w-full py-0.5 cursor-pointer hover:bg-secondary/10 rounded-md transition-colors" onClick={() => {
@@ -245,7 +241,7 @@ export function CalendarControls({
               variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
               size="icon"
               onClick={() => handleViewModeChange('grid')}
-              className={`${viewMode === 'grid' ? (theme === 'dark' ? 'bg-secondary text-white' : 'bg-gray-200 text-[#1a1a1a]') : `bg-transparent ${theme === 'dark' ? 'text-muted-foreground hover:text-white' : 'text-gray-600 hover:text-[#1a1a1a]'}`}`}
+              className={`${viewMode === 'grid' ? 'bg-gray-200 text-[#1a1a1a]' : 'bg-transparent text-gray-600 hover:text-[#1a1a1a]'}`}
               title="Grid View"
               suppressHydrationWarning
             >
@@ -255,7 +251,7 @@ export function CalendarControls({
               variant={viewMode === 'list' ? 'secondary' : 'ghost'}
               size="icon"
               onClick={() => handleViewModeChange('list')}
-              className={`${viewMode === 'list' ? (theme === 'dark' ? 'bg-secondary text-white' : 'bg-gray-200 text-[#1a1a1a]') : `bg-transparent ${theme === 'dark' ? 'text-muted-foreground hover:text-white' : 'text-gray-600 hover:text-[#1a1a1a]'}`}`}
+              className={`${viewMode === 'list' ? 'bg-gray-200 text-[#1a1a1a]' : 'bg-transparent text-gray-600 hover:text-[#1a1a1a]'}`}
               title="List View"
               suppressHydrationWarning
             >
@@ -265,7 +261,7 @@ export function CalendarControls({
               className="mx-1 w-px" 
               suppressHydrationWarning
               style={{
-                backgroundColor: theme === 'dark' ? 'hsl(var(--border))' : '#d1d5db'
+                backgroundColor: '#d1d5db'
               }}
             />
             <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -273,7 +269,7 @@ export function CalendarControls({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={`bg-transparent ${theme === 'dark' ? 'text-muted-foreground hover:text-white' : 'text-gray-600 hover:text-[#1a1a1a]'}`}
+                  className="bg-transparent text-gray-600 hover:text-[#1a1a1a]"
                   title="Settings"
                   suppressHydrationWarning
                 >
@@ -281,10 +277,10 @@ export function CalendarControls({
                 </Button>
               </PopoverTrigger>
               <PopoverContent 
-                className={`h-auto w-[300px] pt-4 pb-4 pl-4 z-50 border pr-4 ${theme === 'dark' ? 'border-[#4a4a4a] bg-[#2a2a2a]' : 'border-gray-200 bg-white'}`}
+                className="h-auto w-[300px] pt-4 pb-4 pl-4 z-50 border border-gray-200 bg-white pr-4"
                 side="bottom"
                 align="end"
-                sideOffset={12}
+                sideOffset={8}
               >
                 <div className="space-y-3">
                   {/* Activity Type Toggles */}
@@ -292,10 +288,10 @@ export function CalendarControls({
                     <label className="flex items-center justify-between cursor-pointer py-0.5">
                       <div className="flex items-center gap-2">
                         <div className="h-2 w-2 rounded-full bg-[#d1d5db]" />
-                        <span className={`text-sm font-medium ${theme === 'dark' ? 'text-white' : 'text-[#1a1a1a]'}`}>Registration</span>
+                        <span className="text-sm font-medium text-[#1a1a1a]">Registration</span>
                       </div>
                       <div className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
-                        style={{backgroundColor: showRegistration ? '#2563eb' : (theme === 'dark' ? '#4a4a4a' : '#d1d5db')}}
+                        style={{backgroundColor: showRegistration ? '#2563eb' : '#d1d5db'}}
                       >
                         <span
                           className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm"
@@ -314,10 +310,10 @@ export function CalendarControls({
                     <label className="flex items-center justify-between cursor-pointer py-0.5">
                       <div className="flex items-center gap-2">
                         <div className="h-2 w-2 rounded-full bg-[#8b5cf6]" />
-                        <span className={`text-sm font-medium ${theme === 'dark' ? 'text-white' : 'text-[#1a1a1a]'}`}>Lecture</span>
+                        <span className="text-sm font-medium text-[#1a1a1a]">Lecture</span>
                       </div>
                       <div className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
-                        style={{backgroundColor: showLecture ? '#2563eb' : (theme === 'dark' ? '#4a4a4a' : '#d1d5db')}}
+                        style={{backgroundColor: showLecture ? '#2563eb' : '#d1d5db'}}
                       >
                         <span
                           className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm"
@@ -336,10 +332,10 @@ export function CalendarControls({
                     {hasSemesterPendek && (
                     <label className="flex items-center justify-between cursor-pointer py-0.5 pl-4">
                       <div className="flex items-center gap-2">
-                        <span className={`text-xs font-medium ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>Semester Pendek</span>
+                        <span className="text-xs font-medium text-gray-600">Semester Pendek</span>
                       </div>
                       <div className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
-                        style={{backgroundColor: showSemesterPendek ? '#2563eb' : (theme === 'dark' ? '#4a4a4a' : '#d1d5db')}}
+                        style={{backgroundColor: showSemesterPendek ? '#2563eb' : '#d1d5db'}}
                       >
                         <span
                           className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm"
@@ -359,10 +355,10 @@ export function CalendarControls({
                     {hasKuliahIntersesi && (
                     <label className="flex items-center justify-between cursor-pointer py-0.5 pl-4">
                       <div className="flex items-center gap-2">
-                        <span className={`text-xs font-medium ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>Kuliah Intersesi</span>
+                        <span className="text-xs font-medium text-gray-600">Kuliah Intersesi</span>
                       </div>
                       <div className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
-                        style={{backgroundColor: showKuliahIntersesi ? '#2563eb' : (theme === 'dark' ? '#4a4a4a' : '#d1d5db')}}
+                        style={{backgroundColor: showKuliahIntersesi ? '#2563eb' : '#d1d5db'}}
                       >
                         <span
                           className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm"
@@ -382,10 +378,10 @@ export function CalendarControls({
                     <label className="flex items-center justify-between cursor-pointer py-0.5">
                       <div className="flex items-center gap-2">
                         <div className="h-2 w-2 rounded-full bg-[#dc2626]" />
-                        <span className={`text-sm font-medium ${theme === 'dark' ? 'text-white' : 'text-[#1a1a1a]'}`}>Examination</span>
+                        <span className="text-sm font-medium text-[#1a1a1a]">Examination</span>
                       </div>
                       <div className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
-                        style={{backgroundColor: showExamination ? '#2563eb' : (theme === 'dark' ? '#4a4a4a' : '#d1d5db')}}
+                        style={{backgroundColor: showExamination ? '#2563eb' : '#d1d5db'}}
                       >
                         <span
                           className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm"
@@ -404,10 +400,10 @@ export function CalendarControls({
                     {hasOthersExams && (
                     <label className="flex items-center justify-between cursor-pointer py-0.5 pl-4">
                       <div className="flex items-center gap-2">
-                        <span className={`text-xs font-medium ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>Others Exams</span>
+                        <span className="text-xs font-medium text-gray-600">Others Exams</span>
                       </div>
                       <div className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
-                        style={{backgroundColor: showOthersExams ? '#2563eb' : (theme === 'dark' ? '#4a4a4a' : '#d1d5db')}}
+                        style={{backgroundColor: showOthersExams ? '#2563eb' : '#d1d5db'}}
                       >
                         <span
                           className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm"
@@ -427,10 +423,10 @@ export function CalendarControls({
                     <label className="flex items-center justify-between cursor-pointer py-0.5">
                       <div className="flex items-center gap-2">
                         <div className="h-2 w-2 rounded-full bg-[#10b981]" />
-                        <span className={`text-sm font-medium ${theme === 'dark' ? 'text-white' : 'text-[#1a1a1a]'}`}>Break</span>
+                        <span className="text-sm font-medium text-[#1a1a1a]">Break</span>
                       </div>
                       <div className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
-                        style={{backgroundColor: showBreak ? '#2563eb' : (theme === 'dark' ? '#4a4a4a' : '#d1d5db')}}
+                        style={{backgroundColor: showBreak ? '#2563eb' : '#d1d5db'}}
                       >
                         <span
                           className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm"
@@ -447,11 +443,11 @@ export function CalendarControls({
                     </label>
                   </div>
 
-                  <div className={`h-px ${theme === 'dark' ? 'bg-border' : 'bg-gray-200'}`} />
+                  <div className="h-px bg-gray-200" />
 
                   <label className="flex items-center justify-between cursor-pointer py-0.5">
                     <div className="flex items-center gap-2">
-                      <span className={`text-sm font-medium ${theme === 'dark' ? 'text-white' : 'text-[#1a1a1a]'}`}>Show</span>
+                      <span className="text-sm font-medium text-[#1a1a1a]">Show</span>
                       <div className="flex gap-1 pointer-events-none select-none">
                         <Avatar className="h-5 w-5">
                           <AvatarImage src="/flags/kedah.png" alt="Kedah" draggable={false} />
@@ -468,7 +464,7 @@ export function CalendarControls({
                       </div>
                     </div>
                     <div className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
-                      style={{backgroundColor: showKKT ? '#2563eb' : (theme === 'dark' ? '#4a4a4a' : '#d1d5db')}}
+                      style={{backgroundColor: showKKT ? '#2563eb' : '#d1d5db'}}
                     >
                       <span
                         className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm"
@@ -484,35 +480,10 @@ export function CalendarControls({
                     </div>
                   </label>
 
-                  <div className={`h-px ${theme === 'dark' ? 'bg-border' : 'bg-gray-200'}`} />
-
-                  {/* Theme Toggle with Icons */}
-                  <div className="flex items-center justify-between py-0.5">
-                    <span className={`text-sm font-medium ${theme === 'dark' ? 'text-white' : 'text-[#1a1a1a]'}`}>Theme</span>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant={theme === 'light' ? 'secondary' : 'ghost'}
-                        onClick={() => onThemeChange('light')}
-                        className={`h-6 px-2 flex items-center gap-1 ${theme === 'light' ? (theme === 'dark' ? 'bg-secondary text-white' : 'bg-gray-200 text-[#1a1a1a]') : `bg-transparent ${theme === 'dark' ? 'text-muted-foreground' : 'text-gray-600'}`}`}
-                      >
-                        <Sun className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant={theme === 'dark' ? 'secondary' : 'ghost'}
-                        onClick={() => onThemeChange('dark')}
-                        className={`h-6 px-2 flex items-center gap-1 ${theme === 'dark' ? (theme === 'dark' ? 'bg-secondary text-white' : 'bg-gray-200 text-[#1a1a1a]') : `bg-transparent ${theme === 'dark' ? 'text-muted-foreground' : 'text-gray-600'}`}`}
-                      >
-                        <Moon className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className={`h-px ${theme === 'dark' ? 'bg-border' : 'bg-gray-200'}`} />
+                  <div className="h-px bg-gray-200" />
 
                   {/* Made By and Source + Share/PWA */}
-                  <div className={`text-left text-xs pt-0.5 space-y-3 ${theme === 'dark' ? 'text-muted-foreground' : 'text-gray-600'}`}>
+                  <div className="text-left text-xs pt-0.5 space-y-3 text-gray-600">
                     {/* Buttons Container */}
                     <div className="flex flex-col gap-2 w-full">
                       {/* Submit Feedback Button */}
@@ -524,7 +495,7 @@ export function CalendarControls({
                       >
                         <Button
                           size="sm"
-                          className={`w-full justify-center text-center hover:bg-opacity-100 active:bg-opacity-100 ${theme === 'dark' ? 'bg-[#1a1a1a] text-white' : 'bg-gray-100 text-black'}`}
+                          className="w-full justify-center text-center hover:bg-opacity-100 active:bg-opacity-100 bg-gray-100 text-black"
                         >
                           Feedback
                         </Button>
@@ -537,7 +508,7 @@ export function CalendarControls({
                           onClick={() => {
                             window.location.href = '/pwa';
                           }}
-                          className={`w-full justify-center text-center hover:bg-opacity-100 active:bg-opacity-100 ${theme === 'dark' ? 'bg-[#1a1a1a] text-white' : 'bg-gray-100 text-black'}`}
+                          className="w-full justify-center text-center hover:bg-opacity-100 active:bg-opacity-100 bg-gray-100 text-black"
                         >
                           Download as PWA
                         </Button>

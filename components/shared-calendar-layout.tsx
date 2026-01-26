@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect, useLayoutEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { CalendarHeader } from '@/components/calendar-header';
 import { CalendarControls } from '@/components/calendar-controls';
 import { ListView } from '@/components/list-view';
 import { GridView } from '@/components/grid-view';
 import { getProgramFromRoute } from '@/lib/route-utils';
-import type { ViewMode, Theme } from '@/app/page';
+import type { ViewMode } from '@/app/page';
 
 interface SharedCalendarLayoutProps {
   children?: React.ReactNode;
@@ -41,102 +41,30 @@ export function SharedCalendarLayout({
   // Initialize filter states synchronously from DOM data attribute (set by layout.tsx script)
   // This MUST run synchronously during component initialization, before first render
   // The blocking script in layout.tsx sets data-filters attribute before React hydration
+  // IMPORTANT: Server and client MUST use the same initial values to prevent hydration mismatch
+  // CRITICAL: Client MUST use defaults on first render, then sync from localStorage AFTER hydration
   const getInitialFilterState = () => {
-    if (typeof window === 'undefined') {
-      // Server-side: return defaults (will be overridden on client)
-      return {
-        showKKT: false,
-        showRegistration: false,
-        showLecture: true,
-        showSemesterPendek: false,
-        showKuliahIntersesi: false,
-        showExamination: true,
-        showOthersExams: false,
-        showBreak: true,
-      };
-    }
-    
-    // Client-side: Read from data attribute set by blocking script in layout.tsx
-    // This attribute is set BEFORE React hydration, ensuring correct values on first render
-    try {
-      const filtersAttr = document.documentElement.getAttribute('data-filters');
-      if (filtersAttr) {
-        const filters = JSON.parse(filtersAttr);
-        // Parse each filter value (they're stored as JSON strings)
-        return {
-          showKKT: JSON.parse(filters.showKKT),
-          showRegistration: JSON.parse(filters.showRegistration),
-          showLecture: JSON.parse(filters.showLecture),
-          showSemesterPendek: JSON.parse(filters.showSemesterPendek),
-          showKuliahIntersesi: JSON.parse(filters.showKuliahIntersesi),
-          showExamination: JSON.parse(filters.showExamination),
-          showOthersExams: JSON.parse(filters.showOthersExams),
-          showBreak: JSON.parse(filters.showBreak),
-        };
-      }
-    } catch (e) {
-      // If data attribute parsing fails, fall through to localStorage fallback
-    }
-    
-    // Fallback to localStorage (shouldn't be needed if script runs correctly)
-    try {
-      return {
-        showKKT: JSON.parse(localStorage.getItem('showKKT') || 'false'),
-        showRegistration: JSON.parse(localStorage.getItem('showRegistration') || 'false'),
-        showLecture: JSON.parse(localStorage.getItem('showLecture') || 'true'),
-        showSemesterPendek: JSON.parse(localStorage.getItem('showSemesterPendek') || 'false'),
-        showKuliahIntersesi: JSON.parse(localStorage.getItem('showKuliahIntersesi') || 'false'),
-        showExamination: JSON.parse(localStorage.getItem('showExamination') || 'true'),
-        showOthersExams: JSON.parse(localStorage.getItem('showOthersExams') || 'false'),
-        showBreak: JSON.parse(localStorage.getItem('showBreak') || 'true'),
-      };
-    } catch {
-      // Final fallback: return defaults
-      return {
-        showKKT: false,
-        showRegistration: false,
-        showLecture: true,
-        showSemesterPendek: false,
-        showKuliahIntersesi: false,
-        showExamination: true,
-        showOthersExams: false,
-        showBreak: true,
-      };
-    }
+    // Use consistent defaults for both server and client initial render
+    // This ensures server HTML matches client's first render exactly
+    // Filters will be synced from localStorage AFTER hydration completes
+    return {
+      showKKT: false,
+      showRegistration: false,
+      showLecture: true,
+      showSemesterPendek: false,
+      showKuliahIntersesi: false,
+      showExamination: true,
+      showOthersExams: false,
+      showBreak: true,
+    };
   };
 
   const initialFilters = getInitialFilterState();
-
-  // Get initial theme synchronously from DOM (set by layout.tsx script before React hydration)
-  // CRITICAL: Server and client MUST use the same logic to prevent hydration mismatch
-  // Server always returns 'dark' (default), client reads from DOM class set by blocking script
-  const getInitialTheme = (): Theme => {
-    if (typeof window === 'undefined') {
-      // Server-side: Always return 'dark' as default to match blocking script default
-      // The blocking script will set the correct theme class before hydration
-      return 'dark';
-    }
-    
-    // Client-side: Read from DOM class FIRST (set by blocking script before React hydration)
-    // This ensures server and client render with the same theme on first render
-    const htmlElement = document.documentElement;
-    const hasLight = htmlElement.classList.contains('light');
-    
-    if (hasLight) {
-      return 'light';
-    }
-    
-    // Default to dark (matches server default and blocking script default)
-    return 'dark';
-  };
-
-  const initialTheme = getInitialTheme();
 
   // State management for settings
   // Initialize with values from DOM/data attributes to prevent flicker on first render
   // All values are read synchronously before React's first render
   const [showKKT, setShowKKT] = useState(initialFilters.showKKT);
-  const [theme, setTheme] = useState<Theme>(initialTheme);
   const [showRegistration, setShowRegistration] = useState(initialFilters.showRegistration);
   const [showLecture, setShowLecture] = useState(initialFilters.showLecture);
   const [showSemesterPendek, setShowSemesterPendek] = useState(initialFilters.showSemesterPendek);
@@ -148,56 +76,45 @@ export function SharedCalendarLayout({
   const [currentMonth, setCurrentMonth] = useState('Academic Calendar');
   const [selectedStates, setSelectedStates] = useState<string[]>(initialFilters.showKKT ? ['Kedah', 'Kelantan', 'Terengganu'] : []);
 
-  // Verify theme sync on mount - ensure DOM and state match localStorage
-  // This ONLY runs once on mount to sync any discrepancies
-  useLayoutEffect(() => {
-    if (typeof window === 'undefined') return;
-    
-    try {
-      const savedTheme = localStorage.getItem('theme') as Theme | null;
-      const htmlElement = document.documentElement;
-      
-      if (savedTheme && (savedTheme === 'light' || savedTheme === 'dark')) {
-        // Ensure DOM matches localStorage
-        const currentDomTheme = htmlElement.classList.contains('light') ? 'light' : 'dark';
-        
-        if (currentDomTheme !== savedTheme) {
-          // Sync DOM with localStorage
-          htmlElement.classList.remove('dark', 'light');
-          htmlElement.classList.add(savedTheme);
-          
-          if (savedTheme === 'light') {
-            htmlElement.style.backgroundColor = '#ffffff';
-            htmlElement.style.color = '#1a1a1a';
-          } else {
-            htmlElement.style.backgroundColor = '#1a1a1a';
-            htmlElement.style.color = '#ffffff';
-          }
-        }
-      } else {
-        // Default to dark
-        if (!htmlElement.classList.contains('dark')) {
-          htmlElement.classList.remove('light');
-          htmlElement.classList.add('dark');
-          htmlElement.style.backgroundColor = '#1a1a1a';
-          htmlElement.style.color = '#ffffff';
-        }
-      }
-    } catch (e) {
-      // Fallback to dark on error
-      const htmlElement = document.documentElement;
-      if (!htmlElement.classList.contains('dark')) {
-        htmlElement.classList.remove('light');
-        htmlElement.classList.add('dark');
-        htmlElement.style.backgroundColor = '#1a1a1a';
-        htmlElement.style.color = '#ffffff';
-      }
-    }
-  }, []);
 
-  // Mark as loaded after initial render (filters already initialized synchronously)
+  // Mark as loaded after initial render and sync filters from localStorage
+  // CRITICAL: This runs AFTER hydration completes to prevent hydration mismatch
+  // The initial render uses defaults to match server HTML exactly
   useEffect(() => {
-    setIsLoaded(true);
+    // Use requestAnimationFrame to ensure this runs after React hydration completes
+    requestAnimationFrame(() => {
+      setIsLoaded(true);
+      
+      // After hydration, sync filters from localStorage/data-filters to match user's saved preferences
+      try {
+        const filtersAttr = document.documentElement.getAttribute('data-filters');
+        if (filtersAttr) {
+          const filters = JSON.parse(filtersAttr);
+          setShowKKT(JSON.parse(filters.showKKT));
+          setShowRegistration(JSON.parse(filters.showRegistration));
+          setShowLecture(JSON.parse(filters.showLecture));
+          setShowSemesterPendek(JSON.parse(filters.showSemesterPendek));
+          setShowKuliahIntersesi(JSON.parse(filters.showKuliahIntersesi));
+          setShowExamination(JSON.parse(filters.showExamination));
+          setShowOthersExams(JSON.parse(filters.showOthersExams));
+          setShowBreak(JSON.parse(filters.showBreak));
+        }
+      } catch (e) {
+        // If data attribute parsing fails, try localStorage directly
+        try {
+          setShowKKT(JSON.parse(localStorage.getItem('showKKT') || 'false'));
+          setShowRegistration(JSON.parse(localStorage.getItem('showRegistration') || 'false'));
+          setShowLecture(JSON.parse(localStorage.getItem('showLecture') || 'true'));
+          setShowSemesterPendek(JSON.parse(localStorage.getItem('showSemesterPendek') || 'false'));
+          setShowKuliahIntersesi(JSON.parse(localStorage.getItem('showKuliahIntersesi') || 'false'));
+          setShowExamination(JSON.parse(localStorage.getItem('showExamination') || 'true'));
+          setShowOthersExams(JSON.parse(localStorage.getItem('showOthersExams') || 'false'));
+          setShowBreak(JSON.parse(localStorage.getItem('showBreak') || 'true'));
+        } catch {
+          // Keep defaults if all else fails
+        }
+      }
+    });
   }, []);
 
   // Save all preferences to localStorage synchronously to prevent loss during navigation
@@ -239,57 +156,14 @@ export function SharedCalendarLayout({
     }
   }, [showKKT, showRegistration, showLecture, showSemesterPendek, showKuliahIntersesi, showExamination, showOthersExams, showBreak, isLoaded]);
 
-  // Save theme separately for instant application
-  useEffect(() => {
-    if (!isLoaded) return;
-    
-    try {
-      localStorage.setItem('theme', theme);
-      
-      // Apply theme to DOM immediately
-      const htmlEl = document.documentElement;
-      htmlEl.classList.remove('dark', 'light');
-      htmlEl.classList.add(theme);
-      
-      // Update inline styles
-      if (theme === 'light') {
-        htmlEl.style.backgroundColor = '#ffffff';
-        htmlEl.style.color = '#1a1a1a';
-      } else {
-        htmlEl.style.backgroundColor = '#1a1a1a';
-        htmlEl.style.color = '#ffffff';
-      }
-      
-      // Update browser tab/window chrome color dynamically
-      const metaThemeColor = document.querySelector('meta[name="theme-color"]');
-      if (metaThemeColor) {
-        metaThemeColor.setAttribute('content', theme === 'dark' ? '#1a1a1a' : '#ffffff');
-      }
-    } catch (e) {
-      console.warn('Failed to save theme:', e);
-    }
-  }, [theme, isLoaded]);
-
-  const bgClass = theme === 'dark' ? 'bg-[#1a1a1a] text-white' : 'bg-white text-[#1a1a1a]';
-
-  // Optimized theme change handler - instant update without transition delay
-  const handleThemeChange = useCallback((newTheme: Theme) => {
-    setTheme(newTheme);
-  }, []);
+  // Always use light theme - no theme switching
+  const bgClass = 'bg-white text-[#1a1a1a]';
 
   return (
-    <div 
-      className={`min-h-screen ${bgClass}`} 
-      suppressHydrationWarning
-      style={{
-        // Inline style to prevent flash during hydration
-        backgroundColor: theme === 'dark' ? '#1a1a1a' : '#ffffff',
-        color: theme === 'dark' ? '#ffffff' : '#1a1a1a',
-      }}
-    >
+    <div className={`min-h-screen ${bgClass}`}>
       <div className="mx-auto max-w-[1000px] px-4 py-8 sm:px-6 lg:px-4">
         {/* Header */}
-        <CalendarHeader theme={theme} />
+        <CalendarHeader />
 
         {/* Controls */}
         <CalendarControls
@@ -297,8 +171,6 @@ export function SharedCalendarLayout({
           viewMode={viewMode}
           showKKT={showKKT}
           onShowKKTChange={setShowKKT}
-          theme={theme}
-          onThemeChange={handleThemeChange}
           showRegistration={showRegistration}
           onShowRegistrationChange={setShowRegistration}
           showLecture={showLecture}
@@ -323,7 +195,6 @@ export function SharedCalendarLayout({
               key={`list-${selectedProgram}`}
               selectedProgram={selectedProgram} 
               showKKT={showKKT}
-              theme={theme}
               showRegistration={showRegistration}
               showLecture={showLecture}
               showSemesterPendek={showSemesterPendek}
@@ -339,7 +210,6 @@ export function SharedCalendarLayout({
               key={`grid-${selectedProgram}`}
               selectedProgram={selectedProgram} 
               showKKT={showKKT}
-              theme={theme}
               showRegistration={showRegistration}
               showLecture={showLecture}
               showSemesterPendek={showSemesterPendek}

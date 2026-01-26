@@ -4,40 +4,12 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import type { Theme } from '@/app/page';
-
 export default function NotFound() {
   const router = useRouter();
-  const [theme, setTheme] = useState<Theme>('dark');
-  const [isLoaded, setIsLoaded] = useState(false);
-
-  // Apply initial theme class immediately for FCP
-  useEffect(() => {
-    document.documentElement.classList.add('dark');
-  }, []);
-
-  // Load theme from localStorage (non-blocking)
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
-    const savedTheme = localStorage.getItem('theme') as Theme | null;
-    if (savedTheme) {
-      setTheme(savedTheme);
-      document.documentElement.classList.toggle('dark', savedTheme === 'dark');
-      document.documentElement.classList.toggle('light', savedTheme === 'light');
-    }
-    setIsLoaded(true);
-  }, []);
-
-  // Apply theme to document when theme changes
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-    document.documentElement.classList.toggle('light', theme === 'light');
-  }, [theme]);
-
-  const bgClass = theme === 'dark' ? 'bg-[#1a1a1a] text-white' : 'bg-white text-[#1a1a1a]';
-  const textClass = theme === 'dark' ? 'text-white' : 'text-[#1a1a1a]';
-  const mutedClass = theme === 'dark' ? 'text-muted-foreground' : 'text-gray-600';
+  
+  const bgClass = 'bg-white text-[#1a1a1a]';
+  const textClass = 'text-[#1a1a1a]';
+  const mutedClass = 'text-gray-600';
 
   const handleBack = () => {
     router.push('/');

@@ -1,12 +1,6 @@
-import type { Theme } from '@/app/page';
-
-interface CalendarHeaderProps {
-  theme: Theme;
-}
-
-export function CalendarHeader({ theme }: CalendarHeaderProps) {
-  const textColor = theme === 'dark' ? 'text-white' : 'text-[#1a1a1a]';
-  const mutedColor = theme === 'dark' ? 'text-muted-foreground' : 'text-gray-600';
+export function CalendarHeader() {
+  const textColor = 'text-[#1a1a1a]';
+  const mutedColor = 'text-gray-600';
   
   // Get current year in Malaysia timezone (UTC+8)
   const currentYear = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Kuala_Lumpur"})).getFullYear();

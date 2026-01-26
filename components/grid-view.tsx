@@ -10,13 +10,11 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { getActivitiesForMonth, getActivityForDate, getMonthsForGroup, type ProgramGroup, type Activity, type ActivityType } from '@/lib/data';
-import type { Theme } from '@/app/page';
 import { allActivities } from '@/lib/data';
 
 interface GridViewProps {
   selectedProgram: string;
   showKKT: boolean;
-  theme: Theme;
   showRegistration: boolean;
   showLecture: boolean;
   showSemesterPendek: boolean;
@@ -28,7 +26,7 @@ interface GridViewProps {
   selectedStates?: string[];
 }
 
-function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, selectedDate, theme, showRegistration, showLecture, showSemesterPendek, showKuliahIntersesi, showExamination, showOthersExams, showBreak, selectedStates = [] }: { month: number; year: number; selectedProgram: string; showKKT: boolean; onDateClick: (date: string) => void; selectedDate: string | null; theme: Theme; showRegistration: boolean; showLecture: boolean; showSemesterPendek: boolean; showKuliahIntersesi: boolean; showExamination: boolean; showOthersExams: boolean; showBreak: boolean; selectedStates?: string[] }) {
+function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, selectedDate, showRegistration, showLecture, showSemesterPendek, showKuliahIntersesi, showExamination, showOthersExams, showBreak, selectedStates = [] }: { month: number; year: number; selectedProgram: string; showKKT: boolean; onDateClick: (date: string) => void; selectedDate: string | null; showRegistration: boolean; showLecture: boolean; showSemesterPendek: boolean; showKuliahIntersesi: boolean; showExamination: boolean; showOthersExams: boolean; showBreak: boolean; selectedStates?: string[] }) {
   const [tooltipOpen, setTooltipOpen] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
 
@@ -204,9 +202,9 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
     }
     
     if (highestPriorityActivity) {
-      if (highestPriorityActivity.type === 'lecture') return theme === 'dark' ? 'bg-purple-900/50' : 'bg-purple-100';
-      if (highestPriorityActivity.type === 'examination') return theme === 'dark' ? 'bg-red-900/50' : 'bg-red-100';
-      if (highestPriorityActivity.type === 'break') return theme === 'dark' ? 'bg-green-900/50' : 'bg-green-100';
+      if (highestPriorityActivity.type === 'lecture') return 'bg-purple-100';
+      if (highestPriorityActivity.type === 'examination') return 'bg-red-100';
+      if (highestPriorityActivity.type === 'break') return 'bg-green-100';
     }
     
     return 'bg-transparent';
@@ -337,8 +335,8 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
       if (highestPriorityActivity.type === 'break') return 'border border-[#10b981]';
     }
     
-    // If no activity, use subtle grey for both light and dark theme
-    return theme === 'dark' ? 'border border-gray-600/50' : 'border border-gray-400/50';
+    // If no activity, use subtle grey
+    return 'border border-gray-400/50';
   };
 
   // Check if date is current date
@@ -476,8 +474,9 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
   };
 
   const weekDays = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
-  const textClass = theme === 'dark' ? 'text-white' : 'text-[#1a1a1a]';
-  const mutedClass = theme === 'dark' ? 'text-muted-foreground' : 'text-gray-600';
+  // Always use light theme classes
+  const textClass = 'text-[#1a1a1a]';
+  const mutedClass = 'text-gray-600';
   
   const getTooltip = (day: number | null) => {
     if (!day) return '';
@@ -524,18 +523,16 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
           const borderColor = getCurrentDateBorderColor(day);
           
           // Get inline background color for events only (no weekend colors)
+          // Event backgrounds only - no color for weekends or non-events
           const getInlineEventBg = () => {
-            if (!isMounted) return undefined;
-            
-            // Event backgrounds only - no color for weekends or non-events
             if (dayColor.includes('purple')) {
-              return theme === 'dark' ? 'rgba(88, 28, 135, 0.5)' : 'rgba(243, 232, 255, 1)';
+              return 'rgba(243, 232, 255, 1)';
             }
             if (dayColor.includes('red')) {
-              return theme === 'dark' ? 'rgba(127, 29, 29, 0.5)' : 'rgba(254, 226, 226, 1)';
+              return 'rgba(254, 226, 226, 1)';
             }
             if (dayColor.includes('green')) {
-              return theme === 'dark' ? 'rgba(20, 83, 45, 0.5)' : 'rgba(220, 252, 231, 1)';
+              return 'rgba(220, 252, 231, 1)';
             }
             
             // No background color for weekends or non-events
@@ -629,9 +626,9 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
                 if (dayActivities.length === 0) return null;
                 
                 return (
-                  <TooltipContent 
+                  <TooltipContent suppressHydrationWarning 
                     side="top" 
-                    className={`max-w-xs px-3 py-2 mx-2 rounded-lg shadow-lg border [&[data-side="top"]]:before:content-none ${theme === 'dark' ? 'bg-[#2a2a2a] border-[#4a4a4a] text-white' : 'bg-gray-100 border-gray-300 text-[#1a1a1a]'}`}
+                    className="max-w-xs px-3 py-2 mx-2 rounded-lg shadow-lg border border-gray-300 bg-gray-100 text-[#1a1a1a] [&[data-side='top']]:before:content-none"
                     sideOffset={8}
                     style={{ pointerEvents: 'auto' } as React.CSSProperties & { '--radix-tooltip-content-transform-origin'?: string }}
                   >
@@ -669,7 +666,6 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
 export const GridView = memo(function GridView({ 
   selectedProgram, 
   showKKT,
-  theme,
   showRegistration,
   showLecture,
   showSemesterPendek,
@@ -715,7 +711,6 @@ export const GridView = memo(function GridView({
               showKKT={showKKT}
               onDateClick={setSelectedDate}
               selectedDate={selectedDate}
-              theme={theme}
               showRegistration={showRegistration}
               showLecture={showLecture}
               showSemesterPendek={showSemesterPendek}
