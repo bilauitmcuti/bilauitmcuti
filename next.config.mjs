@@ -9,6 +9,15 @@ const nextConfig = {
   compress: true,
   poweredByHeader: false,
   reactStrictMode: true,
+  async redirects() {
+    return [
+      {
+        source: '/dev',
+        destination: 'https://shahrulestar.com',
+        permanent: true, // HTTP 308
+      },
+    ]
+  },
 }
 
 export default nextConfig

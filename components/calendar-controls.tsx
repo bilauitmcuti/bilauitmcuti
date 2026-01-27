@@ -176,7 +176,7 @@ export function CalendarControls({
         {/* Program selector - Left */}
         <div className="px-0">
           <Select value={selectedProgram} onValueChange={handleProgramChange} open={selectOpen} onOpenChange={setSelectOpen}>
-            <SelectTrigger className={`w-[140px] !h-[38px] !py-1 border bg-secondary dark:bg-[#2A2A2A] border-border ${textClass} truncate flex items-center justify-between [&>svg]:hidden rounded-lg transition-none`} suppressHydrationWarning>
+            <SelectTrigger className={`w-[140px] !h-[46px] !py-1 border bg-secondary dark:bg-[#2A2A2A] border-border ${textClass} truncate flex items-center justify-between [&>svg]:hidden rounded-lg transition-none`} suppressHydrationWarning>
               <span className="truncate text-left font-medium text-xs">
                 {currentProgramLabel.substring(0, 12)}
               </span>
@@ -236,7 +236,7 @@ export function CalendarControls({
               variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
               size="icon"
               onClick={() => handleViewModeChange('grid')}
-              className={`${viewMode === 'grid' ? 'bg-secondary dark:bg-[#262626] text-foreground' : 'bg-transparent text-muted-foreground hover:text-foreground'} transition-none`}
+              className={`${viewMode === 'grid' ? 'bg-white dark:bg-[#262626] text-foreground' : 'bg-transparent text-muted-foreground'} transition-none`}
               title="Grid View"
               suppressHydrationWarning
             >
@@ -246,7 +246,7 @@ export function CalendarControls({
               variant={viewMode === 'list' ? 'secondary' : 'ghost'}
               size="icon"
               onClick={() => handleViewModeChange('list')}
-              className={`${viewMode === 'list' ? 'bg-secondary dark:bg-[#262626] text-foreground' : 'bg-transparent text-muted-foreground hover:text-foreground'} transition-none`}
+              className={`${viewMode === 'list' ? 'bg-white dark:bg-[#262626] text-foreground' : 'bg-transparent text-muted-foreground'} transition-none`}
               title="List View"
               suppressHydrationWarning
             >

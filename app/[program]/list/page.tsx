@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: ProgramListPageProps): Promis
   }
   
   const programName = getProgramDisplayName(program);
-  const title = `${programName} | Bila UiTM?`;
+  const title = `${programName} | Bila UiTM Cuti?`;
   const description = `Kalendar akademik UiTM 2026 untuk ${programName}. Lihat tarikh pendaftaran, jadual kuliah, tempoh peperiksaan, dan cuti.`;
   
   return {

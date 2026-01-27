@@ -6,6 +6,19 @@ export interface ChangelogEntry {
 
 export const changelogData: ChangelogEntry[] = [
   {
+    date: '2026-01-27',
+    title: 'Theme Switching & UI Consistency Improvements',
+    details: [
+      'Disabled transitions for instant theme changes across all components.',
+      'Updated CSS variables for dark and light themes to ensure proper color application.',
+      'Refactored layout and component styles to use theme-aware classes.',
+      'Improved hydration handling to prevent flickering during theme changes.',
+      'Added theme toggle functionality in the calendar controls.',
+      'Implemented routing based on program and calendar view.',
+      'Fixed color inconsistencies between light and dark themes.'
+    ]
+  },
+  {
     date: '2026-01-24',
     title: 'Calendar Grid Fix & Product Hunt Launch',
     details: [
