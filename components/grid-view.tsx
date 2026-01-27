@@ -356,25 +356,25 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
     
     // Lecture subtypes - third tier with internal priorities
     if (type === 'lecture') {
-      // Kuliah 1, 2, 3, etc. - highest lecture priority
-      if (/^Kuliah\s+\d+$/.test(name)) return 2;
+      // Lecture 1, 2, 3, etc. - highest lecture priority
+      if (/^Lecture\s+\d+$/.test(name)) return 2;
       
       // Special case: Semester Pendek with specific combinations
       if (name.includes('Semester Pendek') && allDayActivities) {
-        // Check if Semester Pendek is combined with Kuliah Intersesi or Cuti Semester
+        // Check if Semester Pendek is combined with Lecture Intersesi or Cuti Semester
         const hasSemesterPendek = allDayActivities.some(a => a.name.includes('Semester Pendek'));
-        const hasKuliahIntersesi = allDayActivities.some(a => a.name.includes('Intersesi'));
+        const hasLectureIntersesi = allDayActivities.some(a => a.name.includes('Intersesi'));
         const hasCutiSemester = allDayActivities.some(a => a.name.includes('Cuti Semester'));
         
         // If Semester Pendek is with Intersesi or Cuti Semester, treat as break priority
-        if (hasSemesterPendek && (hasKuliahIntersesi || hasCutiSemester)) {
+        if (hasSemesterPendek && (hasLectureIntersesi || hasCutiSemester)) {
           return 1; // Break priority
         }
       }
       
-      // Kuliah Semester Pendek - lower lecture priority
+      // Lecture Semester Pendek - lower lecture priority
       if (name.includes('Semester Pendek')) return 3;
-      // Kuliah Intersesi - lowest lecture priority
+      // Lecture Intersesi - lowest lecture priority
       if (name.includes('Intersesi')) return 4;
       // Other lecture types
       return 5;

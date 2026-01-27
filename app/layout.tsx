@@ -140,7 +140,7 @@ export default function RootLayout({
                 // Default values from data.ts (single source of truth) - inlined to avoid import in script
                 const DEFAULT_FILTER_STATES = {
                   showKKT: false,
-                  showRegistration: false,
+                  showRegistration: true,
                   showLecture: true,
                   showSemesterPendek: false,
                   showKuliahIntersesi: false,

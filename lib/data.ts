@@ -3,7 +3,7 @@ export type ActivityType = 'registration' | 'lecture' | 'examination' | 'break' 
 // Default filter states - single source of truth
 export const DEFAULT_FILTER_STATES = {
   showKKT: false,
-  showRegistration: false,
+  showRegistration: true,
   showLecture: true,
   showSemesterPendek: false,
   showKuliahIntersesi: false,
@@ -32,7 +32,7 @@ export interface Activity {
 export const activitiesGroupA: Activity[] = [
   // LECTURES
   {
-    name: 'Kuliah 1',
+    name: 'Lecture 1',
     startDate: '2025-12-22',
     endDate: '2025-12-28',
     duration: '1 Minggu',
@@ -49,7 +49,7 @@ export const activitiesGroupA: Activity[] = [
     group: 'A',
   },
   {
-    name: 'Kuliah 2',
+    name: 'Lecture 2',
     startDate: '2025-12-29',
     endDate: '2026-02-08',
     duration: '6 Minggu',
@@ -73,7 +73,7 @@ export const activitiesGroupA: Activity[] = [
     group: 'A',
   },
   {
-    name: 'Kuliah 3',
+    name: 'Lecture 3',
     startDate: '2026-02-23',
     endDate: '2026-03-19',
     duration: '4 Minggu',
@@ -90,7 +90,7 @@ export const activitiesGroupA: Activity[] = [
     group: 'A',
   },
   {
-    name: 'Kuliah 4',
+    name: 'Lecture 4',
     startDate: '2026-03-30',
     endDate: '2026-04-19',
     duration: '3 Minggu',
@@ -179,7 +179,7 @@ export const activitiesGroupA: Activity[] = [
 export const activitiesGroupB: Activity[] = [
   // LECTURES - Apply to all Group B programs
   {
-    name: 'Kuliah 1',
+    name: 'Lecture 1',
     startDate: '2026-03-30',
     endDate: '2026-05-24',
     duration: '8 Minggu',
@@ -209,7 +209,7 @@ export const activitiesGroupB: Activity[] = [
     semua: true,
   },
   {
-    name: 'Kuliah 2',
+    name: 'Lecture 2',
     startDate: '2026-06-03',
     endDate: '2026-07-12',
     duration: '6 Minggu',
@@ -274,7 +274,7 @@ export const activitiesGroupB: Activity[] = [
     semua: true,
   },
   {
-    name: 'Kuliah Intersesi (20263)',
+    name: 'Lecture Intersesi (20263)',
     startDate: '2026-08-17',
     endDate: '2026-09-20',
     duration: '5 Minggu',

@@ -193,7 +193,7 @@ export function CalendarControls({
         {/* Program selector - Left */}
         <div className="px-0">
           <Select value={selectedProgram} onValueChange={handleProgramChange} open={selectOpen} onOpenChange={setSelectOpen}>
-            <SelectTrigger className={`w-[140px] !h-[38px] !py-1 border bg-secondary dark:bg-[#2A2A2A] border-border ${textClass} truncate flex items-center justify-between [&>svg]:hidden rounded-lg transition-none`} suppressHydrationWarning>
+            <SelectTrigger className={`w-[180px] sm:w-[200px] !h-[38px] !py-1 border bg-secondary dark:bg-[#2A2A2A] border-border ${textClass} truncate flex items-center justify-between [&>svg]:hidden rounded-lg transition-none`} suppressHydrationWarning>
               <span className="truncate text-left font-medium text-sm min-w-0 flex-1">
                 {currentProgramLabel}
               </span>

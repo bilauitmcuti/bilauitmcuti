@@ -16,7 +16,7 @@ export function CalendarHeader() {
       </h1>
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-4 text-sm transition-none" role="list" aria-label="Activity type legend" suppressHydrationWarning style={{ transition: 'none' }}>
+      <div className="flex flex-wrap gap-2 justify-start text-sm transition-none" role="list" aria-label="Activity type legend" suppressHydrationWarning style={{ transition: 'none' }}>
         <div className="flex items-center gap-2" role="listitem">
           <div className="h-2 w-2 rounded-full bg-[#d1d5db]" aria-hidden="true" />
           <span className={mutedColor} suppressHydrationWarning>Registration</span>
