@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTheme } from 'next-themes';
 import { List, Settings, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import {
   Select,
@@ -67,11 +68,13 @@ export function CalendarControls({
   currentMonth = 'Academic Calendar',
 }: CalendarControlsProps) {
   const router = useRouter();
+  const { theme } = useTheme();
   const [isPending, startTransition] = useTransition();
   const [isOpen, setIsOpen] = useState(false);
   const [scrolling, setScrolling] = useState(false);
   const [selectOpen, setSelectOpen] = useState(false);
   const [isPWAInstalled, setIsPWAInstalled] = useState(false);
+  const [currentFooterText, setCurrentFooterText] = useState(0);
 
   // Optimized prefetch strategy - delay prefetch until user interaction
   useEffect(() => {
@@ -162,6 +165,20 @@ export function CalendarControls({
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Footer crossfade animation
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentFooterText((prev) => (prev + 1) % 3);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const isDark = theme === 'dark';
+  const getSwitchBgColor = (checked: boolean) => {
+    if (checked) return '#2563eb';
+    return isDark ? '#1A1A1A' : '#d1d5db';
+  };
+
   return (
       <div 
         className={`sticky top-0 z-40 ${bgClass} -mx-4 sm:-mx-6 lg:-mx-4 px-4 sm:px-6 lg:px-4 transition-none`} 
@@ -182,9 +199,9 @@ export function CalendarControls({
               </span>
               <div className="flex-shrink-0 ml-2">
                 {selectOpen ? (
-                  <ChevronUp className="h-4 w-4 transition-none" strokeWidth={2} />
+                  <ChevronUp className="h-6 w-6 transition-none" strokeWidth={2} />
                 ) : (
-                  <ChevronDown className="h-4 w-4 transition-none" strokeWidth={2} />
+                  <ChevronDown className="h-6 w-6 transition-none" strokeWidth={2} />
                 )}
               </div>
             </SelectTrigger>
@@ -240,7 +257,7 @@ export function CalendarControls({
               title="Grid View"
               suppressHydrationWarning
             >
-              <Calendar className="h-5 w-5" strokeWidth={2} />
+              <Calendar className="h-6 w-6" strokeWidth={2} />
             </Button>
             <Button
               variant={viewMode === 'list' ? 'secondary' : 'ghost'}
@@ -250,7 +267,7 @@ export function CalendarControls({
               title="List View"
               suppressHydrationWarning
             >
-              <List className="h-5 w-5" strokeWidth={2} />
+              <List className="h-6 w-6" strokeWidth={2} />
             </Button>
             <div 
               className="mx-1 w-px bg-border transition-none h-full flex items-center" 
@@ -265,7 +282,7 @@ export function CalendarControls({
                   title="Settings"
                   suppressHydrationWarning
                 >
-                  <Settings className="h-5 w-5" strokeWidth={2} />
+                  <Settings className="h-6 w-6" strokeWidth={2} />
                 </Button>
               </PopoverTrigger>
               <PopoverContent 
@@ -284,7 +301,7 @@ export function CalendarControls({
                         <span className="text-sm font-medium text-foreground">Registration</span>
                       </div>
                       <div className="relative inline-flex h-6 w-11 items-center rounded-full transition-none"
-                        style={{backgroundColor: showRegistration ? '#2563eb' : '#d1d5db', transition: 'none'}}
+                        style={{backgroundColor: getSwitchBgColor(showRegistration), transition: 'none'}}
                       >
                         <span
                           className="inline-block h-4 w-4 transform rounded-full bg-white transition-none shadow-sm"
@@ -306,7 +323,7 @@ export function CalendarControls({
                         <span className="text-sm font-medium text-foreground">Lecture</span>
                       </div>
                       <div className="relative inline-flex h-6 w-11 items-center rounded-full transition-none"
-                        style={{backgroundColor: showLecture ? '#2563eb' : '#d1d5db', transition: 'none'}}
+                        style={{backgroundColor: getSwitchBgColor(showLecture), transition: 'none'}}
                       >
                         <span
                           className="inline-block h-4 w-4 transform rounded-full bg-white transition-none shadow-sm"
@@ -328,7 +345,7 @@ export function CalendarControls({
                         <span className="text-xs font-medium text-muted-foreground">Semester Pendek</span>
                       </div>
                       <div className="relative inline-flex h-6 w-11 items-center rounded-full transition-none"
-                        style={{backgroundColor: showSemesterPendek ? '#2563eb' : '#d1d5db', transition: 'none'}}
+                        style={{backgroundColor: getSwitchBgColor(showSemesterPendek), transition: 'none'}}
                       >
                         <span
                           className="inline-block h-4 w-4 transform rounded-full bg-white transition-none shadow-sm"
@@ -351,7 +368,7 @@ export function CalendarControls({
                         <span className="text-xs font-medium text-muted-foreground">Kuliah Intersesi</span>
                       </div>
                       <div className="relative inline-flex h-6 w-11 items-center rounded-full transition-none"
-                        style={{backgroundColor: showKuliahIntersesi ? '#2563eb' : '#d1d5db', transition: 'none'}}
+                        style={{backgroundColor: getSwitchBgColor(showKuliahIntersesi), transition: 'none'}}
                       >
                         <span
                           className="inline-block h-4 w-4 transform rounded-full bg-white transition-none shadow-sm"
@@ -374,7 +391,7 @@ export function CalendarControls({
                         <span className="text-sm font-medium text-foreground">Examination</span>
                       </div>
                       <div className="relative inline-flex h-6 w-11 items-center rounded-full transition-none"
-                        style={{backgroundColor: showExamination ? '#2563eb' : '#d1d5db', transition: 'none'}}
+                        style={{backgroundColor: getSwitchBgColor(showExamination), transition: 'none'}}
                       >
                         <span
                           className="inline-block h-4 w-4 transform rounded-full bg-white transition-none shadow-sm"
@@ -396,7 +413,7 @@ export function CalendarControls({
                         <span className="text-xs font-medium text-muted-foreground">Others Exams</span>
                       </div>
                       <div className="relative inline-flex h-6 w-11 items-center rounded-full transition-none"
-                        style={{backgroundColor: showOthersExams ? '#2563eb' : '#d1d5db', transition: 'none'}}
+                        style={{backgroundColor: getSwitchBgColor(showOthersExams), transition: 'none'}}
                       >
                         <span
                           className="inline-block h-4 w-4 transform rounded-full bg-white transition-none shadow-sm"
@@ -419,7 +436,7 @@ export function CalendarControls({
                         <span className="text-sm font-medium text-foreground">Break</span>
                       </div>
                       <div className="relative inline-flex h-6 w-11 items-center rounded-full transition-none"
-                        style={{backgroundColor: showBreak ? '#2563eb' : '#d1d5db', transition: 'none'}}
+                        style={{backgroundColor: getSwitchBgColor(showBreak), transition: 'none'}}
                       >
                         <span
                           className="inline-block h-4 w-4 transform rounded-full bg-white transition-none shadow-sm"
@@ -457,7 +474,7 @@ export function CalendarControls({
                       </div>
                     </div>
                     <div className="relative inline-flex h-6 w-11 items-center rounded-full transition-none"
-                      style={{backgroundColor: showKKT ? '#2563eb' : '#d1d5db', transition: 'none'}}
+                      style={{backgroundColor: getSwitchBgColor(showKKT), transition: 'none'}}
                     >
                       <span
                         className="inline-block h-4 w-4 transform rounded-full bg-white transition-none shadow-sm"
@@ -513,9 +530,22 @@ export function CalendarControls({
                       )}
                     </div>
 
-                    <div className="border-t pt-2 space-y-2 transition-none">
-                      <div>Built by a UiTM alumnus</div>
-                      <div>Source from{' '}
+                    <div className="pt-2 transition-none relative h-5">
+                      <div 
+                        className="absolute inset-0 transition-opacity duration-500"
+                        style={{
+                          opacity: currentFooterText === 0 ? 1 : 0,
+                        }}
+                      >
+                        Built by a UiTM alumnus
+                      </div>
+                      <div 
+                        className="absolute inset-0 transition-opacity duration-500"
+                        style={{
+                          opacity: currentFooterText === 1 ? 1 : 0,
+                        }}
+                      >
+                        Source from{' '}
                         <a
                           href="https://hea.uitm.edu.my/index.php/calendars/academic-calendar"
                           target="_blank"
@@ -526,7 +556,13 @@ export function CalendarControls({
                           HEA UiTM
                         </a>
                       </div>
-                      <div>Inspired by{' '}
+                      <div 
+                        className="absolute inset-0 transition-opacity duration-500"
+                        style={{
+                          opacity: currentFooterText === 2 ? 1 : 0,
+                        }}
+                      >
+                        Inspired by{' '}
                         <a
                           href="https://bilacuti.my"
                           target="_blank"

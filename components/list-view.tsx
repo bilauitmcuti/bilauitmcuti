@@ -97,10 +97,19 @@ export const ListView = memo(function ListView({
         .concat(getActivitiesForMonth(2026, 8, group))
         .concat(getActivitiesForMonth(2026, 9, group));
 
-  // Filter out duplicate activities and sort by start date
+  // Filter activities by program type BEFORE deduplication to ensure correct filtering
+  const filteredActivities = activities.filter(a => shouldShowActivity(a.type, a));
+
+  // Filter out duplicate activities - use name, startDate, and programType as key to distinguish between different program types
   const uniqueActivities = Array.from(
-    new Map(activities.map(a => [a.name + a.startDate, a])).values()
-  ).sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+    new Map(filteredActivities.map(a => [`${a.name}|${a.startDate}|${a.programType || ''}|${a.endDate || ''}`, a])).values()
+  ).sort((a, b) => {
+    // Sort by start date first
+    const dateCompare = new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+    if (dateCompare !== 0) return dateCompare;
+    // Then by name
+    return a.name.localeCompare(b.name);
+  });
 
   // Group activities by month - use UTC to ensure consistency
   const groupedByMonth = uniqueActivities.reduce((acc, activity) => {
