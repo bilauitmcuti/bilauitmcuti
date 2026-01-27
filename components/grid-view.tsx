@@ -28,7 +28,6 @@ interface GridViewProps {
 
 function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, selectedDate, showRegistration, showLecture, showSemesterPendek, showKuliahIntersesi, showExamination, showOthersExams, showBreak, selectedStates = [] }: { month: number; year: number; selectedProgram: string; showKKT: boolean; onDateClick: (date: string) => void; selectedDate: string | null; showRegistration: boolean; showLecture: boolean; showSemesterPendek: boolean; showKuliahIntersesi: boolean; showExamination: boolean; showOthersExams: boolean; showBreak: boolean; selectedStates?: string[] }) {
   const [tooltipOpen, setTooltipOpen] = useState<string | null>(null);
-  const [isMounted, setIsMounted] = useState(false);
 
   // Initialize currentDateStr synchronously on client to prevent hydration mismatch
   // This ensures the same value is used on first render (client-side)
@@ -49,12 +48,6 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
   };
 
   const [currentDateStr, setCurrentDateStr] = useState<string | null>(getInitialCurrentDate);
-
-  // Prevent hydration mismatch: only render dots and colors after client-side mount
-  // This ensures server and client render the same initial HTML
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   const isKKTStates = selectedStates.some(state => ['Kedah', 'Kelantan', 'Terengganu'].includes(state));
   
@@ -206,13 +199,13 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
     }
     
     if (highestPriorityActivity) {
-      if (highestPriorityActivity.type === 'lecture') return 'bg-purple-100';
-      if (highestPriorityActivity.type === 'examination') return 'bg-red-100';
-      if (highestPriorityActivity.type === 'break') return 'bg-green-100';
-      if (highestPriorityActivity.type === 'registration') return 'bg-gray-100';
+      if (highestPriorityActivity.type === 'lecture') return 'bg-purple-100 dark:bg-purple-900/30';
+      if (highestPriorityActivity.type === 'examination') return 'bg-red-100 dark:bg-red-900/30';
+      if (highestPriorityActivity.type === 'break') return 'bg-green-100 dark:bg-green-900/30';
+      if (highestPriorityActivity.type === 'registration') return 'bg-gray-100 dark:bg-gray-800/30';
     }
     
-    return 'bg-transparent';
+    return '';
   };
 
   const getRingColor = (day: number | null) => {
@@ -254,7 +247,7 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
 
   // Check if current date is within the calendar range for this group
   const isCurrentDateInRange = (): boolean => {
-    if (!currentDateStr) return false;
+    if (!currentDateStr || typeof window === 'undefined') return false;
     
     // Get all months for this group to determine the range
     const months = getMonthsForGroup(group, {
@@ -284,7 +277,7 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
   // Get current date outline color (same logic as getRingColor but for current date)
   // Using border instead of ring to avoid conflict with focus ring removal
   const getCurrentDateBorderColor = (day: number | null): string => {
-    if (!day || !currentDateStr) return '';
+    if (!day || !currentDateStr || typeof window === 'undefined') return '';
     
     const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     
@@ -346,7 +339,7 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
 
   // Check if date is current date
   const isCurrentDate = (day: number | null): boolean => {
-    if (!day || !currentDateStr) return false;
+    if (!day || !currentDateStr || typeof window === 'undefined') return false;
     const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     return dateStr === currentDateStr;
   };
@@ -459,7 +452,7 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
     const uniqueActivities = Array.from(activityTypeMap.values());
     
     return (
-      <div className="flex gap-1 justify-center mt-1" suppressHydrationWarning>
+      <div className="flex gap-1 justify-center mt-1 transition-none" style={{ transition: 'none' }}>
         {uniqueActivities.map((activity) => {
           let dotColor = 'bg-gray-400';
           if (activity.type === 'registration') dotColor = 'bg-[#d1d5db]';
@@ -470,8 +463,8 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
           return (
             <div
               key={activity.name + activity.startDate}
-              className={`h-1.5 w-1.5 rounded-full ${dotColor}`}
-              suppressHydrationWarning
+              className={`h-1.5 w-1.5 rounded-full ${dotColor} transition-none`}
+              style={{ transition: 'none' }}
             />
           );
         })}
@@ -480,9 +473,9 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
   };
 
   const weekDays = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
-  // Always use light theme classes
-  const textClass = 'text-[#1a1a1a]';
-  const mutedClass = 'text-gray-600';
+  // Theme-aware classes
+  const textClass = 'text-foreground';
+  const mutedClass = 'text-muted-foreground';
   
   const getTooltip = (day: number | null) => {
     if (!day) return '';
@@ -492,23 +485,23 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
   };
 
   return (
-    <div className="group relative w-full h-full" suppressHydrationWarning>
+    <div className="group relative w-full h-full transition-none" suppressHydrationWarning style={{ transition: 'none' }}>
       {/* Month header - same styling as list view */}
-      <div className="w-full pb-4 pt-3 px-0">
-        <h3 className={`w-full font-semibold text-xl leading-7 text-left ${textClass} px-0`} suppressHydrationWarning>{monthNames[month - 1]} {year}</h3>
+      <div className="w-full pb-4 pt-3 px-0 transition-none" suppressHydrationWarning style={{ transition: 'none' }}>
+        <h3 className={`w-full font-semibold text-xl leading-7 text-left ${textClass} px-0 transition-none`} suppressHydrationWarning style={{ transition: 'none' }}>{monthNames[month - 1]} {year}</h3>
       </div>
       
       {/* Week day headers */}
-      <div className="w-full mb-1 grid grid-cols-7 gap-0.5" suppressHydrationWarning>
+      <div className="w-full mb-1 grid grid-cols-7 gap-0.5 transition-none" suppressHydrationWarning style={{ transition: 'none' }}>
         {weekDays.map((day) => (
-          <div key={day} className={`text-center text-xs font-semibold ${mutedClass}`} suppressHydrationWarning>
+          <div key={day} className={`text-center text-xs font-semibold ${mutedClass} transition-none`} suppressHydrationWarning style={{ transition: 'none' }}>
             {day}
           </div>
         ))}
       </div>
       
       {/* Calendar grid */}
-      <div className="w-full grid grid-cols-7 gap-1">
+      <div className="w-full grid grid-cols-7 gap-1 transition-none" style={{ transition: 'none' }}>
         {dayCells.map((day, index) => {
           const dateStr = day ? `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` : null;
           const tooltip = getTooltip(day);
@@ -518,47 +511,18 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
             return (
               <div
                 key={index}
-                className={`flex flex-col h-12 items-center justify-center text-xs font-medium ${textClass}`}
+                className={`flex flex-col h-12 items-center justify-center text-xs font-medium ${textClass} transition-none`}
+                style={{ transition: 'none' }}
                 suppressHydrationWarning
               />
             );
           }
 
-          // Only calculate colors after mount to prevent hydration mismatch
-          // Server and client must render the same initial HTML
-          const dayColor = isMounted ? getDayColor(day) : 'bg-transparent';
-          const ringColor = isMounted ? getRingColor(day) : '';
-          const borderColor = isMounted ? getCurrentDateBorderColor(day) : 'border border-transparent';
-          
-          // Get inline background color for events only (no weekend colors)
-          // Event backgrounds only - no color for weekends or non-events
-          // Only calculate after mount to prevent hydration mismatch
-          const getInlineEventBg = () => {
-            // Never return a value during SSR or before mount to prevent hydration mismatch
-            if (typeof window === 'undefined' || !isMounted) return null;
-            
-            // Check dayColor for event types and return corresponding background color
-            if (dayColor === 'bg-purple-100') {
-              return 'rgba(243, 232, 255, 1)';
-            }
-            if (dayColor === 'bg-red-100') {
-              return 'rgba(254, 226, 226, 1)';
-            }
-            if (dayColor === 'bg-green-100') {
-              return 'rgba(220, 252, 231, 1)';
-            }
-            if (dayColor === 'bg-gray-100') {
-              return 'rgba(243, 244, 246, 1)';
-            }
-            
-            // No background color for weekends or non-events
-            return null;
-          };
-          
-          // Build style prop only if bgColor exists and is not null to prevent hydration mismatch
-          // Never include style prop during SSR (when window is undefined)
-          const bgColor = getInlineEventBg();
-          const styleProps = (typeof window !== 'undefined' && isMounted && bgColor) ? { style: { backgroundColor: bgColor } } : {};
+          // Always calculate colors - use CSS classes instead of inline styles to prevent hydration mismatch
+          // Server and client will render the same HTML with CSS classes
+          const dayColor = getDayColor(day);
+          const ringColor = getRingColor(day);
+          const borderColor = getCurrentDateBorderColor(day);
           
           const calendarCell = (
             <div
@@ -582,37 +546,31 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
                 // Immediately blur if element somehow gets focus
                 e.currentTarget.blur();
               }}
-              className={`calendar-date-cell flex flex-col h-12 items-center justify-center rounded-lg text-sm font-semibold cursor-pointer transition touch-manipulation select-none outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 focus:shadow-none focus-visible:shadow-none [&:focus]:ring-0 [&:focus-visible]:ring-0 [&:focus]:shadow-none [&:focus-visible]:shadow-none [&:focus]:outline-none [&:focus-visible]:outline-none ${isMounted && isSelected ? `ring-2 ${ringColor}` : ''} ${isMounted && isCurrentDate(day) && isCurrentDateInRange() ? borderColor : 'border border-transparent'} ${textClass}`}
+              className={`calendar-date-cell flex flex-col h-12 items-center justify-center rounded-lg text-sm font-semibold cursor-pointer transition-none touch-manipulation select-none outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 focus:shadow-none focus-visible:shadow-none [&:focus]:ring-0 [&:focus-visible]:ring-0 [&:focus]:shadow-none [&:focus-visible]:shadow-none [&:focus]:outline-none [&:focus-visible]:outline-none ${dayColor} ${isSelected ? `ring-2 ${ringColor}` : ''} ${isCurrentDate(day) && isCurrentDateInRange() ? borderColor : 'border border-transparent'} ${textClass}`}
               tabIndex={-1}
               suppressHydrationWarning
-              {...styleProps}
             >
               <div suppressHydrationWarning>{day}</div>
-              {isMounted ? (
-                <div suppressHydrationWarning>{getIndicatorDots(day)}</div>
-              ) : (
-                <div suppressHydrationWarning></div>
-              )}
+              <div suppressHydrationWarning>{getIndicatorDots(day)}</div>
             </div>
           );
 
           return (
             <div key={index} suppressHydrationWarning>
-              {isMounted ? (
-                <Tooltip 
-                  open={tooltipOpen === dateStr} 
-                  onOpenChange={(open) => {
-                    if (open) {
-                      setTooltipOpen(dateStr);
-                    } else {
-                      setTooltipOpen(null);
-                    }
-                  }} 
-                  delayDuration={0}
-                >
-                  <TooltipTrigger asChild>
-                    {calendarCell}
-                  </TooltipTrigger>
+              <Tooltip 
+                open={tooltipOpen === dateStr} 
+                onOpenChange={(open) => {
+                  if (open) {
+                    setTooltipOpen(dateStr);
+                  } else {
+                    setTooltipOpen(null);
+                  }
+                }} 
+                delayDuration={0}
+              >
+                <TooltipTrigger asChild>
+                  {calendarCell}
+                </TooltipTrigger>
               {dateStr && (() => {
                 const group = getProgramGroup(selectedProgram);
                 const dayActivities: Activity[] = [];
@@ -647,7 +605,7 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
                 return (
                   <TooltipContent suppressHydrationWarning 
                     side="top" 
-                    className="max-w-xs px-3 py-2 mx-2 rounded-lg shadow-lg border border-gray-300 bg-gray-100 text-[#1a1a1a] [&[data-side='top']]:before:content-none"
+                    className="max-w-xs px-3 py-2 mx-2 rounded-lg shadow-lg border border-border bg-popover text-popover-foreground [&[data-side='top']]:before:content-none transition-none"
                     sideOffset={8}
                     style={{ pointerEvents: 'auto' } as React.CSSProperties & { '--radix-tooltip-content-transform-origin'?: string }}
                   >
@@ -660,9 +618,9 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
                           activity.type === 'break' ? 'bg-[#10b981]' : 'bg-gray-400';
                         
                         return (
-                          <div key={idx} className="flex items-start gap-2">
-                            <div className={`h-2 w-2 rounded-full mt-1 flex-shrink-0 ${dotColor}`} />
-                            <p className="text-xs leading-relaxed">{activity.name}</p>
+                          <div key={idx} className="flex items-start gap-2 transition-none" style={{ transition: 'none' }}>
+                            <div className={`h-2 w-2 rounded-full mt-1 flex-shrink-0 ${dotColor} transition-none`} style={{ transition: 'none' }} />
+                            <p className="text-xs leading-relaxed transition-none">{activity.name}</p>
                           </div>
                         );
                       })}
@@ -670,10 +628,7 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
                   </TooltipContent>
                 );
               })()}
-                </Tooltip>
-              ) : (
-                calendarCell
-              )}
+              </Tooltip>
             </div>
           );
         })}
@@ -719,8 +674,8 @@ export const GridView = memo(function GridView({
 
   return (
     <TooltipProvider>
-      <div className="space-y-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 auto-rows-max">
+      <div className="space-y-8 transition-none" style={{ transition: 'none' }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 auto-rows-max transition-none" style={{ transition: 'none' }}>
           {months.map(({ month, year }) => (
             <MiniCalendar
               key={`${year}-${month}`}

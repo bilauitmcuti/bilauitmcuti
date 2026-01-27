@@ -1,4 +1,4 @@
-import { memo, useState, useLayoutEffect } from 'react';
+import { memo } from 'react';
 import { getActivitiesForMonth, formatDateRange, type ProgramGroup } from '@/lib/data';
 
 interface ListViewProps {
@@ -28,11 +28,20 @@ export const ListView = memo(function ListView({
   onMonthChange,
   selectedStates = [],
 }: ListViewProps) {
-  const [isMounted, setIsMounted] = useState(false);
-  
-  useLayoutEffect(() => {
-    setIsMounted(true);
-  }, []);
+  // Helper function untuk format date yang SSR-safe
+  const formatDateSafe = (dateStr: string) => {
+    if (typeof window === 'undefined') {
+      // Return placeholder for SSR - same as client initial render
+      return { dayName: '\u00A0', dayNum: '\u00A0', monthShort: '' };
+    }
+    const [year, monthNum, day] = dateStr.split('-').map(Number);
+    const startDate = new Date(Date.UTC(year, monthNum - 1, day));
+    return {
+      dayName: startDate.toLocaleString('en-US', { weekday: 'short', timeZone: 'UTC' }),
+      dayNum: String(startDate.getUTCDate()),
+      monthShort: startDate.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' })
+    };
+  };
   
   const getProgramGroup = (program: string): ProgramGroup => {
     if (program === 'Foundation/Professional' || program === 'Foundation' || program === 'Professional') return 'A';
@@ -119,10 +128,8 @@ export const ListView = memo(function ListView({
       // All Students - Deep Orange
       return {
         label: 'All Students',
-        lightBg: 'bg-[#EA580C]/10',
-        darkBg: 'bg-[#FB923C]/10',
-        lightText: 'text-[#EA580C]',
-        darkText: 'text-[#FB923C]',
+        bgClass: 'bg-[#EA580C]/10 dark:bg-[#FB923C]/10',
+        textClass: 'text-[#EA580C] dark:text-[#FB923C]',
       };
     }
     
@@ -132,39 +139,31 @@ export const ListView = memo(function ListView({
         // Pre-Diploma/Diploma (Full-time) - Cyan
         return {
           label: 'Pre-Diploma/Diploma',
-          lightBg: 'bg-[#0891B2]/10',
-          darkBg: 'bg-[#22D3EE]/10',
-          lightText: 'text-[#0891B2]',
-          darkText: 'text-[#22D3EE]',
+          bgClass: 'bg-[#0891B2]/10 dark:bg-[#22D3EE]/10',
+          textClass: 'text-[#0891B2] dark:text-[#22D3EE]',
         };
       case 'DiplomaPartTime':
       case 'BachelorPartTime':
         // Diploma/Bachelor (Part-time) - Lime
         return {
           label: 'Part-Time',
-          lightBg: 'bg-[#65A30D]/10',
-          darkBg: 'bg-[#A3E635]/10',
-          lightText: 'text-[#65A30D]',
-          darkText: 'text-[#A3E635]',
+          bgClass: 'bg-[#65A30D]/10 dark:bg-[#A3E635]/10',
+          textClass: 'text-[#65A30D] dark:text-[#A3E635]',
         };
       case 'Bachelor':
         // Bachelor (Full-time) - Rose Pink
         return {
           label: 'Bachelor',
-          lightBg: 'bg-[#DB2777]/10',
-          darkBg: 'bg-[#F472B6]/10',
-          lightText: 'text-[#DB2777]',
-          darkText: 'text-[#F472B6]',
+          bgClass: 'bg-[#DB2777]/10 dark:bg-[#F472B6]/10',
+          textClass: 'text-[#DB2777] dark:text-[#F472B6]',
         };
       case 'Master':
       case 'PhD':
         // Master/Doctorate - Cool Slate
         return {
           label: activity.programType === 'Master' ? 'Master' : 'PhD',
-          lightBg: 'bg-[#475569]/10',
-          darkBg: 'bg-[#CBD5E1]/10',
-          lightText: 'text-[#475569]',
-          darkText: 'text-[#CBD5E1]',
+          bgClass: 'bg-[#475569]/10 dark:bg-[#CBD5E1]/10',
+          textClass: 'text-[#475569] dark:text-[#CBD5E1]',
         };
       default:
         return null;
@@ -180,13 +179,13 @@ export const ListView = memo(function ListView({
     return acc;
   }, {} as Record<string, typeof uniqueActivities>);
 
-  const bgClass = 'bg-white';
-  const textClass = 'text-[#1a1a1a]';
-  const mutedClass = 'text-gray-600';
-  const borderClass = 'border-gray-300';
+  const bgClass = 'bg-background';
+  const textClass = 'text-foreground';
+  const mutedClass = 'text-muted-foreground';
+  const borderClass = 'border-border';
 
   return (
-    <div className={`space-y-8 ${bgClass}`} suppressHydrationWarning>
+    <div className={`space-y-8 ${bgClass} transition-none`} suppressHydrationWarning style={{ transition: 'none' }}>
       {sortedMonths.map((month) => {
         // Hide months with no activities
         if (!filteredGroupedByMonth[month] || filteredGroupedByMonth[month].length === 0) {
@@ -194,67 +193,57 @@ export const ListView = memo(function ListView({
         }
         
         return (
-        <div key={month} suppressHydrationWarning>
-          <div className="-mx-3 pb-4 pt-3" suppressHydrationWarning>
-            <h3 className={`font-semibold text-xl leading-7 text-left ${textClass} px-3`} suppressHydrationWarning>{month}</h3>
+        <div key={month} suppressHydrationWarning className="transition-none" style={{ transition: 'none' }}>
+          <div className="-mx-3 pb-4 pt-3 transition-none" suppressHydrationWarning style={{ transition: 'none' }}>
+            <h3 className={`font-semibold text-xl leading-7 text-left ${textClass} px-3 transition-none`} suppressHydrationWarning style={{ transition: 'none' }}>{month}</h3>
           </div>
           
-          <div className="space-y-4" suppressHydrationWarning>
+          <div className="space-y-4 transition-none" suppressHydrationWarning style={{ transition: 'none' }}>
             {filteredGroupedByMonth[month] && filteredGroupedByMonth[month].length > 0 ? (
               filteredGroupedByMonth[month].map((activity) => {
                 // Use regional dates if KKT filter is on
                 const useRegionalDate = showKKT && activity.regionalStartDate;
                 const dateStr = useRegionalDate ? activity.regionalStartDate! : activity.startDate;
                 
-                // Parse date on client-only to avoid hydration mismatch
-                let dayName = '';
-                let dayNum = '';
-                let monthShort = '';
-                
-                if (isMounted) {
-                  const [year, monthNum, day] = dateStr.split('-').map(Number);
-                  const startDate = new Date(Date.UTC(year, monthNum - 1, day));
-                  dayName = startDate.toLocaleString('en-US', { weekday: 'short', timeZone: 'UTC' });
-                  dayNum = String(startDate.getUTCDate());
-                  monthShort = startDate.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
-                }
+                // Format date using SSR-safe helper function
+                const formattedDate = formatDateSafe(dateStr);
                 
                 // Check if this activity has KKT-specific dates
                 const hasKKTVariant = activity.regionalStartDate || activity.regionalEndDate;
 
                 return (
-                  <div key={activity.name + activity.startDate} className="flex gap-4 p-3 rounded-lg px-0" suppressHydrationWarning>
+                  <div key={activity.name + activity.startDate} className="flex gap-4 p-3 rounded-lg px-0 transition-none" suppressHydrationWarning style={{ transition: 'none' }}>
                     {/* Date column */}
-                    <div className={`flex w-20 flex-col items-start text-xs ${mutedClass}`} suppressHydrationWarning>
-                      <div suppressHydrationWarning>{isMounted ? dayName : '\u00A0'}</div>
-                      <div className={`text-sm font-medium ${textClass}`} suppressHydrationWarning>{isMounted ? `${dayNum} ${monthShort}` : '\u00A0'}</div>
+                    <div className={`flex w-20 flex-col items-start text-xs ${mutedClass} transition-none`} suppressHydrationWarning style={{ transition: 'none' }}>
+                      <div className="transition-none" suppressHydrationWarning style={{ transition: 'none' }}>{formattedDate.dayName}</div>
+                      <div className={`text-sm font-medium ${textClass} transition-none`} suppressHydrationWarning style={{ transition: 'none' }}>
+                        {typeof window !== 'undefined' && formattedDate.monthShort 
+                          ? `${formattedDate.dayNum} ${formattedDate.monthShort}` 
+                          : formattedDate.dayNum}
+                      </div>
                     </div>
                     
                     {/* Activity info */}
-                    <div className="flex flex-1 flex-col" suppressHydrationWarning>
+                    <div className="flex flex-1 flex-col transition-none" suppressHydrationWarning style={{ transition: 'none' }}>
                       {/* Dot and Badge row */}
                       {getProgramBadgeColor(activity) ? (
-                        <div className="flex items-center gap-2 mb-2" suppressHydrationWarning>
-                          <div className={`h-2 w-2 shrink-0 rounded-full ${getActivityColor(activity)}`} suppressHydrationWarning />
-                          <div className={`inline-block py-1 rounded-full text-xs font-medium px-3 ${getProgramBadgeColor(activity)?.lightBg} ${getProgramBadgeColor(activity)?.lightText}`} suppressHydrationWarning>
+                        <div className="flex items-center gap-2 mb-2 transition-none" suppressHydrationWarning style={{ transition: 'none' }}>
+                          <div className={`h-2 w-2 shrink-0 rounded-full ${getActivityColor(activity)} transition-none`} suppressHydrationWarning style={{ transition: 'none' }} />
+                          <div className={`inline-block py-1 rounded-full text-xs font-medium px-3 ${getProgramBadgeColor(activity)?.bgClass} ${getProgramBadgeColor(activity)?.textClass} transition-none`} suppressHydrationWarning style={{ transition: 'none' }}>
                             {getProgramBadgeColor(activity)?.label}
                           </div>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2 mb-2" suppressHydrationWarning>
-                          <div className={`h-2 w-2 shrink-0 rounded-full ${getActivityColor(activity)}`} suppressHydrationWarning />
+                        <div className="flex items-center gap-2 mb-2 transition-none" suppressHydrationWarning style={{ transition: 'none' }}>
+                          <div className={`h-2 w-2 shrink-0 rounded-full ${getActivityColor(activity)} transition-none`} suppressHydrationWarning style={{ transition: 'none' }} />
                         </div>
                       )}
-                      <div className="w-full" suppressHydrationWarning>
-                        <h3 className={`font-medium text-base leading-6 break-words ${textClass}`} suppressHydrationWarning>{activity.name}</h3>
-                        <p className={`mt-1 text-sm leading-5 break-words ${mutedClass}`} suppressHydrationWarning>
-                          {isMounted ? (
-                            showKKT && activity.regionalStartDate
-                              ? formatDateRange(activity.regionalStartDate, activity.regionalEndDate)
-                              : formatDateRange(activity.startDate, activity.endDate)
-                          ) : (
-                            formatDateRange(activity.startDate, activity.endDate)
-                          )}
+                      <div className="w-full transition-none" suppressHydrationWarning style={{ transition: 'none' }}>
+                        <h3 className={`font-medium text-base leading-6 break-words ${textClass} transition-none`} suppressHydrationWarning style={{ transition: 'none' }}>{activity.name}</h3>
+                        <p className={`mt-1 text-sm leading-5 break-words ${mutedClass} transition-none`} suppressHydrationWarning style={{ transition: 'none' }}>
+                          {typeof window !== 'undefined' && showKKT && activity.regionalStartDate
+                            ? formatDateRange(activity.regionalStartDate, activity.regionalEndDate)
+                            : formatDateRange(activity.startDate, activity.endDate)}
                         </p>
                         {activity.duration ? (
                           <p className={`mt-1 text-xs leading-4 break-words ${mutedClass}`} suppressHydrationWarning>
@@ -266,7 +255,7 @@ export const ListView = memo(function ListView({
                             {activity.details}
                           </p>
                         ) : null}
-                        {isMounted && hasKKTVariant && showKKT ? (
+                        {typeof window !== 'undefined' && hasKKTVariant && showKKT ? (
                           <p className="mt-1 text-xs leading-4 text-blue-500 italic" suppressHydrationWarning>
                             *Kedah, Kelantan & Terengganu
                           </p>

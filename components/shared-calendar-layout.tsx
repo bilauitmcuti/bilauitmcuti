@@ -148,12 +148,12 @@ export function SharedCalendarLayout({
     }
   }, [showKKT, showRegistration, showLecture, showSemesterPendek, showKuliahIntersesi, showExamination, showOthersExams, showBreak, isLoaded]);
 
-  // Always use light theme - no theme switching
-  const bgClass = 'bg-white text-[#1a1a1a]';
+  // Theme-aware classes
+  const bgClass = 'bg-background text-foreground';
 
   return (
-    <div className={`min-h-screen ${bgClass}`}>
-      <div className="mx-auto max-w-[1000px] px-4 py-8 sm:px-6 lg:px-4">
+    <div className={`min-h-screen ${bgClass} transition-none`} style={{ transition: 'none' }}>
+      <div className="mx-auto max-w-[1000px] px-4 py-8 sm:px-6 lg:px-4 transition-none" style={{ transition: 'none' }}>
         {/* Header */}
         <CalendarHeader />
 

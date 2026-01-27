@@ -21,9 +21,9 @@ export default function PWAPage() {
     }
   }, []);
 
-  const textClass = 'text-[#1a1a1a]';
-  const bgClass = 'bg-white text-[#1a1a1a]';
-  const mutedClass = 'text-gray-600';
+  const textClass = 'text-foreground';
+  const bgClass = 'bg-background text-foreground';
+  const mutedClass = 'text-muted-foreground';
 
   const handleBack = () => {
     router.push('/');

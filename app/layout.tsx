@@ -2,6 +2,7 @@ import React from "react"
 import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { ThemeProvider } from '@/components/theme-provider'
 import './globals.css'
 
 const geist = Geist({ subsets: ["latin"] });
@@ -84,13 +85,56 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <meta name="theme-color" content="#ffffff" />
+        <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+        <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="canonical" href="https://cutiuitm.xyz" />
         <script
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
+                // Sync theme from localStorage before React hydration to prevent flash
+                try {
+                  let theme = 'light';
+                  try {
+                    theme = localStorage.getItem('theme') || 'light';
+                  } catch (storageError) {
+                    // If localStorage access fails, use default
+                    console.warn('localStorage access failed, using default theme:', storageError);
+                  }
+                  
+                  // Validate theme value - only accept 'light' or 'dark'
+                  const validTheme = (theme === 'dark' || theme === 'light') ? theme : 'light';
+                  
+                  // Apply theme class - always remove both classes first to ensure clean state
+                  document.documentElement.classList.remove('dark', 'light');
+                  document.documentElement.classList.add(validTheme);
+                  
+                  // Update theme-color meta tag
+                  try {
+                    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+                    if (metaThemeColor) {
+                      metaThemeColor.setAttribute('content', validTheme === 'dark' ? '#1a1a1a' : '#ffffff');
+                    }
+                  } catch (metaError) {
+                    console.warn('Failed to update theme-color meta tag:', metaError);
+                  }
+                } catch (e) {
+                  // Comprehensive fallback - ensure light theme is always applied
+                  console.warn('Theme sync failed, applying fallback:', e);
+                  try {
+                    document.documentElement.classList.remove('dark');
+                    document.documentElement.classList.add('light');
+                    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+                    if (metaThemeColor) {
+                      metaThemeColor.setAttribute('content', '#ffffff');
+                    }
+                  } catch (fallbackError) {
+                    // Last resort - just add light class
+                    document.documentElement.classList.add('light');
+                  }
+                }
+                
                 // Store filter states in data attributes for synchronous access
                 // This prevents flicker when filters are applied - MUST run before React hydration
                 try {
@@ -126,7 +170,15 @@ export default function RootLayout({
         />
       </head>
       <body className={`${geist.className} antialiased`} suppressHydrationWarning>
-        {children}
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem={false}
+          storageKey="theme"
+          disableTransitionOnChange={false}
+        >
+          {children}
+        </ThemeProvider>
         <Analytics />
         <script
           dangerouslySetInnerHTML={{

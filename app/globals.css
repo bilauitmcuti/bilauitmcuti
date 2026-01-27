@@ -9,10 +9,15 @@ html {
   scroll-behavior: auto;
 }
 
-/* Ensure theme changes are instant without transitions */
+/* Disable theme transitions on html element - instant switching */
 html.dark,
 html.light {
   transition: none !important;
+}
+
+/* Ensure theme class is applied immediately on html element */
+html {
+  color-scheme: light dark;
 }
 
 /* Prevent flash of wrong theme during page load */
@@ -31,7 +36,7 @@ html.dark {
   color: #ffffff !important;
 }
 
-/* Remove transitions from main page containers */
+/* Disable transitions for main page containers - instant theme switching */
 body > div[class*="min-h-screen"] {
   transition: none !important;
 }
@@ -45,26 +50,72 @@ button[type="button"][title*="View"],
   transition: none !important;
 }
 
-/* Ensure instant theme changes - disable all transitions by default */
-* {
-  transition-property: none !important;
+/* Disable transitions for calendar controls and UI components for instant theme switching */
+.sticky.top-0,
+.sticky.top-0 > *,
+.sticky.top-0 > div,
+.sticky.top-0 > div > *,
+.sticky.top-0 button,
+.sticky.top-0 [data-slot="button"],
+.sticky.top-0 label,
+.sticky.top-0 div[class*="rounded-full"],
+.sticky.top-0 span[class*="transform"],
+[data-slot="select-trigger"],
+[data-slot="select-content"],
+[data-slot="popover-content"],
+[data-slot="popover-trigger"],
+[data-slot="popover-content"] > *,
+[data-slot="popover-content"] button,
+[data-slot="popover-content"] label,
+[data-slot="popover-content"] div[class*="rounded-full"],
+[data-slot="popover-content"] span[class*="transform"] {
+  transition: none !important;
 }
 
-/* Re-enable only specific transitions that are needed for UX (hover effects) */
-button:hover,
-a:hover,
-[role="button"]:hover {
-  transition-property: opacity, background-color, color !important;
+/* Re-enable transitions only for interactive hover states (opacity only, not colors) */
+.sticky.top-0 button:hover,
+[data-slot="select-trigger"]:hover,
+[data-slot="popover-trigger"]:hover {
+  transition-property: opacity !important;
   transition-duration: 100ms !important;
   transition-timing-function: ease-out !important;
 }
 
-/* Keep smooth transitions for interactive elements like toggles and switches */
+/* Disable transitions for theme-aware elements - instant theme switching */
+/* Only allow transitions for hover states, not theme changes */
+*:not(.sticky.top-0):not(.sticky.top-0 *):not([data-slot="select-trigger"]):not([data-slot="select-content"]):not([data-slot="popover-content"]):not([data-slot="popover-content"] *):not(:hover):not(button:hover):not(a:hover) {
+  transition-property: none !important;
+  transition-duration: 0ms !important;
+}
+
+/* Re-enable only specific transitions that are needed for UX (hover effects) */
+/* But disable background-color and color transitions - only allow opacity */
+button:hover,
+a:hover,
+[role="button"]:hover {
+  transition-property: opacity !important;
+  transition-duration: 100ms !important;
+  transition-timing-function: ease-out !important;
+}
+
+/* Keep smooth transitions for interactive elements like toggles and switches - but disable for theme changes */
 [role="switch"],
 input[type="checkbox"],
 .toggle-switch {
   transition-property: background-color, transform !important;
-  transition-duration: 150ms !important;
+  transition-duration: 200ms !important;
+  transition-timing-function: ease-in-out !important;
+}
+
+/* Disable transitions for toggle switches in calendar controls when theme changes */
+.sticky.top-0 [role="switch"],
+.sticky.top-0 input[type="checkbox"],
+.sticky.top-0 .toggle-switch,
+[data-slot="popover-content"] [role="switch"],
+[data-slot="popover-content"] input[type="checkbox"],
+[data-slot="popover-content"] .toggle-switch,
+[data-slot="popover-content"] label[class*="cursor-pointer"] > div {
+  transition: none !important;
 }
 
 :root {
@@ -104,15 +155,15 @@ input[type="checkbox"],
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
+  --background: #1A1A1A;
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
+  --card: #1A1A1A;
   --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
+  --popover: #2A2A2A;
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.985 0 0);
   --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
+  --secondary: #2A2A2A;
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
@@ -121,7 +172,7 @@ input[type="checkbox"],
   --destructive: oklch(0.396 0.141 25.723);
   --destructive-foreground: oklch(0.637 0.237 25.331);
   --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
+  --input: #2A2A2A;
   --ring: oklch(0.439 0 0);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);

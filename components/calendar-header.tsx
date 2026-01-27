@@ -1,22 +1,22 @@
 export function CalendarHeader() {
-  const textColor = 'text-[#1a1a1a]';
-  const mutedColor = 'text-gray-600';
+  const textColor = 'text-foreground';
+  const mutedColor = 'text-muted-foreground';
   
   // Get current year in Malaysia timezone (UTC+8)
   const currentYear = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Kuala_Lumpur"})).getFullYear();
 
   return (
-    <div suppressHydrationWarning>
+    <div suppressHydrationWarning className="transition-none" style={{ transition: 'none' }}>
       {/* Year label */}
-      <div className={`mb-2 text-sm ${mutedColor}`} suppressHydrationWarning>{currentYear}</div>
+      <div className={`mb-2 text-sm ${mutedColor} transition-none`} suppressHydrationWarning style={{ transition: 'none' }}>{currentYear}</div>
 
       {/* Main heading with custom typography */}
-      <h1 className={`mb-6 font-semibold leading-[2.5rem] tracking-tight text-5xl ${textColor}`} suppressHydrationWarning>
+      <h1 className={`mb-6 font-semibold leading-[2.5rem] tracking-tight text-5xl ${textColor} transition-none`} suppressHydrationWarning style={{ transition: 'none' }}>
         Bila <span className="text-[#8b5cf6]">UiTM</span> Cuti?
       </h1>
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-4 text-sm" role="list" aria-label="Activity type legend" suppressHydrationWarning>
+      <div className="flex flex-wrap gap-4 text-sm transition-none" role="list" aria-label="Activity type legend" suppressHydrationWarning style={{ transition: 'none' }}>
         <div className="flex items-center gap-2" role="listitem">
           <div className="h-2 w-2 rounded-full bg-[#d1d5db]" aria-hidden="true" />
           <span className={mutedColor} suppressHydrationWarning>Registration</span>

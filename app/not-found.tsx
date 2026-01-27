@@ -7,9 +7,9 @@ import { Button } from '@/components/ui/button';
 export default function NotFound() {
   const router = useRouter();
   
-  const bgClass = 'bg-white text-[#1a1a1a]';
-  const textClass = 'text-[#1a1a1a]';
-  const mutedClass = 'text-gray-600';
+  const bgClass = 'bg-background text-foreground';
+  const textClass = 'text-foreground';
+  const mutedClass = 'text-muted-foreground';
 
   const handleBack = () => {
     router.push('/');
