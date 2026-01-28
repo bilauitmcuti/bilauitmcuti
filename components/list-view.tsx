@@ -246,8 +246,8 @@ export const ListView = memo(function ListView({
                       ) : (
                         <>
                           {/* Group A or no badge: dot and h3 title in same row */}
-                          <div className="flex items-center gap-2 mb-1 transition-none" suppressHydrationWarning style={{ transition: 'none' }}>
-                            <div className={`h-2 w-2 shrink-0 rounded-full ${getActivityColor(activity)} transition-none`} suppressHydrationWarning style={{ transition: 'none' }} />
+                          <div className="flex items-start gap-2 mb-1 transition-none" suppressHydrationWarning style={{ transition: 'none' }}>
+                            <div className={`h-2 w-2 shrink-0 rounded-full mt-2 ${getActivityColor(activity)} transition-none`} suppressHydrationWarning style={{ transition: 'none' }} />
                             <h3 className={`font-medium text-base leading-6 break-words ${textClass} transition-none`} suppressHydrationWarning style={{ transition: 'none' }}>{activity.name}</h3>
                           </div>
                           {/* Badge row for Group A (if exists) */}
