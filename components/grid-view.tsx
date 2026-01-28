@@ -24,9 +24,10 @@ interface GridViewProps {
   showBreak: boolean;
   onMonthChange?: (month: string) => void;
   selectedStates?: string[];
+  initialCurrentDate?: string;
 }
 
-function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, selectedDate, showRegistration, showLecture, showSemesterPendek, showKuliahIntersesi, showExamination, showOthersExams, showBreak, selectedStates = [] }: { month: number; year: number; selectedProgram: string; showKKT: boolean; onDateClick: (date: string) => void; selectedDate: string | null; showRegistration: boolean; showLecture: boolean; showSemesterPendek: boolean; showKuliahIntersesi: boolean; showExamination: boolean; showOthersExams: boolean; showBreak: boolean; selectedStates?: string[] }) {
+function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, selectedDate, showRegistration, showLecture, showSemesterPendek, showKuliahIntersesi, showExamination, showOthersExams, showBreak, selectedStates = [], initialCurrentDate }: { month: number; year: number; selectedProgram: string; showKKT: boolean; onDateClick: (date: string) => void; selectedDate: string | null; showRegistration: boolean; showLecture: boolean; showSemesterPendek: boolean; showKuliahIntersesi: boolean; showExamination: boolean; showOthersExams: boolean; showBreak: boolean; selectedStates?: string[]; initialCurrentDate?: string }) {
   const [tooltipOpen, setTooltipOpen] = useState<string | null>(null);
 
   // Initialize currentDateStr synchronously on client to prevent hydration mismatch
@@ -47,7 +48,7 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
     }
   };
 
-  const [currentDateStr, setCurrentDateStr] = useState<string | null>(getInitialCurrentDate);
+  const [currentDateStr, setCurrentDateStr] = useState<string | null>(() => initialCurrentDate ?? getInitialCurrentDate());
 
   const isKKTStates = selectedStates.some(state => ['Kedah', 'Kelantan', 'Terengganu'].includes(state));
   
@@ -62,6 +63,9 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
       const day = String(malaysiaTime.getDate()).padStart(2, '0');
       return `${year}-${month}-${day}`;
     };
+    
+    // Set current date immediately on mount (after hydration)
+    setCurrentDateStr(getMalaysiaDate());
     
     // Update every minute to catch date changes
     const interval = setInterval(() => {
@@ -94,8 +98,8 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
     // Filter out Kuliah Intersesi if toggle is off
     if (activity.type === 'lecture' && activity.name.includes('Intersesi') && !showKuliahIntersesi) return false;
     
-    // Filter out Others Exams (Peperiksaan/Penilaian Khas/Intersesi/Semester Pendek) if toggle is off
-    if (activity.type === 'examination' && activity.name.includes('Khas') && !showOthersExams) return false;
+    // Filter out Others Exams (Peperiksaan/Penilaian Khas/Intersesi/Semester Pendek + English Exit Test) if toggle is off
+    if (activity.type === 'examination' && (activity.name.includes('Khas') || activity.name.includes('English Exit Test') || activity.name.includes('EET Lisan')) && !showOthersExams) return false;
     
     // Handle "All" option - show activities with semua flag or no specific programType
     if (selectedProgram === 'All') {
@@ -116,7 +120,7 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
   };
 
   const group = getProgramGroup(selectedProgram);
-  
+
   const daysInMonth = new Date(year, month, 0).getDate();
   const firstDayOfMonth = new Date(year, month - 1, 1).getDay();
   
@@ -246,8 +250,9 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
   };
 
   // Check if current date is within the calendar range for this group
+  // No window check: server and client must agree when initialCurrentDate is set so SSR HTML has the border
   const isCurrentDateInRange = (): boolean => {
-    if (!currentDateStr || typeof window === 'undefined') return false;
+    if (!currentDateStr) return false;
     
     // Get all months for this group to determine the range
     const months = getMonthsForGroup(group, {
@@ -277,7 +282,7 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
   // Get current date outline color (same logic as getRingColor but for current date)
   // Using border instead of ring to avoid conflict with focus ring removal
   const getCurrentDateBorderColor = (day: number | null): string => {
-    if (!day || !currentDateStr || typeof window === 'undefined') return '';
+    if (!day || !currentDateStr) return '';
     
     const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     
@@ -338,8 +343,9 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
   };
 
   // Check if date is current date
+  // No window check: server and client must agree when initialCurrentDate is set so SSR HTML has the border
   const isCurrentDate = (day: number | null): boolean => {
-    if (!day || !currentDateStr || typeof window === 'undefined') return false;
+    if (!day || !currentDateStr) return false;
     const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     return dateStr === currentDateStr;
   };
@@ -523,7 +529,7 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
           const dayColor = getDayColor(day);
           const ringColor = getRingColor(day);
           const borderColor = getCurrentDateBorderColor(day);
-          
+
           const calendarCell = (
             <div
               onClick={() => {
@@ -649,6 +655,7 @@ export const GridView = memo(function GridView({
   showBreak,
   onMonthChange,
   selectedStates = [],
+  initialCurrentDate,
 }: GridViewProps) {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
@@ -693,6 +700,7 @@ export const GridView = memo(function GridView({
               showOthersExams={showOthersExams}
               showBreak={showBreak}
               selectedStates={selectedStates}
+              initialCurrentDate={initialCurrentDate}
             />
           ))}
         </div>

@@ -8,17 +8,22 @@ import { ListView } from '@/components/list-view';
 import { GridView } from '@/components/grid-view';
 import { getProgramFromRoute } from '@/lib/route-utils';
 import { DEFAULT_FILTER_STATES } from '@/lib/data';
+import { setFiltersToCookie, type FilterStates } from '@/lib/cookie-utils';
 import type { ViewMode } from '@/app/page';
 
 interface SharedCalendarLayoutProps {
   children?: React.ReactNode;
   viewMode: ViewMode;
   programFromRoute: string;
+  initialFilters?: FilterStates; // Optional: passed from server component that reads cookies
+  initialCurrentDate?: string; // Optional: passed from server component with Malaysia timezone date
 }
 
 export function SharedCalendarLayout({ 
   viewMode, 
-  programFromRoute 
+  programFromRoute,
+  initialFilters: initialFiltersFromProps,
+  initialCurrentDate
 }: SharedCalendarLayoutProps) {
   const pathname = usePathname();
   
@@ -39,14 +44,17 @@ export function SharedCalendarLayout({
   // programFromRoute is passed from the page component and should be the program slug
   const selectedProgram = getProgramFromRoute(routeSegment || (programFromRoute && programFromRoute !== 'All' ? programFromRoute : null));
   
-  // Initialize filter states synchronously from DOM data attribute (set by layout.tsx script)
-  // This MUST run synchronously during component initialization, before first render
-  // The blocking script in layout.tsx sets data-filters attribute before React hydration
-  // IMPORTANT: Read from data-filters attribute synchronously to prevent flicker
-  // CRITICAL: This ensures filter state is synced before first render
-  const getInitialFilterState = () => {
+  // Initialize filter states
+  // Priority: 1) Props from server (cookie-based), 2) DOM data attribute (client), 3) Defaults
+  const getInitialFilterState = (): FilterStates => {
     // Use DEFAULT_FILTER_STATES from data.ts as single source of truth
     const defaults = DEFAULT_FILTER_STATES;
+
+    // If initialFilters passed from server component (from cookies), use them
+    // This ensures SSR and client have the same initial state
+    if (initialFiltersFromProps) {
+      return initialFiltersFromProps;
+    }
 
     // Only read from DOM on client side
     if (typeof window === 'undefined') {
@@ -101,12 +109,24 @@ export function SharedCalendarLayout({
     setIsLoaded(true);
   }, []);
 
-  // Save all preferences to localStorage synchronously to prevent loss during navigation
+  // Save all preferences to localStorage and cookies synchronously to prevent loss during navigation
   useEffect(() => {
     if (!isLoaded) return;
     
+    const filterStates: FilterStates = {
+      showKKT,
+      showRegistration,
+      showLecture,
+      showSemesterPendek,
+      showKuliahIntersesi,
+      showExamination,
+      showOthersExams,
+      showBreak,
+    };
+    
     // Save all settings in one go
     try {
+      // Save to localStorage
       localStorage.setItem('showKKT', JSON.stringify(showKKT));
       localStorage.setItem('showRegistration', JSON.stringify(showRegistration));
       localStorage.setItem('showLecture', JSON.stringify(showLecture));
@@ -115,6 +135,9 @@ export function SharedCalendarLayout({
       localStorage.setItem('showExamination', JSON.stringify(showExamination));
       localStorage.setItem('showOthersExams', JSON.stringify(showOthersExams));
       localStorage.setItem('showBreak', JSON.stringify(showBreak));
+      
+      // Save to cookie for SSR consistency
+      setFiltersToCookie(filterStates);
       
       // Update data-filters attribute immediately for next component mount
       const filters = {
@@ -203,6 +226,7 @@ export function SharedCalendarLayout({
               onMonthChange={setCurrentMonth}
               showBreak={showBreak}
               selectedStates={selectedStates}
+              initialCurrentDate={initialCurrentDate}
             />
           )}
         </div>

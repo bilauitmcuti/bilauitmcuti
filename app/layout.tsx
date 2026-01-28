@@ -152,17 +152,38 @@ export default function RootLayout({
                 try {
                   // Properly check if localStorage keys exist using ?? (null coalescing)
                   // Only use defaults when localStorage key is null (doesn't exist)
-                  const filters = {
-                    showRegistration: localStorage.getItem('showRegistration') ?? JSON.stringify(DEFAULT_FILTER_STATES.showRegistration),
-                    showLecture: localStorage.getItem('showLecture') ?? JSON.stringify(DEFAULT_FILTER_STATES.showLecture),
-                    showSemesterPendek: localStorage.getItem('showSemesterPendek') ?? JSON.stringify(DEFAULT_FILTER_STATES.showSemesterPendek),
-                    showKuliahIntersesi: localStorage.getItem('showKuliahIntersesi') ?? JSON.stringify(DEFAULT_FILTER_STATES.showKuliahIntersesi),
-                    showExamination: localStorage.getItem('showExamination') ?? JSON.stringify(DEFAULT_FILTER_STATES.showExamination),
-                    showOthersExams: localStorage.getItem('showOthersExams') ?? JSON.stringify(DEFAULT_FILTER_STATES.showOthersExams),
-                    showBreak: localStorage.getItem('showBreak') ?? JSON.stringify(DEFAULT_FILTER_STATES.showBreak),
-                    showKKT: localStorage.getItem('showKKT') ?? JSON.stringify(DEFAULT_FILTER_STATES.showKKT),
+                  const filterValues = {
+                    showRegistration: JSON.parse(localStorage.getItem('showRegistration') ?? JSON.stringify(DEFAULT_FILTER_STATES.showRegistration)),
+                    showLecture: JSON.parse(localStorage.getItem('showLecture') ?? JSON.stringify(DEFAULT_FILTER_STATES.showLecture)),
+                    showSemesterPendek: JSON.parse(localStorage.getItem('showSemesterPendek') ?? JSON.stringify(DEFAULT_FILTER_STATES.showSemesterPendek)),
+                    showKuliahIntersesi: JSON.parse(localStorage.getItem('showKuliahIntersesi') ?? JSON.stringify(DEFAULT_FILTER_STATES.showKuliahIntersesi)),
+                    showExamination: JSON.parse(localStorage.getItem('showExamination') ?? JSON.stringify(DEFAULT_FILTER_STATES.showExamination)),
+                    showOthersExams: JSON.parse(localStorage.getItem('showOthersExams') ?? JSON.stringify(DEFAULT_FILTER_STATES.showOthersExams)),
+                    showBreak: JSON.parse(localStorage.getItem('showBreak') ?? JSON.stringify(DEFAULT_FILTER_STATES.showBreak)),
+                    showKKT: JSON.parse(localStorage.getItem('showKKT') ?? JSON.stringify(DEFAULT_FILTER_STATES.showKKT)),
                   };
+                  
+                  // Sync to cookie for SSR consistency
+                  try {
+                    const cookieValue = encodeURIComponent(JSON.stringify(filterValues));
+                    const expires = new Date();
+                    expires.setTime(expires.getTime() + (365 * 24 * 60 * 60 * 1000)); // 1 year
+                    document.cookie = 'calendar-filters=' + cookieValue + '; expires=' + expires.toUTCString() + '; path=/; SameSite=Lax';
+                  } catch (cookieError) {
+                    console.warn('Failed to sync filters to cookie:', cookieError);
+                  }
+                  
                   // Store as data attribute for synchronous access during component initialization
+                  const filters = {
+                    showRegistration: JSON.stringify(filterValues.showRegistration),
+                    showLecture: JSON.stringify(filterValues.showLecture),
+                    showSemesterPendek: JSON.stringify(filterValues.showSemesterPendek),
+                    showKuliahIntersesi: JSON.stringify(filterValues.showKuliahIntersesi),
+                    showExamination: JSON.stringify(filterValues.showExamination),
+                    showOthersExams: JSON.stringify(filterValues.showOthersExams),
+                    showBreak: JSON.stringify(filterValues.showBreak),
+                    showKKT: JSON.stringify(filterValues.showKKT),
+                  };
                   document.documentElement.setAttribute('data-filters', JSON.stringify(filters));
                 } catch (e) {
                   // Fallback: set default values if localStorage fails

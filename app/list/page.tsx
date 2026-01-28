@@ -1,6 +1,6 @@
-import { SharedCalendarLayout } from '@/components/shared-calendar-layout';
+import { CalendarWrapper } from '@/components/calendar-wrapper';
 
 // All programs, List view
 export default function ListPage() {
-  return <SharedCalendarLayout viewMode="list" programFromRoute="All" />;
+  return <CalendarWrapper viewMode="list" programFromRoute="All" />;
 }

@@ -825,8 +825,8 @@ export function getMonthsForGroup(
     // Filter out Kuliah Intersesi if toggle is off
     if (activity.type === 'lecture' && activity.name.includes('Intersesi') && !showKuliahIntersesi) return false;
     
-    // Filter out Others Exams (Peperiksaan/Penilaian Khas/Intersesi/Semester Pendek) if toggle is off
-    if (activity.type === 'examination' && activity.name.includes('Khas') && !showOthersExams) return false;
+    // Filter out Others Exams (Peperiksaan/Penilaian Khas/Intersesi/Semester Pendek + English Exit Test) if toggle is off
+    if (activity.type === 'examination' && (activity.name.includes('Khas') || activity.name.includes('English Exit Test') || activity.name.includes('EET Lisan')) && !showOthersExams) return false;
     
     // Handle "All" option - show activities with semua flag or no specific programType
     if (selectedProgram === 'All') {

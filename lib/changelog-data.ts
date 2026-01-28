@@ -6,6 +6,17 @@ export interface ChangelogEntry {
 
 export const changelogData: ChangelogEntry[] = [
   {
+    date: '2026-01-28',
+    title: 'Calendar Layout & State Management Refactor',
+    details: [
+      'Replaced SharedCalendarLayout with CalendarWrapper across multiple pages for better modularity.',
+      'Enhanced filter state management by synchronizing localStorage and cookies for SSR consistency.',
+      'Updated MiniCalendar component to accept initialCurrentDate for accurate date handling.',
+      'Improved date filtering logic to include additional criteria for examination activities.',
+      'Adjusted styles in calendar controls and select components for better alignment and visibility.'
+    ]
+  },
+  {
     date: '2026-01-27',
     title: 'Theme Switching & UI Consistency Improvements',
     details: [

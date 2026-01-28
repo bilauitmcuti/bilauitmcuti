@@ -193,7 +193,7 @@ export function CalendarControls({
         {/* Program selector - Left */}
         <div className="px-0">
           <Select value={selectedProgram} onValueChange={handleProgramChange} open={selectOpen} onOpenChange={setSelectOpen}>
-            <SelectTrigger className={`w-[180px] sm:w-[200px] !h-[38px] !py-1 border bg-secondary dark:bg-[#2A2A2A] border-border ${textClass} truncate flex items-center justify-center [&>svg]:hidden rounded-lg transition-none`} suppressHydrationWarning>
+            <SelectTrigger className={`w-fit max-w-[180px] sm:max-w-[200px] !h-[38px] !py-1 border bg-secondary dark:bg-[#2A2A2A] border-border ${textClass} truncate flex items-center justify-center [&>svg]:hidden rounded-lg transition-none`} suppressHydrationWarning>
               <span className="truncate text-left font-medium text-sm min-w-0 flex-1">
                 {currentProgramLabel}
               </span>
@@ -529,14 +529,25 @@ export function CalendarControls({
                         className="absolute inset-0 transition-opacity duration-500"
                         style={{
                           opacity: currentFooterText === 0 ? 1 : 0,
+                          pointerEvents: currentFooterText === 0 ? 'auto' : 'none',
                         }}
                       >
-                        Built by a UiTM alumnus
+                        Built by{' '}
+                        <a
+                          href="https://www.threads.com/@shahrulestar"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium hover:underline relative z-10"
+                          style={{color: '#2563eb'}}
+                        >
+                          @shahrulestar
+                        </a>
                       </div>
                       <div 
                         className="absolute inset-0 transition-opacity duration-500"
                         style={{
                           opacity: currentFooterText === 1 ? 1 : 0,
+                          pointerEvents: currentFooterText === 1 ? 'auto' : 'none',
                         }}
                       >
                         Source from{' '}
@@ -544,7 +555,7 @@ export function CalendarControls({
                           href="https://hea.uitm.edu.my/index.php/calendars/academic-calendar"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="font-medium hover:underline"
+                          className="font-medium hover:underline relative z-10"
                           style={{color: '#2563eb'}}
                         >
                           HEA UiTM
@@ -554,6 +565,7 @@ export function CalendarControls({
                         className="absolute inset-0 transition-opacity duration-500"
                         style={{
                           opacity: currentFooterText === 2 ? 1 : 0,
+                          pointerEvents: currentFooterText === 2 ? 'auto' : 'none',
                         }}
                       >
                         Inspired by{' '}
@@ -561,7 +573,7 @@ export function CalendarControls({
                           href="https://bilacuti.my"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="font-medium hover:underline"
+                          className="font-medium hover:underline relative z-10"
                           style={{color: '#2563eb'}}
                         >
                           bilacuti.my

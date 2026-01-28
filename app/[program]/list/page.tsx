@@ -1,4 +1,4 @@
-import { SharedCalendarLayout } from '@/components/shared-calendar-layout';
+import { CalendarWrapper } from '@/components/calendar-wrapper';
 import { notFound } from 'next/navigation';
 import { isValidProgramRoute, getProgramDisplayName } from '@/lib/route-utils';
 import type { Metadata } from 'next';
@@ -56,5 +56,5 @@ export default async function ProgramListPage({ params }: ProgramListPageProps) 
     notFound();
   }
   
-  return <SharedCalendarLayout viewMode="list" programFromRoute={program} />;
+  return <CalendarWrapper viewMode="list" programFromRoute={program} />;
 }
