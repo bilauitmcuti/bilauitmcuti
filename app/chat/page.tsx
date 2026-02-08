@@ -13,6 +13,99 @@ import {
 } from "@/components/ui/select";
 import useEmblaCarousel from "embla-carousel-react";
 
+/**
+ * Renders assistant message content with formatted bullet points and numbered lists.
+ * Splits plain text into visual blocks: headings, bullets, numbered items, and paragraphs.
+ */
+function FormattedMessage({ content }: { content: string }) {
+  const lines = content.split("\n");
+  const elements: React.ReactNode[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Skip empty lines
+    if (!trimmed) {
+      i++;
+      continue;
+    }
+
+    // Collect consecutive bullet lines (- item)
+    if (/^-\s/.test(trimmed)) {
+      const bullets: string[] = [];
+      while (i < lines.length && /^-\s/.test(lines[i].trim())) {
+        bullets.push(lines[i].trim().replace(/^-\s+/, ""));
+        i++;
+      }
+      elements.push(
+        <ul key={`ul-${i}`} className="mt-1 space-y-0.5">
+          {bullets.map((b, idx) => (
+            <li key={idx} className="flex gap-2">
+              <span className="text-muted-foreground shrink-0">-</span>
+              <span>{b}</span>
+            </li>
+          ))}
+        </ul>
+      );
+      continue;
+    }
+
+    // Collect numbered list with optional sub-details (dash lines under each number)
+    if (/^\d+[.)]\s/.test(trimmed)) {
+      const items: { num: string; text: string; details: string[] }[] = [];
+      while (i < lines.length) {
+        const cur = lines[i].trim();
+        if (!cur) { i++; continue; }
+        const match = cur.match(/^(\d+)[.)]\s+(.*)/);
+        if (match) {
+          items.push({ num: match[1], text: match[2], details: [] });
+          i++;
+          // Collect any dash lines that follow as sub-details of this numbered item
+          while (i < lines.length) {
+            const sub = lines[i].trim();
+            if (!sub) { i++; continue; }
+            if (/^-\s/.test(sub)) {
+              items[items.length - 1].details.push(sub.replace(/^-\s+/, ""));
+              i++;
+            } else {
+              break;
+            }
+          }
+        } else {
+          break;
+        }
+      }
+      elements.push(
+        <ol key={`ol-${i}`} className="mt-1 space-y-1">
+          {items.map((item, idx) => (
+            <li key={idx}>
+              <div className="flex gap-2">
+                <span className="text-muted-foreground shrink-0 tabular-nums min-w-[1.2em] text-right">{item.num}.</span>
+                <span>{item.text}</span>
+              </div>
+              {item.details.length > 0 && (
+                <div className="ml-[calc(1.2em+0.5rem)] mt-0.5 space-y-0.5 text-muted-foreground">
+                  {item.details.map((d, dIdx) => (
+                    <div key={dIdx}>{d}</div>
+                  ))}
+                </div>
+              )}
+            </li>
+          ))}
+        </ol>
+      );
+      continue;
+    }
+
+    // Regular text line
+    elements.push(<p key={`p-${i}`} className={i > 0 ? "mt-1" : ""}>{trimmed}</p>);
+    i++;
+  }
+
+  return <>{elements}</>;
+}
 
 const SUGGESTION_POOL = [
   // Calendar questions (English)
@@ -346,13 +439,17 @@ export default function ChatPage() {
                   }`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
+                    className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
                       msg.role === "user"
-                        ? "bg-primary text-primary-foreground rounded-br-md"
+                        ? "bg-primary text-primary-foreground rounded-br-md whitespace-pre-wrap"
                         : "bg-secondary dark:bg-[#2A2A2A] text-foreground rounded-bl-md"
                     }`}
                   >
-                    {msg.content}
+                    {msg.role === "assistant" ? (
+                      <FormattedMessage content={msg.content} />
+                    ) : (
+                      msg.content
+                    )}
                   </div>
                 </div>
                 {msg.role === "assistant" && (
