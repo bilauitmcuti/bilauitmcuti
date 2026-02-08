@@ -11,20 +11,84 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from "@/components/ui/table";
 import useEmblaCarousel from "embla-carousel-react";
 
 /**
- * Renders assistant message content with formatted bullet points and numbered lists.
- * Splits plain text into visual blocks: headings, bullets, numbered items, and paragraphs.
+ * Parse a [TABLE]...[/TABLE] block into headers and rows.
+ * Each row is pipe-delimited. The first row is the header.
+ * A separator row (e.g. ---|---|---) is skipped if present.
  */
-function FormattedMessage({ content }: { content: string }) {
-  const lines = content.split("\n");
+function parseTable(block: string): { headers: string[]; rows: string[][] } | null {
+  const lines = block.split("\n").map((l) => l.trim()).filter(Boolean);
+  if (lines.length < 2) return null;
+
+  const parseRow = (line: string) =>
+    line.split("|").map((cell) => cell.trim()).filter((c) => c.length > 0);
+
+  const headers = parseRow(lines[0]);
+  if (headers.length === 0) return null;
+
+  const rows: string[][] = [];
+  for (let j = 1; j < lines.length; j++) {
+    // Skip markdown-style separator rows (---|---|---)
+    if (/^[\s|:-]+$/.test(lines[j])) continue;
+    const row = parseRow(lines[j]);
+    if (row.length > 0) rows.push(row);
+  }
+
+  return rows.length > 0 ? { headers, rows } : null;
+}
+
+/**
+ * Renders a data table using shadcn Table components.
+ */
+function DataTable({ headers, rows }: { headers: string[]; rows: string[][] }) {
+  return (
+    <div className="mt-2 rounded-lg border border-border overflow-hidden">
+      <Table>
+        <TableHeader>
+          <TableRow className="bg-muted/50">
+            {headers.map((h, idx) => (
+              <TableHead key={idx} className="text-xs font-semibold">
+                {h}
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row, rIdx) => (
+            <TableRow key={rIdx}>
+              {headers.map((_, cIdx) => (
+                <TableCell key={cIdx} className="text-xs">
+                  {row[cIdx] ?? ""}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+/**
+ * Renders a single section of text (no [TABLE] blocks) into formatted elements.
+ * Handles bullet lists, numbered lists with nested sub-details, and plain text paragraphs.
+ */
+function renderTextSection(lines: string[], keyPrefix: string): React.ReactNode[] {
   const elements: React.ReactNode[] = [];
   let i = 0;
 
   while (i < lines.length) {
-    const line = lines[i];
-    const trimmed = line.trim();
+    const trimmed = lines[i].trim();
 
     // Skip empty lines
     if (!trimmed) {
@@ -40,7 +104,7 @@ function FormattedMessage({ content }: { content: string }) {
         i++;
       }
       elements.push(
-        <ul key={`ul-${i}`} className="mt-1 space-y-0.5">
+        <ul key={`${keyPrefix}-ul-${i}`} className="mt-1 space-y-0.5">
           {bullets.map((b, idx) => (
             <li key={idx} className="flex gap-2">
               <span className="text-muted-foreground shrink-0">-</span>
@@ -52,7 +116,7 @@ function FormattedMessage({ content }: { content: string }) {
       continue;
     }
 
-    // Collect numbered list with optional sub-details (dash lines or plain text under each number)
+    // Collect numbered list with optional sub-details
     if (/^\d+[.)]\s/.test(trimmed)) {
       const items: { num: string; text: string; details: { text: string; isDash: boolean }[] }[] = [];
       while (i < lines.length) {
@@ -62,12 +126,9 @@ function FormattedMessage({ content }: { content: string }) {
         if (match) {
           items.push({ num: match[1], text: match[2], details: [] });
           i++;
-          // Collect any following lines as sub-details of this numbered item:
-          // - dash lines (- item) and plain text lines that are not a new numbered item
           while (i < lines.length) {
             const sub = lines[i].trim();
             if (!sub) { i++; continue; }
-            // Stop if the next line is a new numbered item
             if (/^\d+[.)]\s/.test(sub)) break;
             if (/^-\s/.test(sub)) {
               items[items.length - 1].details.push({ text: sub.replace(/^-\s+/, ""), isDash: true });
@@ -81,7 +142,7 @@ function FormattedMessage({ content }: { content: string }) {
         }
       }
       elements.push(
-        <ol key={`ol-${i}`} className="mt-1 space-y-1">
+        <ol key={`${keyPrefix}-ol-${i}`} className="mt-1 space-y-1">
           {items.map((item, idx) => (
             <li key={idx}>
               <div className="flex gap-2">
@@ -106,8 +167,56 @@ function FormattedMessage({ content }: { content: string }) {
     }
 
     // Regular text line
-    elements.push(<p key={`p-${i}`} className={i > 0 ? "mt-1" : ""}>{trimmed}</p>);
+    elements.push(
+      <p key={`${keyPrefix}-p-${i}`} className={elements.length > 0 ? "mt-1" : ""}>
+        {trimmed}
+      </p>
+    );
     i++;
+  }
+
+  return elements;
+}
+
+/**
+ * Renders assistant message content with formatted bullet points, numbered lists, and data tables.
+ * Splits plain text into visual blocks: headings, bullets, numbered items, tables, and paragraphs.
+ *
+ * Tables are denoted by [TABLE]...[/TABLE] blocks with pipe-delimited rows.
+ */
+function FormattedMessage({ content }: { content: string }) {
+  // Split content by [TABLE]...[/TABLE] blocks
+  const parts = content.split(/\[TABLE\]|\[\/TABLE\]/i);
+  const elements: React.ReactNode[] = [];
+
+  // Determine which parts are table blocks vs text.
+  // After splitting by [TABLE] and [/TABLE], the pattern is:
+  // text, tableContent, text, tableContent, ...
+  // The first part is always text, then alternates.
+  let isTable = false;
+  for (let pIdx = 0; pIdx < parts.length; pIdx++) {
+    const part = parts[pIdx];
+
+    if (isTable) {
+      // Try to parse as a table
+      const tableData = parseTable(part);
+      if (tableData) {
+        elements.push(<DataTable key={`table-${pIdx}`} headers={tableData.headers} rows={tableData.rows} />);
+      } else {
+        // Fallback: render as plain text if parsing fails
+        const lines = part.split("\n");
+        elements.push(...renderTextSection(lines, `tf-${pIdx}`));
+      }
+    } else {
+      // Render as normal formatted text
+      const trimmedPart = part.trim();
+      if (trimmedPart) {
+        const lines = part.split("\n");
+        elements.push(...renderTextSection(lines, `s-${pIdx}`));
+      }
+    }
+
+    isTable = !isTable;
   }
 
   return <>{elements}</>;
@@ -146,9 +255,9 @@ const SUGGESTION_POOL = [
 
 function getRandomSuggestions(exclude: string[]): string[] {
   const available = SUGGESTION_POOL.filter((s) => !exclude.includes(s));
-  const pool = available.length >= 3 ? available : SUGGESTION_POOL;
+  const pool = available.length >= 5 ? available : SUGGESTION_POOL;
   const shuffled = [...pool].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, 3);
+  return shuffled.slice(0, 5);
 }
 
 interface Message {
@@ -167,7 +276,7 @@ export default function ChatPage() {
   const [headerVisible, setHeaderVisible] = useState(true);
   const [selectOpen, setSelectOpen] = useState(false);
   const [reactions, setReactions] = useState<Record<string, "up" | "down" | null>>({});
-  const [suggestions, setSuggestions] = useState<string[]>(SUGGESTION_POOL.slice(0, 3));
+  const [suggestions, setSuggestions] = useState<string[]>(SUGGESTION_POOL.slice(0, 5));
   const [suggestionAnim, setSuggestionAnim] = useState<"enter" | "exit">("enter");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -411,9 +520,9 @@ export default function ChatPage() {
                 Ask about the UiTM academic calendar. Select your program and start.
               </p>
             </div>
-            <div className={`mt-2 w-full max-w-sm mx-auto hidden md:block ${suggestionAnim === "enter" ? "suggestions-enter" : "suggestions-exit"}`}>
-              <div className="flex flex-col sm:flex-row gap-2 items-center justify-center">
-                {suggestions.slice(0, 2).map((suggestion) => (
+            <div className={`mt-2 w-full max-w-lg mx-auto hidden md:block ${suggestionAnim === "enter" ? "suggestions-enter" : "suggestions-exit"}`}>
+              <div className="flex flex-wrap gap-2 items-center justify-center">
+                {suggestions.slice(0, 3).map((suggestion) => (
                   <button
                     key={suggestion}
                     onClick={() => sendMessage(suggestion)}
@@ -423,14 +532,17 @@ export default function ChatPage() {
                   </button>
                 ))}
               </div>
-              {suggestions[2] && (
-                <div className="flex justify-center mt-2">
-                  <button
-                    onClick={() => sendMessage(suggestions[2])}
-                    className="w-fit text-xs px-3 py-1.5 rounded-full border border-border bg-secondary/50 hover:bg-secondary dark:bg-[#2A2A2A] dark:hover:bg-[#333] text-foreground transition-colors whitespace-nowrap"
-                  >
-                    {suggestions[2]}
-                  </button>
+              {suggestions.length > 3 && (
+                <div className="flex flex-wrap gap-2 items-center justify-center mt-2">
+                  {suggestions.slice(3, 5).map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      onClick={() => sendMessage(suggestion)}
+                      className="w-fit text-xs px-3 py-1.5 rounded-full border border-border bg-secondary/50 hover:bg-secondary dark:bg-[#2A2A2A] dark:hover:bg-[#333] text-foreground transition-colors whitespace-nowrap"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
