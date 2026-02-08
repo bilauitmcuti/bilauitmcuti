@@ -52,9 +52,9 @@ function FormattedMessage({ content }: { content: string }) {
       continue;
     }
 
-    // Collect numbered list with optional sub-details (dash lines under each number)
+    // Collect numbered list with optional sub-details (dash lines or plain text under each number)
     if (/^\d+[.)]\s/.test(trimmed)) {
-      const items: { num: string; text: string; details: string[] }[] = [];
+      const items: { num: string; text: string; details: { text: string; isDash: boolean }[] }[] = [];
       while (i < lines.length) {
         const cur = lines[i].trim();
         if (!cur) { i++; continue; }
@@ -62,16 +62,19 @@ function FormattedMessage({ content }: { content: string }) {
         if (match) {
           items.push({ num: match[1], text: match[2], details: [] });
           i++;
-          // Collect any dash lines that follow as sub-details of this numbered item
+          // Collect any following lines as sub-details of this numbered item:
+          // - dash lines (- item) and plain text lines that are not a new numbered item
           while (i < lines.length) {
             const sub = lines[i].trim();
             if (!sub) { i++; continue; }
+            // Stop if the next line is a new numbered item
+            if (/^\d+[.)]\s/.test(sub)) break;
             if (/^-\s/.test(sub)) {
-              items[items.length - 1].details.push(sub.replace(/^-\s+/, ""));
-              i++;
+              items[items.length - 1].details.push({ text: sub.replace(/^-\s+/, ""), isDash: true });
             } else {
-              break;
+              items[items.length - 1].details.push({ text: sub, isDash: false });
             }
+            i++;
           }
         } else {
           break;
@@ -86,9 +89,12 @@ function FormattedMessage({ content }: { content: string }) {
                 <span>{item.text}</span>
               </div>
               {item.details.length > 0 && (
-                <div className="ml-[calc(1.2em+0.5rem)] mt-0.5 space-y-0.5 text-muted-foreground">
+                <div className="ml-[calc(1.2em+0.5rem)] mt-0.5 space-y-0.5">
                   {item.details.map((d, dIdx) => (
-                    <div key={dIdx}>{d}</div>
+                    <div key={dIdx} className={d.isDash ? "flex gap-2 text-muted-foreground" : ""}>
+                      {d.isDash && <span className="text-muted-foreground shrink-0">-</span>}
+                      <span>{d.text}</span>
+                    </div>
                   ))}
                 </div>
               )}

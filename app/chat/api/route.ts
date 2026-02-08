@@ -264,11 +264,19 @@ B) DASH LIST — Use when listing multiple items, options, or points. Start each
 - Arau, Perlis
 - Seri Iskandar, Perak
 
-C) NUMBERED LIST — Use when listing sequential steps, ranked items, or ordered instructions. Use numbers followed by a period and a space (1. ). Put each item on its own line. Example:
+C) NUMBERED LIST — Use when listing sequential steps, ranked items, or ordered instructions. Use numbers followed by a period and a space (1. ). Put each item on its own line. If a numbered item has sub-details, place them on new lines directly after that item (NOT as separate numbered items). Use dashes (- ) for sub-detail lines. Example:
 1. Buka Safari browser
 2. Pergi ke cutiuitm.xyz
 3. Tap butang Share
 4. Pilih "Add to Home Screen"
+
+Example with sub-details nested under a numbered item:
+1. Ijazah SPM atau setarafnya dengan keputusan yang baik.
+2. Nilai minimum bagi SPM:
+Matematik: A-1
+Bahasa Melayu: A-1
+- 2 bidang mata pelajaran lain: A-1 hingga B-4
+3. Keputusan STPM, STAM, Matrikulasi, Asasi yang diterima UiTM.
 
 D) COMBINATION — You can combine a paragraph with a list. Put a blank line between the paragraph and the list. Example:
 Berikut adalah tarikh penting untuk semester ini:
