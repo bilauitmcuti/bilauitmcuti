@@ -326,29 +326,40 @@ input[type="checkbox"],
     }
   }
   
-  /* Chat page textarea - hide native scrollbar and resize handle */
-  .chat-textarea,
-  .chat-textarea::-webkit-scrollbar {
-    overflow: hidden !important;
-    scrollbar-width: none !important;
-  }
-  .chat-textarea::-webkit-scrollbar {
-    display: none !important;
-  }
-  .chat-textarea::-webkit-resizer {
-    display: none !important;
+  /* Chat header scroll hide/show animation */
+  .chat-header {
+    transition: transform 300ms ease, translate 300ms ease !important;
   }
   
-  /* Prevent auto-zoom on mobile when focusing textarea */
-  /* iOS Safari zooms in on inputs/textareas with font-size < 16px */
-  @media screen and (max-width: 768px) {
-    .chat-textarea {
-      font-size: 16px !important;
-    }
+  /* Suggestion buttons crossfade animations */
+  .suggestions-enter {
+    animation: suggestionsEnter 400ms ease-out forwards !important;
   }
-  @media (hover: none) and (pointer: coarse) {
-    .chat-textarea {
-      font-size: 16px !important;
-    }
+  .suggestions-exit {
+    animation: suggestionsExit 400ms ease-out forwards !important;
   }
+  @keyframes suggestionsEnter {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes suggestionsExit {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-6px); }
+  }
+
+  /* Chat auto-growing input - hide scrollbar, limit max height */
+  .chat-input {
+    max-height: 130px;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+  .chat-input::-webkit-scrollbar {
+    display: none;
+  }
+  .chat-input::-webkit-resizer {
+    display: none;
+  }
+  
+  /* Note: chat-input uses 14px (text-sm) across all devices */
+  /* iOS Safari may auto-zoom on focus since font-size < 16px */
 }

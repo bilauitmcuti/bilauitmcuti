@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ArrowUp, Bot, User } from "lucide-react";
+import { ChevronLeft, ChevronDown, ChevronUp, ArrowUp, ThumbsUp, ThumbsDown, Copy, Check, RefreshCw } from "lucide-react";
 import { programOptions } from "@/lib/data";
 import {
   Select,
@@ -12,7 +12,44 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const MAX_MESSAGE_LENGTH = 500;
+
+const SUGGESTION_POOL = [
+  // Calendar questions (English)
+  "When is the next break?",
+  "When does lecture start?",
+  "When is mid-semester test?",
+  "When is Hari Raya break?",
+  "When is revision week?",
+  "When is final exam?",
+  "When is add/drop period?",
+  "When is semester break?",
+  "What is Group A schedule?",
+  // Calendar questions (Malay)
+  "Bila peperiksaan akhir?",
+  "Bila cuti semester bermula?",
+  "Bila pendaftaran kursus dibuka?",
+  "Bila tarikh bayar yuran?",
+  "Bila cuti pertengahan semester?",
+  "Bila kuliah bermula Group B?",
+  // UiTM general questions
+  "List all UiTM campuses",
+  "What courses does UiTM offer?",
+  "Apa itu program Asasi UiTM?",
+  "How many faculties in UiTM?",
+  "What is MDS programme?",
+  "Apa syarat masuk Diploma?",
+  "Tell me about UiTM Shah Alam",
+  "Apa itu e-PJJ UiTM?",
+  "What programs are in Group A?",
+  "Senarai fakulti UiTM",
+];
+
+function getRandomSuggestions(exclude: string[]): string[] {
+  const available = SUGGESTION_POOL.filter((s) => !exclude.includes(s));
+  const pool = available.length >= 3 ? available : SUGGESTION_POOL;
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, 3);
+}
 
 interface Message {
   id: string;
@@ -26,10 +63,43 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [program, setProgram] = useState("All");
   const [isLoading, setIsLoading] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [headerVisible, setHeaderVisible] = useState(true);
+  const [selectOpen, setSelectOpen] = useState(false);
+  const [reactions, setReactions] = useState<Record<string, "up" | "down" | null>>({});
+  const [suggestions, setSuggestions] = useState<string[]>(SUGGESTION_POOL.slice(0, 3));
+  const [suggestionAnim, setSuggestionAnim] = useState<"enter" | "exit">("enter");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const lastScrollTop = useRef(0);
   const groupAOptions = useMemo(() => programOptions.filter(p => p.group === 'A'), []);
   const groupBOptions = useMemo(() => programOptions.filter(p => p.group === 'B'), []);
+
+  // Rotate suggestions every 5 seconds with crossfade
+  useEffect(() => {
+    if (messages.length > 0) return;
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const interval = setInterval(() => {
+      setSuggestionAnim("exit");
+      timeoutId = setTimeout(() => {
+        setSuggestions((prev) => getRandomSuggestions(prev));
+        setSuggestionAnim("enter");
+      }, 400);
+    }, 5000);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeoutId);
+    };
+  }, [messages.length]);
+
+  // Auto-resize textarea to fit content up to max height
+  const adjustTextareaHeight = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 130)}px`;
+  }, []);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -39,15 +109,30 @@ export default function ChatPage() {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  const handleSubmit = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    const trimmed = input.trim();
-    if (!trimmed || isLoading) return;
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [input, adjustTextareaHeight]);
+
+  const handleScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const currentScrollTop = el.scrollTop;
+    // Show header when scrolling up or near top
+    if (currentScrollTop <= 10 || currentScrollTop < lastScrollTop.current) {
+      setHeaderVisible(true);
+    } else if (currentScrollTop > lastScrollTop.current) {
+      setHeaderVisible(false);
+    }
+    lastScrollTop.current = currentScrollTop;
+  }, []);
+
+  const sendMessage = async (text: string) => {
+    if (!text.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: trimmed,
+      content: text.trim(),
     };
 
     const updatedMessages = [...messages, userMessage];
@@ -56,7 +141,6 @@ export default function ChatPage() {
     setIsLoading(true);
 
     try {
-      // Send conversation history (excluding the current message) for context
       const history = messages.map((msg) => ({
         role: msg.role,
         content: msg.content,
@@ -65,7 +149,7 @@ export default function ChatPage() {
       const res = await fetch("/chat/api", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: trimmed, program, history }),
+        body: JSON.stringify({ message: text.trim(), program, history }),
       });
 
       const data = await res.json();
@@ -98,6 +182,11 @@ export default function ChatPage() {
     }
   };
 
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    await sendMessage(input);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -105,87 +194,184 @@ export default function ChatPage() {
     }
   };
 
+  const handleCopy = async (msgId: string, content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedId(msgId);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      // Fallback: ignore if clipboard API fails
+    }
+  };
+
+  const handleRegenerate = async (assistantMsgId: string) => {
+    if (isLoading) return;
+    // Find the user message right before this assistant message
+    const msgIndex = messages.findIndex((m) => m.id === assistantMsgId);
+    if (msgIndex <= 0) return;
+    const userMsg = messages[msgIndex - 1];
+    if (userMsg.role !== "user") return;
+
+    // Remove the assistant message we're regenerating
+    const newMessages = messages.filter((m) => m.id !== assistantMsgId);
+    setMessages(newMessages);
+    setIsLoading(true);
+
+    try {
+      const history = newMessages.slice(0, -1).map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      }));
+
+      const res = await fetch("/chat/api", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userMsg.content, program, history }),
+      });
+
+      const data = await res.json();
+      let content: string;
+      if (!res.ok) {
+        content = data.error || "Something went wrong. Please try again.";
+      } else {
+        content = data.reply || "Sorry, I could not get a response.";
+      }
+
+      const newAssistantMessage: Message = {
+        id: Date.now().toString(),
+        role: "assistant",
+        content,
+      };
+      setMessages((prev) => [...prev, newAssistantMessage]);
+    } catch {
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        role: "assistant",
+        content: "Something went wrong. Please try again.",
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleReaction = (msgId: string, type: "up" | "down") => {
+    setReactions((prev) => ({
+      ...prev,
+      [msgId]: prev[msgId] === type ? null : type,
+    }));
+  };
+
   return (
-    <div className="flex flex-col h-dvh bg-background text-foreground">
-      {/* Header */}
-      <header className="flex items-center gap-3 px-4 md:px-0 py-3 mx-auto max-w-[600px] w-full">
-        <button
-          onClick={() => router.push("/")}
-          className="flex items-center justify-center w-9 h-9 rounded-full bg-secondary hover:bg-secondary/80 dark:bg-[#2A2A2A] dark:hover:bg-[#333] transition-colors"
-          aria-label="Back to home"
-        >
-          <ChevronLeft className="w-5 h-5" />
-        </button>
-      </header>
+    <div className="relative flex flex-col h-dvh bg-background text-foreground">
+      {/* Header - overlays on top of chat area */}
+      <div className={`chat-header absolute top-0 left-0 right-0 z-10 px-4 md:px-0 ${headerVisible ? "translate-y-0" : "-translate-y-full"}`}>
+        <header className="flex items-center gap-3 py-3 mx-auto max-w-[600px] w-full">
+          <button
+            onClick={() => router.push("/")}
+            className="flex items-center justify-center w-9 h-9 rounded-full bg-secondary hover:bg-secondary/80 dark:bg-[#2A2A2A] dark:hover:bg-[#333] transition-colors"
+            aria-label="Back to home"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+        </header>
+      </div>
 
       {/* Chat messages area */}
-      <div className="flex-1 overflow-y-auto px-4 md:px-0 py-6">
+      <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-4 md:px-0 pt-0 pb-6">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-4 text-center mx-auto max-w-[600px]">
-            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-secondary dark:bg-[#2A2A2A]">
-              <Bot className="w-7 h-7 text-muted-foreground" />
-            </div>
             <div>
               <h2 className="text-lg font-semibold mb-1">Bila UiTM Cuti?</h2>
               <p className="text-sm text-muted-foreground max-w-xs">
                 Ask me anything about your UiTM academic calendar! Select your program below and start asking.
               </p>
             </div>
-            <div className="flex flex-wrap gap-2 mt-2 max-w-sm justify-center">
-              {[
-                "When is the next break?",
-                "Bila peperiksaan akhir?",
-                "When does lecture start?",
-              ].map((suggestion) => (
-                <button
-                  key={suggestion}
-                  onClick={() => {
-                    setInput(suggestion);
-                    textareaRef.current?.focus();
-                  }}
-                  className="text-xs px-3 py-1.5 rounded-full border border-border bg-secondary/50 hover:bg-secondary dark:bg-[#2A2A2A] dark:hover:bg-[#333] text-foreground transition-colors"
-                >
-                  {suggestion}
-                </button>
-              ))}
+            <div className={`mt-2 max-w-sm ${suggestionAnim === "enter" ? "suggestions-enter" : "suggestions-exit"}`}>
+              <div className="flex gap-2 justify-center">
+                {suggestions.slice(0, 2).map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    onClick={() => sendMessage(suggestion)}
+                    className="text-xs px-3 py-1.5 rounded-full border border-border bg-secondary/50 hover:bg-secondary dark:bg-[#2A2A2A] dark:hover:bg-[#333] text-foreground transition-colors"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+              {suggestions[2] && (
+                <div className="flex justify-center mt-2">
+                  <button
+                    onClick={() => sendMessage(suggestions[2])}
+                    className="text-xs px-3 py-1.5 rounded-full border border-border bg-secondary/50 hover:bg-secondary dark:bg-[#2A2A2A] dark:hover:bg-[#333] text-foreground transition-colors"
+                  >
+                    {suggestions[2]}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         ) : (
-          <div className="mx-auto max-w-[600px] space-y-6">
+          <div className="mx-auto max-w-[600px] space-y-6 pt-14">
             {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex gap-3 ${
-                  msg.role === "user" ? "justify-end" : "justify-start"
-                }`}
-              >
-                {msg.role === "assistant" && (
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-secondary dark:bg-[#2A2A2A] flex items-center justify-center mt-0.5">
-                    <Bot className="w-4 h-4 text-muted-foreground" />
-                  </div>
-                )}
+              <div key={msg.id} className="space-y-1">
                 <div
-                  className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
-                    msg.role === "user"
-                      ? "bg-primary text-primary-foreground rounded-br-md"
-                      : "bg-secondary dark:bg-[#2A2A2A] text-foreground rounded-bl-md"
+                  className={`flex ${
+                    msg.role === "user" ? "justify-end" : "justify-start"
                   }`}
                 >
-                  {msg.content}
+                  <div
+                    className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
+                      msg.role === "user"
+                        ? "bg-primary text-primary-foreground rounded-br-md"
+                        : "bg-secondary dark:bg-[#2A2A2A] text-foreground rounded-bl-md"
+                    }`}
+                  >
+                    {msg.content}
+                  </div>
                 </div>
-                {msg.role === "user" && (
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary flex items-center justify-center mt-0.5">
-                    <User className="w-4 h-4 text-primary-foreground" />
+                {msg.role === "assistant" && (
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => handleCopy(msg.id, msg.content)}
+                      className="flex items-center justify-center w-7 h-7 rounded-md hover:bg-secondary dark:hover:bg-[#2A2A2A] text-muted-foreground hover:text-foreground transition-colors"
+                      aria-label="Copy answer"
+                    >
+                      {copiedId === msg.id ? (
+                        <Check className="w-3.5 h-3.5 text-green-500" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                    <button
+                      onClick={() => handleRegenerate(msg.id)}
+                      disabled={isLoading}
+                      className="flex items-center justify-center w-7 h-7 rounded-md hover:bg-secondary dark:hover:bg-[#2A2A2A] text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      aria-label="Regenerate answer"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleReaction(msg.id, "up")}
+                      className={`flex items-center justify-center w-7 h-7 rounded-md hover:bg-secondary dark:hover:bg-[#2A2A2A] transition-colors ${reactions[msg.id] === "up" ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                      aria-label="Thumbs up"
+                    >
+                      <ThumbsUp className={`w-3.5 h-3.5 ${reactions[msg.id] === "up" ? "fill-current" : ""}`} />
+                    </button>
+                    <button
+                      onClick={() => handleReaction(msg.id, "down")}
+                      className={`flex items-center justify-center w-7 h-7 rounded-md hover:bg-secondary dark:hover:bg-[#2A2A2A] transition-colors ${reactions[msg.id] === "down" ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                      aria-label="Thumbs down"
+                    >
+                      <ThumbsDown className={`w-3.5 h-3.5 ${reactions[msg.id] === "down" ? "fill-current" : ""}`} />
+                    </button>
                   </div>
                 )}
               </div>
             ))}
 
             {isLoading && (
-              <div className="flex gap-3 justify-start">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-secondary dark:bg-[#2A2A2A] flex items-center justify-center mt-0.5">
-                  <Bot className="w-4 h-4 text-muted-foreground" />
-                </div>
+              <div className="flex justify-start">
                 <div className="bg-secondary dark:bg-[#2A2A2A] rounded-2xl rounded-bl-md px-4 py-3">
                   <div className="flex gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:0ms]" />
@@ -206,26 +392,33 @@ export default function ChatPage() {
         <div className="mx-auto max-w-[600px]">
           <form
             onSubmit={handleSubmit}
-            className="relative rounded-2xl border border-border bg-secondary dark:bg-[#2A2A2A] overflow-hidden"
+            className="rounded-2xl border border-border bg-secondary dark:bg-[#2A2A2A] overflow-hidden"
           >
-            {/* Textarea */}
+            {/* Auto-growing text input */}
             <textarea
               ref={textareaRef}
               value={input}
-              onChange={(e) => setInput(e.target.value.slice(0, MAX_MESSAGE_LENGTH))}
+              onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Ask anything about your schedule"
-              maxLength={MAX_MESSAGE_LENGTH}
               disabled={isLoading}
-              className="chat-textarea w-full h-[130px] resize-none bg-transparent px-4 pt-4 pb-14 text-sm placeholder:text-muted-foreground focus:outline-none disabled:opacity-50 overflow-hidden"
+              rows={1}
+              className="chat-input w-full resize-none bg-transparent px-4 pt-3 pb-1 text-sm leading-relaxed placeholder:text-muted-foreground focus:outline-none disabled:opacity-50"
             />
 
-            {/* Bottom bar inside the textarea box */}
-            <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-3 py-2.5">
+            {/* Bottom bar */}
+            <div className="flex items-center justify-between px-3 py-2">
               {/* Program dropdown */}
-              <Select value={program} onValueChange={setProgram}>
-                <SelectTrigger className="w-auto h-8 text-xs border-none bg-transparent shadow-none px-2 gap-1 hover:bg-background/50 dark:hover:bg-[#333] rounded-lg">
+              <Select value={program} onValueChange={setProgram} open={selectOpen} onOpenChange={setSelectOpen}>
+                <SelectTrigger className="w-auto h-8 text-xs border-none bg-transparent shadow-none px-2 gap-1 hover:bg-background/50 dark:hover:bg-[#333] rounded-lg [&>svg]:hidden">
                   <SelectValue placeholder="Program" />
+                  <div className="flex-shrink-0">
+                    {selectOpen ? (
+                      <ChevronUp className="size-4 opacity-50 transition-none" />
+                    ) : (
+                      <ChevronDown className="size-4 opacity-50 transition-none" />
+                    )}
+                  </div>
                 </SelectTrigger>
                 <SelectContent className="min-w-[250px] pt-4 pb-4 pl-3 pr-3 bg-popover dark:bg-[#2A2A2A] border border-border transition-none">
                   {/* Group A */}
@@ -261,13 +454,6 @@ export default function ChatPage() {
               </Select>
 
               <div className="flex items-center gap-2">
-                {/* Character counter */}
-                {input.length > 0 && (
-                  <span className={`text-[10px] tabular-nums ${input.length >= MAX_MESSAGE_LENGTH ? "text-red-500" : "text-muted-foreground"}`}>
-                    {input.length}/{MAX_MESSAGE_LENGTH}
-                  </span>
-                )}
-
                 {/* Send button */}
                 <button
                   type="submit"
