@@ -119,7 +119,7 @@ export const activitiesGroupA: Activity[] = [
     startDate: '2026-04-20',
     endDate: '2026-04-26',
     duration: '1 Minggu',
-    type: 'other',
+    type: 'break',
     group: 'A',
   },
   {
@@ -248,7 +248,7 @@ export const activitiesGroupB: Activity[] = [
     semua: true,
   },
   {
-    name: 'Cuti Ulangkaji',
+    name: 'Minggu Ulangkaji',
     startDate: '2026-07-13',
     endDate: '2026-07-19',
     duration: '1 Minggu',
