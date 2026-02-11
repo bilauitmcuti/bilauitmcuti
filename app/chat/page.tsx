@@ -253,6 +253,24 @@ const SUGGESTION_POOL = [
   "Senarai fakulti UiTM",
 ];
 
+const LOADING_PHRASES = [
+  "Searching calendar data...",
+  "Checking your schedule...",
+  "Looking up dates...",
+  "Analyzing academic calendar...",
+  "Finding the answer...",
+  "Menyemak jadual akademik...",
+  "Mencari maklumat...",
+  "Menyusun jawapan...",
+  "Reviewing semester info...",
+  "Scanning timetable...",
+];
+
+function getRandomLoadingPhrase(exclude?: string): string {
+  const available = LOADING_PHRASES.filter((p) => p !== exclude);
+  return available[Math.floor(Math.random() * available.length)];
+}
+
 function getRandomSuggestions(exclude: string[]): string[] {
   const available = SUGGESTION_POOL.filter((s) => !exclude.includes(s));
   const pool = available.length >= 5 ? available : SUGGESTION_POOL;
@@ -278,6 +296,7 @@ export default function ChatPage() {
   const [reactions, setReactions] = useState<Record<string, "up" | "down" | null>>({});
   const [suggestions, setSuggestions] = useState<string[]>(SUGGESTION_POOL.slice(0, 5));
   const [suggestionAnim, setSuggestionAnim] = useState<"enter" | "exit">("enter");
+  const [loadingPhrase, setLoadingPhrase] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -302,6 +321,19 @@ export default function ChatPage() {
       clearTimeout(timeoutId);
     };
   }, [messages.length]);
+
+  // Rotate loading phrases while waiting for AI response
+  useEffect(() => {
+    if (!isLoading) {
+      setLoadingPhrase("");
+      return;
+    }
+    setLoadingPhrase(getRandomLoadingPhrase());
+    const interval = setInterval(() => {
+      setLoadingPhrase((prev) => getRandomLoadingPhrase(prev));
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [isLoading]);
 
   // Auto-resize textarea to fit content up to max height
   const adjustTextareaHeight = useCallback(() => {
@@ -578,7 +610,7 @@ export default function ChatPage() {
                       aria-label="Copy answer"
                     >
                       {copiedId === msg.id ? (
-                        <Check className="w-3.5 h-3.5 text-green-500" />
+                        <Check className="w-3.5 h-3.5 text-blue-500" />
                       ) : (
                         <Copy className="w-3.5 h-3.5" />
                       )}
@@ -611,7 +643,7 @@ export default function ChatPage() {
             ))}
 
             {isLoading && (
-              <div className="flex justify-start">
+              <div className="flex flex-col items-start gap-1">
                 <div className="bg-secondary dark:bg-[#2A2A2A] rounded-2xl rounded-bl-md px-4 py-3">
                   <div className="flex gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:0ms]" />
@@ -619,6 +651,11 @@ export default function ChatPage() {
                     <span className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:300ms]" />
                   </div>
                 </div>
+                {loadingPhrase && (
+                  <span className="text-xs text-muted-foreground pl-1 animate-pulse">
+                    {loadingPhrase}
+                  </span>
+                )}
               </div>
             )}
 
