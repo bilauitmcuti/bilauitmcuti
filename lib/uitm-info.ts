@@ -93,9 +93,9 @@ Academic Centres:
 - Foundation / Asasi (1 year)
 - Pre-Diploma
 - Diploma (2-3 years)
-- Bachelor's Degree (3-4 years)
-- Master's (1-2 years)
-- PhD / Doctorate (3-5 years)
+- Bachelor's Degree / Degree / Ijazah Sarjana Muda (3-4 years) — Note: "Degree" and "Ijazah" both refer to Bachelor's Degree in UiTM
+- Master's / Sarjana (1-2 years)
+- PhD / Doctorate / Doktor Falsafah (3-5 years)
 - Professional programmes
 - Part-time & distance learning: e-PJJ (e-Pembelajaran Jarak Jauh), PLK (Pembelajaran Luar Kampus)
 

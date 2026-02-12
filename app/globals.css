@@ -326,21 +326,25 @@ input[type="checkbox"],
     }
   }
   
-  /* Chat input area - blurry gradient fade on mobile/tablet */
-  @media (max-width: 1023px) {
-    .chat-input-area::before {
-      content: "";
-      position: absolute;
-      top: -20px;
-      left: 0;
-      right: 0;
-      height: 20px;
-      pointer-events: none;
-      background: linear-gradient(to bottom, transparent, var(--background));
-      z-index: 1;
-    }
+  /* Chat input area - smooth gradient fade above the input (all devices) */
+  .chat-input-area::before {
+    content: "";
+    position: absolute;
+    top: -24px;
+    left: 0;
+    right: 0;
+    height: 24px;
+    pointer-events: none;
+    background: linear-gradient(to bottom, transparent, var(--background));
+    z-index: 1;
   }
-  
+
+  /* Top fade - always visible regardless of header scroll state */
+  .chat-top-fade {
+    height: 24px;
+    background: linear-gradient(to bottom, var(--background), transparent);
+  }
+
   /* Chat header scroll hide/show animation */
   .chat-header {
     transition: transform 300ms ease, translate 300ms ease !important;
