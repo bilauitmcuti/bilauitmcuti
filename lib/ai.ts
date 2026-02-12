@@ -116,20 +116,20 @@ export async function askGroqWithFallback(
   }
 }
 
-/** Calendar: gpt-oss first, llama backup. Both auto work based on question. */
+/** Calendar: llama first, gpt-oss backup. */
 export async function askGroq(
   prompt: string,
   systemPrompt?: string,
   history?: ChatMessage[]
 ): Promise<string> {
-  return askGroqWithFallback(prompt, systemPrompt, history, MODEL_GPT_OSS, MODEL_LLAMA);
+  return askGroqWithFallback(prompt, systemPrompt, history, MODEL_LLAMA, MODEL_GPT_OSS);
 }
 
-/** Research: gpt-oss first for general UiTM knowledge, llama backup. Both auto work based on question. */
+/** Research: llama first for general UiTM knowledge, gpt-oss backup. */
 export async function askGroqResearch(
   prompt: string,
   systemPrompt?: string,
   history?: ChatMessage[]
 ): Promise<string> {
-  return askGroqWithFallback(prompt, systemPrompt, history, MODEL_GPT_OSS, MODEL_LLAMA);
+  return askGroqWithFallback(prompt, systemPrompt, history, MODEL_LLAMA, MODEL_GPT_OSS);
 }
