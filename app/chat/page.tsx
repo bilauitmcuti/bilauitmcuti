@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronDown, ChevronUp, ArrowUp, ThumbsUp, ThumbsDown, Copy, Check, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronDown, ChevronUp, ArrowUp, ThumbsUp, ThumbsDown, Copy, Check, RefreshCw, Pencil } from "lucide-react";
 import { programOptions } from "@/lib/data";
 import {
   Select,
@@ -19,6 +19,12 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import useEmblaCarousel from "embla-carousel-react";
 
 /**
@@ -319,6 +325,20 @@ export default function ChatPage() {
   const groupBOptions = useMemo(() => programOptions.filter(p => p.group === 'B'), []);
   const [emblaRef] = useEmblaCarousel({ dragFree: true, containScroll: "trimSnaps", align: "center" });
 
+  const lastAssistantId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "assistant") return messages[i].id;
+    }
+    return null;
+  }, [messages]);
+
+  const lastUserMsgId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "user") return messages[i].id;
+    }
+    return null;
+  }, [messages]);
+
   const disclaimerTexts = useMemo(() => [
     "AI can make mistakes. Check important info.",
     "Free-tier AI model with daily rate limits.",
@@ -546,6 +566,18 @@ export default function ChatPage() {
     }));
   };
 
+  const handleEdit = useCallback((msgId: string) => {
+    const msgIndex = messages.findIndex((m) => m.id === msgId);
+    if (msgIndex === -1) return;
+    const msg = messages[msgIndex];
+    setInput(msg.content);
+    setMessages(messages.slice(0, msgIndex));
+    setTimeout(() => {
+      textareaRef.current?.focus();
+      scrollToBottom();
+    }, 100);
+  }, [messages, scrollToBottom]);
+
   return (
     <div className="relative flex flex-col h-dvh bg-background text-foreground">
       {/* Top fade - always visible, independent of header scroll */}
@@ -590,19 +622,37 @@ export default function ChatPage() {
                     msg.role === "user" ? "justify-end" : "justify-start"
                   }`}
                 >
-                  <div
-                    className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-                      msg.role === "user"
-                        ? "bg-primary text-primary-foreground rounded-br-md whitespace-pre-wrap"
-                        : "bg-secondary dark:bg-[#2A2A2A] text-foreground rounded-bl-md"
-                    }`}
-                  >
-                    {msg.role === "assistant" ? (
-                      <FormattedMessage content={msg.content} />
-                    ) : (
-                      msg.content
-                    )}
-                  </div>
+                  {msg.role === "user" && msg.id === lastUserMsgId ? (
+                    <ContextMenu>
+                      <ContextMenuTrigger asChild>
+                        <div
+                          className="max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed bg-primary text-primary-foreground rounded-br-md whitespace-pre-wrap cursor-context-menu"
+                        >
+                          {msg.content}
+                        </div>
+                      </ContextMenuTrigger>
+                      <ContextMenuContent className="w-40">
+                        <ContextMenuItem onClick={() => handleEdit(msg.id)}>
+                          <Pencil className="w-3.5 h-3.5 mr-2" />
+                          Edit
+                        </ContextMenuItem>
+                      </ContextMenuContent>
+                    </ContextMenu>
+                  ) : (
+                    <div
+                      className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                        msg.role === "user"
+                          ? "bg-primary text-primary-foreground rounded-br-md whitespace-pre-wrap"
+                          : "bg-secondary dark:bg-[#2A2A2A] text-foreground rounded-bl-md"
+                      }`}
+                    >
+                      {msg.role === "assistant" ? (
+                        <FormattedMessage content={msg.content} />
+                      ) : (
+                        msg.content
+                      )}
+                    </div>
+                  )}
                 </div>
                 {msg.role === "assistant" && (
                   <div className="flex gap-1">
@@ -619,22 +669,22 @@ export default function ChatPage() {
                     </button>
                     <button
                       onClick={() => handleRegenerate(msg.id)}
-                      disabled={isLoading}
-                      className="flex items-center justify-center w-7 h-7 rounded-md hover:bg-secondary dark:hover:bg-[#2A2A2A] text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      disabled={isLoading || msg.id !== lastAssistantId}
+                      className="flex items-center justify-center w-7 h-7 rounded-md hover:bg-secondary dark:hover:bg-[#2A2A2A] text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors active:scale-90 transition-transform duration-150"
                       aria-label="Regenerate answer"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => handleReaction(msg.id, "up")}
-                      className={`flex items-center justify-center w-7 h-7 rounded-md hover:bg-secondary dark:hover:bg-[#2A2A2A] transition-colors ${reactions[msg.id] === "up" ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                      className={`flex items-center justify-center w-7 h-7 rounded-md hover:bg-secondary dark:hover:bg-[#2A2A2A] transition-colors active:scale-90 transition-transform duration-150 ${reactions[msg.id] === "up" ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
                       aria-label="Thumbs up"
                     >
                       <ThumbsUp className={`w-3.5 h-3.5 ${reactions[msg.id] === "up" ? "fill-current" : ""}`} />
                     </button>
                     <button
                       onClick={() => handleReaction(msg.id, "down")}
-                      className={`flex items-center justify-center w-7 h-7 rounded-md hover:bg-secondary dark:hover:bg-[#2A2A2A] transition-colors ${reactions[msg.id] === "down" ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                      className={`flex items-center justify-center w-7 h-7 rounded-md hover:bg-secondary dark:hover:bg-[#2A2A2A] transition-colors active:scale-90 transition-transform duration-150 ${reactions[msg.id] === "down" ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
                       aria-label="Thumbs down"
                     >
                       <ThumbsDown className={`w-3.5 h-3.5 ${reactions[msg.id] === "down" ? "fill-current" : ""}`} />
