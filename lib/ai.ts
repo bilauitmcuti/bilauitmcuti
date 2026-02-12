@@ -97,14 +97,20 @@ export async function askGroqWithFallback(
     return await tryModel(primaryModel);
   } catch (primaryError: unknown) {
     const errMsg = primaryError instanceof Error ? primaryError.message : String(primaryError);
-    console.error(`Groq [${primaryModel}] failed, trying backup [${backupModel}]:`, errMsg);
+    if (process.env.NODE_ENV === "development") {
+      console.error(`Groq [${primaryModel}] failed, trying backup [${backupModel}]:`, errMsg);
+    }
 
     try {
       const result = await tryModel(backupModel);
-      console.log(`Groq backup [${backupModel}] succeeded`);
+      if (process.env.NODE_ENV === "development") {
+        console.log(`Groq backup [${backupModel}] succeeded`);
+      }
       return result;
     } catch (backupError: unknown) {
-      console.error(`Groq backup [${backupModel}] also failed:`, backupError);
+      if (process.env.NODE_ENV === "development") {
+        console.error(`Groq backup [${backupModel}] also failed:`, backupError);
+      }
       throw primaryError;
     }
   }

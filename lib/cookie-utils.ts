@@ -52,10 +52,13 @@ export function setFiltersToCookie(filters: FilterStates): void {
     const cookieValue = encodeURIComponent(JSON.stringify(filters));
     const expires = new Date();
     expires.setTime(expires.getTime() + COOKIE_MAX_AGE * 1000);
-    
-    document.cookie = `${COOKIE_NAME}=${cookieValue}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
+    const securePart =
+      process.env.NODE_ENV === "production" ? "; Secure" : "";
+    document.cookie = `${COOKIE_NAME}=${cookieValue}; expires=${expires.toUTCString()}; path=/; SameSite=Lax${securePart}`;
   } catch (e) {
-    console.warn('Failed to set filters cookie:', e);
+    if (process.env.NODE_ENV === "development") {
+      console.warn("Failed to set filters cookie:", e);
+    }
   }
 }
 

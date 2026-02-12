@@ -92,14 +92,14 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
+                const isDev = ${process.env.NODE_ENV === 'development'};
                 // Sync theme from localStorage before React hydration to prevent flash
                 try {
                   let theme = 'light';
                   try {
                     theme = localStorage.getItem('theme') || 'light';
                   } catch (storageError) {
-                    // If localStorage access fails, use default
-                    console.warn('localStorage access failed, using default theme:', storageError);
+                    if (isDev) console.warn('localStorage access failed, using default theme:', storageError);
                   }
                   
                   // Validate theme value - only accept 'light' or 'dark'
@@ -116,11 +116,11 @@ export default function RootLayout({
                       metaThemeColor.setAttribute('content', validTheme === 'dark' ? '#1a1a1a' : '#ffffff');
                     }
                   } catch (metaError) {
-                    console.warn('Failed to update theme-color meta tag:', metaError);
+                    if (isDev) console.warn('Failed to update theme-color meta tag:', metaError);
                   }
                 } catch (e) {
                   // Comprehensive fallback - ensure light theme is always applied
-                  console.warn('Theme sync failed, applying fallback:', e);
+                  if (isDev) console.warn('Theme sync failed, applying fallback:', e);
                   try {
                     document.documentElement.classList.remove('dark');
                     document.documentElement.classList.add('light');
@@ -167,9 +167,10 @@ export default function RootLayout({
                     const cookieValue = encodeURIComponent(JSON.stringify(filterValues));
                     const expires = new Date();
                     expires.setTime(expires.getTime() + (365 * 24 * 60 * 60 * 1000)); // 1 year
-                    document.cookie = 'calendar-filters=' + cookieValue + '; expires=' + expires.toUTCString() + '; path=/; SameSite=Lax';
+                    const securePart = ${process.env.NODE_ENV === 'production' ? '"; Secure"' : '""'};
+                    document.cookie = 'calendar-filters=' + cookieValue + '; expires=' + expires.toUTCString() + '; path=/; SameSite=Lax' + securePart;
                   } catch (cookieError) {
-                    console.warn('Failed to sync filters to cookie:', cookieError);
+                    if (isDev) console.warn('Failed to sync filters to cookie:', cookieError);
                   }
                   
                   // Store as data attribute for synchronous access during component initialization
@@ -218,10 +219,11 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
+                const isDev = ${process.env.NODE_ENV === 'development'};
                 if ('serviceWorker' in navigator) {
                   window.addEventListener('load', function() {
                     navigator.serviceWorker.register('/sw.js').catch(function(err) {
-                      console.log('SW registration failed:', err);
+                      if (isDev) console.log('SW registration failed:', err);
                     });
                   });
                 }

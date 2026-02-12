@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { askGroq, askGroqResearch, type ChatMessage } from "@/lib/ai";
 import systemRules from "@/lib/system-rules.json";
 import {
@@ -7,10 +8,30 @@ import {
   programOptions,
   type Activity,
 } from "@/lib/data";
+import { UITM_GENERAL_INFO } from "@/lib/uitm-info";
+
+// --- Request size & validation limits ---
+const MAX_BODY_SIZE_BYTES = 50 * 1024; // 50KB
+const MAX_MESSAGE_LENGTH = 2000;
+
+const chatRequestSchema = z.object({
+  message: z.string().min(1, "Message is required").max(MAX_MESSAGE_LENGTH),
+  program: z.string().optional(),
+  history: z
+    .array(
+      z.object({
+        role: z.enum(["user", "assistant"]),
+        content: z.string().max(MAX_MESSAGE_LENGTH),
+      })
+    )
+    .max(10)
+    .optional(),
+});
 
 // --- Rate Limiter (in-memory, IP-based sliding window) ---
 const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
 const RATE_LIMIT_MAX_REQUESTS = 10; // max 10 requests per window
+const RATE_LIMIT_MAX_UNKNOWN = 2; // stricter limit when IP cannot be determined
 
 const rateLimitMap = new Map<string, number[]>();
 
@@ -27,15 +48,26 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
-function isRateLimited(ip: string): boolean {
+function getRateLimitKey(ip: string, request: NextRequest): string {
+  if (ip !== "unknown") return ip;
+  // When IP is unknown, use a fingerprint to avoid shared bucket abuse
+  const ua = request.headers.get("user-agent") ?? "";
+  const lang = request.headers.get("accept-language") ?? "";
+  return `unknown:${Buffer.from(ua + lang).toString("base64").slice(0, 32)}`;
+}
+
+function isRateLimited(ip: string, request: NextRequest): boolean {
+  const key = getRateLimitKey(ip, request);
+  const maxRequests =
+    ip === "unknown" ? RATE_LIMIT_MAX_UNKNOWN : RATE_LIMIT_MAX_REQUESTS;
   const now = Date.now();
-  const timestamps = rateLimitMap.get(ip) || [];
+  const timestamps = rateLimitMap.get(key) || [];
   const valid = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
-  if (valid.length >= RATE_LIMIT_MAX_REQUESTS) {
+  if (valid.length >= maxRequests) {
     return true;
   }
   valid.push(now);
-  rateLimitMap.set(ip, valid);
+  rateLimitMap.set(key, valid);
   return false;
 }
 
@@ -158,28 +190,65 @@ function buildCalendarSystemPrompt(
     .replace(/\{\{secondaryDesc\}\}/g, secondaryDesc);
 }
 
+/** Max chars for UiTM info context to avoid Groq 413. */
+const MAX_UITM_INFO_CHARS = 4_000;
+
+function buildResearchSystemPrompt(): string {
+  const rules = systemRules as { researchPrompt: string };
+  const truncatedInfo =
+    UITM_GENERAL_INFO.length > MAX_UITM_INFO_CHARS
+      ? UITM_GENERAL_INFO.slice(0, MAX_UITM_INFO_CHARS) + "\n...[truncated]"
+      : UITM_GENERAL_INFO;
+
+  return rules.researchPrompt.replace(/\{\{uitmInfo\}\}/g, truncatedInfo);
+}
+
+function jsonError(message: string, status: number) {
+  return NextResponse.json({ error: message }, { status });
+}
+
 export async function POST(request: NextRequest) {
   try {
+    // Content-Type validation
+    const contentType = request.headers.get("content-type");
+    if (!contentType?.includes("application/json")) {
+      return jsonError("Content-Type must be application/json", 415);
+    }
+
+    // Request body size limit
+    const contentLength = request.headers.get("content-length");
+    if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE_BYTES) {
+      return jsonError("Request body too large", 413);
+    }
+
     const ip =
       request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       request.headers.get("x-real-ip") ||
       "unknown";
 
-    if (isRateLimited(ip)) {
-      return NextResponse.json(
-        { error: "Too many requests. Please wait a moment before trying again." },
-        { status: 429 }
+    if (isRateLimited(ip, request)) {
+      return jsonError(
+        "Too many requests. Please wait a moment before trying again.",
+        429
       );
     }
 
-    const { message, program, history } = await request.json();
+    const rawBody = await request.json();
 
-    if (!message || typeof message !== "string") {
-      return NextResponse.json(
-        { error: "Message is required" },
-        { status: 400 }
-      );
+    // Validate body size after parsing (Content-Length can be spoofed)
+    const bodyStr = JSON.stringify(rawBody);
+    if (bodyStr.length > MAX_BODY_SIZE_BYTES) {
+      return jsonError("Request body too large", 413);
     }
+
+    const parseResult = chatRequestSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      const firstError = parseResult.error.errors[0];
+      const msg = firstError?.message ?? "Invalid request body";
+      return jsonError(msg, 400);
+    }
+
+    const { message, program, history } = parseResult.data;
 
     const selectedProgram =
       program && VALID_PROGRAMS.has(program) ? program : "All";
@@ -205,22 +274,13 @@ export async function POST(request: NextRequest) {
         ? "Pre-Diploma, Diploma, Bachelor's Degree, Master's & PhD - Semester March to August 2026"
         : "Foundation/Professional - Semester December 2025 to May 2026";
 
-    const sanitizedHistory: ChatMessage[] = [];
-    if (Array.isArray(history)) {
-      for (const msg of history.slice(-2)) {
-        if (
-          msg &&
-          typeof msg.content === "string" &&
-          (msg.role === "user" || msg.role === "assistant") &&
-          msg.content.length <= 2000
-        ) {
-          sanitizedHistory.push({
-            role: msg.role,
-            content: msg.role === "user" ? sanitizeMessage(msg.content) : msg.content,
-          });
-        }
-      }
-    }
+    const sanitizedHistory: ChatMessage[] = (history ?? [])
+      .slice(-2)
+      .map((msg) => ({
+        role: msg.role,
+        content:
+          msg.role === "user" ? sanitizeMessage(msg.content) : msg.content,
+      }));
 
     const useCalendarPrompt = isCalendarQuestion(sanitizedMessage);
     const systemPrompt = useCalendarPrompt
@@ -233,7 +293,7 @@ export async function POST(request: NextRequest) {
           primaryDesc,
           secondaryDesc
         )
-      : (systemRules as { researchPrompt: string }).researchPrompt;
+      : buildResearchSystemPrompt();
 
     const rawReply = useCalendarPrompt
       ? await askGroq(sanitizedMessage, systemPrompt, sanitizedHistory)
@@ -249,44 +309,47 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ reply });
   } catch (error: unknown) {
+    if (error instanceof SyntaxError || (error instanceof Error && error.message?.includes("JSON"))) {
+      return jsonError("Invalid JSON in request body", 400);
+    }
     const errMsg = error instanceof Error ? error.message : String(error);
     const status = (error as { status?: number })?.status;
-    console.error("Chat API error:", errMsg, "status:", status);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Chat API error:", errMsg, "status:", status);
+    }
 
     if (status === 401 || errMsg.includes("401") || errMsg.includes("Unauthorized")) {
-      return NextResponse.json(
-        { error: "AI service authentication failed. Please check API key configuration." },
-        { status: 502 }
+      return jsonError(
+        "AI service authentication failed. Please check API key configuration.",
+        502
       );
     }
     if (status === 403 || errMsg.includes("403") || errMsg.includes("Forbidden")) {
-      return NextResponse.json(
-        { error: "AI model access denied. Ensure openai/gpt-oss-120b and llama-3.1-8b-instant are enabled for your org." },
-        { status: 502 }
+      return jsonError(
+        "AI model access denied. Please try again later or contact support.",
+        502
       );
     }
     if (status === 413 || errMsg.includes("413")) {
-      return NextResponse.json(
-        { error: "Request too large. Try a shorter message or clear chat history." },
-        { status: 413 }
+      return jsonError(
+        "Request too large. Try a shorter message or clear chat history.",
+        413
       );
     }
     if (errMsg.includes("429") || errMsg.includes("rate")) {
-      return NextResponse.json(
-        { error: "AI service is busy. Please try again in a moment." },
-        { status: 503 }
-      );
+      return jsonError("AI service is busy. Please try again in a moment.", 503);
     }
-    if (errMsg.includes("503") || errMsg.includes("loading") || errMsg.includes("unavailable")) {
-      return NextResponse.json(
-        { error: "AI model is loading. Please try again in a few seconds." },
-        { status: 503 }
+    if (
+      errMsg.includes("503") ||
+      errMsg.includes("loading") ||
+      errMsg.includes("unavailable")
+    ) {
+      return jsonError(
+        "AI model is loading. Please try again in a few seconds.",
+        503
       );
     }
 
-    return NextResponse.json(
-      { error: "Failed to get response from AI. Please try again." },
-      { status: 500 }
-    );
+    return jsonError("Failed to get response from AI. Please try again.", 500);
   }
 }

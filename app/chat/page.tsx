@@ -309,7 +309,7 @@ export default function ChatPage() {
 
   const disclaimerTexts = useMemo(() => [
     "AI can make mistakes. Check important info.",
-    "This web app uses a free AI model. Daily usage limits may apply.",
+    "Free-tier AI model with daily rate limits.",
   ], []);
 
   // Rotate disclaimer text every 8 seconds with fade animation
@@ -571,32 +571,6 @@ export default function ChatPage() {
                 Ask about the UiTM academic calendar. Select your program and start.
               </p>
             </div>
-            <div className={`mt-2 w-full max-w-lg mx-auto hidden md:block ${suggestionAnim === "enter" ? "suggestions-enter" : "suggestions-exit"}`}>
-              <div className="flex flex-wrap gap-2 items-center justify-center">
-                {suggestions.slice(0, 3).map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    onClick={() => sendMessage(suggestion)}
-                    className="w-fit text-xs px-3 py-1.5 rounded-full border border-border bg-secondary/50 hover:bg-secondary dark:bg-[#2A2A2A] dark:hover:bg-[#333] text-foreground transition-colors whitespace-nowrap"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-              {suggestions.length > 3 && (
-                <div className="flex flex-wrap gap-2 items-center justify-center mt-2">
-                  {suggestions.slice(3, 5).map((suggestion) => (
-                    <button
-                      key={suggestion}
-                      onClick={() => sendMessage(suggestion)}
-                      className="w-fit text-xs px-3 py-1.5 rounded-full border border-border bg-secondary/50 hover:bg-secondary dark:bg-[#2A2A2A] dark:hover:bg-[#333] text-foreground transition-colors whitespace-nowrap"
-                    >
-                      {suggestion}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
         ) : (
           <div className="mx-auto max-w-[600px] space-y-6 pt-14">
@@ -684,13 +658,14 @@ export default function ChatPage() {
       </div>
 
       {/* Input area - prompt form like ChatGPT with dropdown inside textarea */}
-      <div className="chat-input-area relative px-4 md:px-0 pt-1 lg:pt-0.5 pb-3">
+      <div className="chat-input-area relative px-4 md:px-0 pt-1 lg:pt-0.5 pb-6">
         <div className="mx-auto max-w-[600px]">
-          {/* Mobile/tablet suggestion chips - swipeable row */}
+          {/* Suggestion chips - swipeable on mobile, wrapped on desktop/tablet */}
           {messages.length === 0 && (
-            <div className="md:hidden mb-2">
+            <div className="mb-2">
+              {/* Mobile: horizontal swipeable carousel */}
               <div
-                className={`suggestions-swipe overflow-hidden ${suggestionAnim === "enter" ? "suggestions-enter" : "suggestions-exit"}`}
+                className={`md:hidden suggestions-swipe overflow-hidden ${suggestionAnim === "enter" ? "suggestions-enter" : "suggestions-exit"}`}
                 ref={emblaRef}
               >
                 <div className="embla__container flex gap-2 px-1">
@@ -700,6 +675,21 @@ export default function ChatPage() {
                       type="button"
                       onClick={() => sendMessage(suggestion)}
                       className="embla__slide flex-none text-xs px-3 py-1.5 rounded-full border border-border bg-secondary/50 hover:bg-secondary dark:bg-[#2A2A2A] dark:hover:bg-[#333] text-foreground transition-colors whitespace-nowrap"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Desktop/tablet: wrapped flex layout */}
+              <div className={`hidden md:block ${suggestionAnim === "enter" ? "suggestions-enter" : "suggestions-exit"}`}>
+                <div className="flex flex-wrap gap-2 items-center justify-center">
+                  {suggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() => sendMessage(suggestion)}
+                      className="w-fit text-xs px-3 py-1.5 rounded-full border border-border bg-secondary/50 hover:bg-secondary dark:bg-[#2A2A2A] dark:hover:bg-[#333] text-foreground transition-colors whitespace-nowrap"
                     >
                       {suggestion}
                     </button>
