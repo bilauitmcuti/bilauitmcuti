@@ -297,6 +297,8 @@ export default function ChatPage() {
   const [suggestions, setSuggestions] = useState<string[]>(SUGGESTION_POOL.slice(0, 5));
   const [suggestionAnim, setSuggestionAnim] = useState<"enter" | "exit">("enter");
   const [loadingPhrase, setLoadingPhrase] = useState("");
+  const [disclaimerIndex, setDisclaimerIndex] = useState(0);
+  const [disclaimerFade, setDisclaimerFade] = useState<"in" | "out">("in");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -304,6 +306,23 @@ export default function ChatPage() {
   const groupAOptions = useMemo(() => programOptions.filter(p => p.group === 'A'), []);
   const groupBOptions = useMemo(() => programOptions.filter(p => p.group === 'B'), []);
   const [emblaRef] = useEmblaCarousel({ dragFree: true, containScroll: "trimSnaps", align: "center" });
+
+  const disclaimerTexts = useMemo(() => [
+    "AI can make mistakes. Check important info.",
+    "This web app uses a free AI model. Daily usage limits may apply.",
+  ], []);
+
+  // Rotate disclaimer text every 8 seconds with fade animation
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDisclaimerFade("out");
+      setTimeout(() => {
+        setDisclaimerIndex((prev) => (prev + 1) % disclaimerTexts.length);
+        setDisclaimerFade("in");
+      }, 600);
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [disclaimerTexts.length]);
 
   // Rotate suggestions every 5 seconds with crossfade
   useEffect(() => {
@@ -765,8 +784,11 @@ export default function ChatPage() {
               </div>
             </div>
           </form>
-          <span className="block text-center text-xs text-muted-foreground mt-2">
-            AI can make mistakes. Check important info.
+          <span
+            key={disclaimerIndex}
+            className={`block text-center text-xs text-muted-foreground mt-2 ${disclaimerFade === "in" ? "disclaimer-fade-in" : "disclaimer-fade-out"}`}
+          >
+            {disclaimerTexts[disclaimerIndex]}
           </span>
         </div>
       </div>

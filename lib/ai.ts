@@ -1,15 +1,27 @@
-import { HfInference } from "@huggingface/inference";
+import Groq from "groq-sdk";
 
-if (!process.env.HF_API_KEY) {
+if (!process.env.GROQ_API_KEY) {
   throw new Error(
-    "HF_API_KEY environment variable is not set. Please add it to your .env.local file."
+    "GROQ_API_KEY environment variable is not set. Please add it to your .env.local file."
   );
 }
 
-const hf = new HfInference(process.env.HF_API_KEY);
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-const MAX_RETRIES = 3;
+export const MODEL_LLAMA = "llama-3.1-8b-instant" as const;
+export const MODEL_GPT_OSS = "openai/gpt-oss-20b" as const;
+
+const MAX_RETRIES = 2;
 const BASE_DELAY_MS = 1000;
+
+/** Groq 413 = request body too large. gpt-oss max completion = 65536. */
+const MAX_SYSTEM_CHARS = 10_000;
+const MAX_HISTORY_MESSAGES = 2;
+const MAX_MESSAGE_CHARS = 1_000;
+const MAX_USER_PROMPT_CHARS = 1_000;
+
+const MAX_TOKENS_LLAMA = 2048;
+const MAX_TOKENS_GPT_OSS = 4096;
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -20,63 +32,98 @@ async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function askLlama(
+function truncate(str: string, max: number): string {
+  if (str.length <= max) return str;
+  return str.slice(0, max) + "...[truncated]";
+}
+
+function buildMessages(
   prompt: string,
   systemPrompt?: string,
   history?: ChatMessage[]
-) {
+): { role: "system" | "user" | "assistant"; content: string }[] {
   const messages: { role: "system" | "user" | "assistant"; content: string }[] = [];
 
   if (systemPrompt) {
-    messages.push({ role: "system", content: systemPrompt });
+    messages.push({ role: "system", content: truncate(systemPrompt, MAX_SYSTEM_CHARS) });
   }
 
-  // Include conversation history for context (limit to last 10 exchanges to stay within token limits)
   if (history && history.length > 0) {
-    const recentHistory = history.slice(-20); // last 20 messages (up to 10 exchanges)
+    const recentHistory = history.slice(-MAX_HISTORY_MESSAGES);
     for (const msg of recentHistory) {
-      messages.push({ role: msg.role, content: msg.content });
+      messages.push({ role: msg.role, content: truncate(msg.content, MAX_MESSAGE_CHARS) });
     }
   }
 
-  messages.push({ role: "user", content: prompt });
+  messages.push({ role: "user", content: truncate(prompt, MAX_USER_PROMPT_CHARS) });
+  return messages;
+}
 
-  let lastError: unknown;
+async function callModel(
+  model: string,
+  messages: { role: "system" | "user" | "assistant"; content: string }[],
+  maxTokens: number
+): Promise<string> {
+  const response = await groq.chat.completions.create({
+    model,
+    messages,
+    max_tokens: maxTokens,
+  });
+  const content = response?.choices?.[0]?.message?.content;
+  if (!content) {
+    throw new Error("Empty response from model");
+  }
+  return content;
+}
 
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+/**
+ * Try primary model, fallback to backup on error.
+ */
+export async function askGroqWithFallback(
+  prompt: string,
+  systemPrompt: string | undefined,
+  history: ChatMessage[] | undefined,
+  primaryModel: typeof MODEL_LLAMA | typeof MODEL_GPT_OSS,
+  backupModel: typeof MODEL_LLAMA | typeof MODEL_GPT_OSS
+): Promise<string> {
+  const messages = buildMessages(prompt, systemPrompt, history);
+
+  function tryModel(model: string): Promise<string> {
+    const maxT = model === MODEL_GPT_OSS ? MAX_TOKENS_GPT_OSS : MAX_TOKENS_LLAMA;
+    return callModel(model, messages, maxT);
+  }
+
+  try {
+    return await tryModel(primaryModel);
+  } catch (primaryError: unknown) {
+    const errMsg = primaryError instanceof Error ? primaryError.message : String(primaryError);
+    console.error(`Groq [${primaryModel}] failed, trying backup [${backupModel}]:`, errMsg);
+
     try {
-      const response = await hf.chatCompletion({
-        model: "meta-llama/Llama-3.1-8B-Instruct",
-        messages,
-        max_tokens: 2048,
-      });
-
-      const content = response?.choices?.[0]?.message?.content;
-
-      if (!content) {
-        return "Sorry, I could not generate a response. Please try again.";
-      }
-
-      return content;
-    } catch (error: unknown) {
-      lastError = error;
-      const errMsg = error instanceof Error ? error.message : String(error);
-      console.error(`HF API attempt ${attempt + 1}/${MAX_RETRIES} failed:`, errMsg);
-
-      // Don't retry on auth errors (401/403) — these won't resolve with retries
-      if (errMsg.includes("401") || errMsg.includes("403") || errMsg.includes("Unauthorized") || errMsg.includes("Forbidden")) {
-        throw error;
-      }
-
-      // Wait with exponential backoff before retrying (model loading / 503 / rate limit)
-      if (attempt < MAX_RETRIES - 1) {
-        const delay = BASE_DELAY_MS * Math.pow(2, attempt);
-        console.log(`Retrying in ${delay}ms...`);
-        await sleep(delay);
-      }
+      const result = await tryModel(backupModel);
+      console.log(`Groq backup [${backupModel}] succeeded`);
+      return result;
+    } catch (backupError: unknown) {
+      console.error(`Groq backup [${backupModel}] also failed:`, backupError);
+      throw primaryError;
     }
   }
+}
 
-  // All retries exhausted
-  throw lastError;
+/** Calendar: gpt-oss first, llama backup. Both auto work based on question. */
+export async function askGroq(
+  prompt: string,
+  systemPrompt?: string,
+  history?: ChatMessage[]
+): Promise<string> {
+  return askGroqWithFallback(prompt, systemPrompt, history, MODEL_GPT_OSS, MODEL_LLAMA);
+}
+
+/** Research: gpt-oss first for general UiTM knowledge, llama backup. Both auto work based on question. */
+export async function askGroqResearch(
+  prompt: string,
+  systemPrompt?: string,
+  history?: ChatMessage[]
+): Promise<string> {
+  return askGroqWithFallback(prompt, systemPrompt, history, MODEL_GPT_OSS, MODEL_LLAMA);
 }
