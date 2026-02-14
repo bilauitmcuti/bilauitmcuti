@@ -24,13 +24,7 @@ export default function PWAPage() {
       <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
         {/* Back */}
         <button
-          onClick={() => {
-            if (window.history.length > 1) {
-              router.back();
-            } else {
-              router.push('/');
-            }
-          }}
+          onClick={() => router.push('/')}
           className="mb-8 flex items-center justify-center w-9 h-9 rounded-full bg-secondary hover:bg-secondary/80 dark:bg-[#2A2A2A] dark:hover:bg-[#333] transition-colors"
           aria-label="Back to home"
         >

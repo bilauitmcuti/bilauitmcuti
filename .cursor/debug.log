@@ -1,3 +1,0 @@
-{"location":"app/chat/api/route.ts","message":"Chat API path selected","data":{"useCalendarPrompt":false,"primaryModel":"groq/compound-mini","userMsgLen":39},"timestamp":1770892376781,"hypothesisId":"H1,H2,H4,H5"}
-{"location":"lib/ai.ts:askGroqWithFallback","message":"AI request start","data":{"primaryModel":"llama-3.1-8b-instant","backupModel":"groq/compound-mini","payloadChars":1821,"messageCount":2},"timestamp":1770892376781,"hypothesisId":"H1,H2,H5"}
-{"location":"lib/ai.ts:askGroqWithFallback","message":"Primary model succeeded","data":{"model":"llama-3.1-8b-instant"},"timestamp":1770892378163,"hypothesisId":"H3"}

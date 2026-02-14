@@ -626,13 +626,7 @@ export default function ChatPage() {
       <div className={`chat-header absolute top-0 left-0 right-0 z-10 px-4 md:px-0 ${headerVisible ? "translate-y-0" : "-translate-y-full"}`}>
         <header className="flex items-center gap-3 py-3 mx-auto max-w-[600px] w-full">
           <button
-            onClick={() => {
-              if (window.history.length > 1) {
-                router.back();
-              } else {
-                router.push("/");
-              }
-            }}
+            onClick={() => router.push("/")}
             className="flex items-center justify-center w-9 h-9 rounded-full bg-secondary hover:bg-secondary/80 dark:bg-[#2A2A2A] dark:hover:bg-[#333] transition-colors"
             aria-label="Back to home"
           >

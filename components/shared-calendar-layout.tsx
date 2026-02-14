@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import { CalendarHeader } from '@/components/calendar-header';
 import { CalendarControls } from '@/components/calendar-controls';
 import { PwaPromptAlert } from '@/components/pwa-prompt-alert';
 import { ListView } from '@/components/list-view';
 import { GridView } from '@/components/grid-view';
-import { getProgramFromRoute } from '@/lib/route-utils';
+import { getProgramFromRoute, getRoutePath } from '@/lib/route-utils';
+import type { ProgramValue } from '@/lib/route-utils';
 import { DEFAULT_FILTER_STATES } from '@/lib/data';
 import { setFiltersToCookie, type FilterStates } from '@/lib/cookie-utils';
 import type { ViewMode } from '@/app/page';
@@ -44,67 +45,20 @@ export function SharedCalendarLayout({
   // programFromRoute is passed from the page component and should be the program slug
   const selectedProgram = getProgramFromRoute(routeSegment || (programFromRoute && programFromRoute !== 'All' ? programFromRoute : null));
 
-  // Check if we have stored scroll to restore (client-only, sync read before first paint)
-  const hasStoredScroll =
-    typeof window !== 'undefined' &&
-    !!sessionStorage.getItem('calendar-scroll-y') &&
-    sessionStorage.getItem('calendar-scroll-path') === pathname;
-
-  const [scrollRestoreDone, setScrollRestoreDone] = useState(false);
-  const didRestoreRef = useRef(false);
-  const [contentReady, setContentReady] = useState(() => !hasStoredScroll);
-
-  // Restore scroll before paint to prevent flicker when navigating back from chat
-  // Hide header during restore: on mobile/PWA, useLayoutEffect can run after first paint,
-  // so we hide the header in the initial render when we have stored scroll
+  // Scroll to top when mounting or returning from chat/PWA (consistent with grid/list view switch)
+  // Defer to next frame to prevent CalendarControls sticky flicker during scroll
   useLayoutEffect(() => {
-    const stored = sessionStorage.getItem('calendar-scroll-y');
-    const storedPath = sessionStorage.getItem('calendar-scroll-path');
-    if (stored && storedPath && pathname === storedPath) {
-      const scrollY = parseInt(stored, 10);
-      if (!Number.isNaN(scrollY) && scrollY > 0) {
-        const prevRestoration = history.scrollRestoration;
-        history.scrollRestoration = 'manual';
-        window.scrollTo(0, scrollY);
-        history.scrollRestoration = prevRestoration;
-      }
-      sessionStorage.removeItem('calendar-scroll-y');
-      sessionStorage.removeItem('calendar-scroll-path');
-      didRestoreRef.current = true;
-      setScrollRestoreDone(true);
-    }
+    const id = requestAnimationFrame(() => {
+      window.scrollTo(0, 0);
+    });
+    return () => cancelAnimationFrame(id);
   }, [pathname]);
 
-  // Defer content visibility until sticky has painted (prevents flash on back from chat)
-  useEffect(() => {
-    if (scrollRestoreDone && didRestoreRef.current) {
-      const id1 = requestAnimationFrame(() => {
-        requestAnimationFrame(() => setContentReady(true));
-      });
-      return () => cancelAnimationFrame(id1);
-    }
-  }, [scrollRestoreDone]);
-
-  // Save scroll position when leaving calendar page (e.g. navigating to chat)
-  useEffect(() => {
-    return () => {
-      sessionStorage.setItem('calendar-scroll-y', String(window.scrollY));
-      sessionStorage.setItem('calendar-scroll-path', pathname ?? '');
-    };
-  }, [pathname]);
-
-  // Handle bfcache restore (mobile Safari/PWA) - restore scroll when page resurrected from cache
+  // Handle bfcache restore (mobile Safari/PWA) - scroll to top when page resurrected from cache
   useEffect(() => {
     const handlePageShow = (e: PageTransitionEvent) => {
       if (e.persisted) {
-        const stored = sessionStorage.getItem('calendar-scroll-y');
-        const storedPath = sessionStorage.getItem('calendar-scroll-path');
-        if (stored && storedPath && pathname === storedPath) {
-          const scrollY = parseInt(stored, 10);
-          if (!Number.isNaN(scrollY) && scrollY > 0) {
-            window.scrollTo(0, scrollY);
-          }
-        }
+        requestAnimationFrame(() => window.scrollTo(0, 0));
       }
     };
     window.addEventListener('pageshow', handlePageShow);
@@ -171,6 +125,21 @@ export function SharedCalendarLayout({
   const [currentMonth, setCurrentMonth] = useState('Academic Calendar');
   const [selectedStates, setSelectedStates] = useState<string[]>(initialFilters.showKKT ? ['Kedah', 'Kelantan', 'Terengganu'] : []);
 
+  // Keep both views mounted - toggle via display to prevent appear effect on view switch
+  const [activeViewMode, setActiveViewMode] = useState(viewMode);
+  useEffect(() => {
+    setActiveViewMode(viewMode);
+  }, [viewMode]);
+
+  const handleViewModeChange = useCallback(
+    (newMode: ViewMode) => {
+      window.scrollTo(0, 0);
+      setActiveViewMode(newMode);
+      const newPath = getRoutePath(selectedProgram as ProgramValue, newMode);
+      window.history.replaceState(null, '', newPath);
+    },
+    [selectedProgram]
+  );
 
   // Mark as loaded after initial render
   // Since filters are now synced synchronously, we only need to mark as loaded
@@ -237,61 +206,17 @@ export function SharedCalendarLayout({
 
   // Theme-aware classes
   const bgClass = 'bg-background text-foreground';
-  const isRestoring = hasStoredScroll && !scrollRestoreDone;
 
-  // Solution 1: Render ONLY controls during scroll restore - no content to show behind
-  if (isRestoring) {
-    return (
-      <div className={`min-h-screen ${bgClass} transition-none`} style={{ transition: 'none' }}>
-        <div className="mx-auto max-w-[1000px] px-4 py-8 sm:px-6 lg:px-4">
-          <CalendarControls
-            selectedProgram={selectedProgram}
-            viewMode={viewMode}
-            forceFixed
-            showKKT={showKKT}
-            onShowKKTChange={setShowKKT}
-            showRegistration={showRegistration}
-            onShowRegistrationChange={setShowRegistration}
-            showLecture={showLecture}
-            onShowLectureChange={setShowLecture}
-            showSemesterPendek={showSemesterPendek}
-            onShowSemesterPendekChange={setShowSemesterPendek}
-            showKuliahIntersesi={showKuliahIntersesi}
-            onShowKuliahIntersesiChange={setShowKuliahIntersesi}
-            showExamination={showExamination}
-            onShowExaminationChange={setShowExamination}
-            showOthersExams={showOthersExams}
-            onShowOthersExamsChange={setShowOthersExams}
-            showBreak={showBreak}
-            onShowBreakChange={setShowBreak}
-            showCountdown={showCountdown}
-            onShowCountdownChange={setShowCountdown}
-            currentMonth={currentMonth}
-          />
-        </div>
-      </div>
-    );
-  }
-
-  // Solution 2: Normal layout with overlay + deferred content during restore (when not using Solution 1 early return)
-  // Overlay and hidden content prevent paint behind controls during settling period
   return (
     <div className={`min-h-screen ${bgClass} transition-none relative`} style={{ transition: 'none' }}>
-      {/* Overlay during settling period after scroll restore - prevents content flash */}
-      {!contentReady && (
-        <div className="calendar-scroll-restore-overlay" aria-hidden="true" />
-      )}
       <div className="mx-auto max-w-[1000px] px-4 py-8 sm:px-6 lg:px-4 transition-none" style={{ transition: 'none' }}>
-        {/* Solution 2: Hide header + PWA during restore */}
-        <div className={isRestoring ? 'hidden' : ''}>
-          <CalendarHeader />
-          <PwaPromptAlert />
-        </div>
+        <CalendarHeader />
+        <PwaPromptAlert />
 
         <CalendarControls
           selectedProgram={selectedProgram}
-          viewMode={viewMode}
-          forceFixed={isRestoring}
+          viewMode={activeViewMode}
+          onViewModeChange={handleViewModeChange}
           showKKT={showKKT}
           onShowKKTChange={setShowKKT}
           showRegistration={showRegistration}
@@ -313,18 +238,11 @@ export function SharedCalendarLayout({
           currentMonth={currentMonth}
         />
 
-        {/* Solution 2: Defer content visibility until sticky has painted (prevents flash) */}
-        <div
-          className={`mt-0 min-h-[400px] transition-none ${isRestoring ? 'hidden' : ''}`}
-          style={{
-            visibility: contentReady ? 'visible' : 'hidden',
-            transition: 'none',
-          }}
-        >
-          {viewMode === 'list' ? (
-            <ListView 
-              key={`list-${selectedProgram}`}
-              selectedProgram={selectedProgram} 
+        {/* Both views always mounted - toggle via display to prevent appear effect on view switch */}
+        <div className="mt-0 min-h-[400px] transition-none" style={{ transition: 'none' }}>
+          <div style={{ display: activeViewMode === 'list' ? 'block' : 'none' }}>
+            <ListView
+              selectedProgram={selectedProgram}
               showKKT={showKKT}
               showRegistration={showRegistration}
               showLecture={showLecture}
@@ -337,10 +255,10 @@ export function SharedCalendarLayout({
               onMonthChange={setCurrentMonth}
               selectedStates={selectedStates}
             />
-          ) : (
-            <GridView 
-              key={`grid-${selectedProgram}`}
-              selectedProgram={selectedProgram} 
+          </div>
+          <div style={{ display: activeViewMode === 'grid' ? 'block' : 'none' }}>
+            <GridView
+              selectedProgram={selectedProgram}
               showKKT={showKKT}
               showRegistration={showRegistration}
               showLecture={showLecture}
@@ -354,7 +272,7 @@ export function SharedCalendarLayout({
               selectedStates={selectedStates}
               initialCurrentDate={initialCurrentDate}
             />
-          )}
+          </div>
         </div>
       </div>
     </div>

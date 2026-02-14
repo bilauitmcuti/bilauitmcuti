@@ -28,6 +28,8 @@ interface CalendarControlsProps {
   viewMode: ViewMode;
   /** When true, use fixed positioning so controls appear at top from first paint (scroll restore) */
   forceFixed?: boolean;
+  /** When provided, view mode switch uses client state instead of router navigation (no appear effect) */
+  onViewModeChange?: (mode: ViewMode) => void;
   showKKT: boolean;
   onShowKKTChange: (show: boolean) => void;
   showRegistration: boolean;
@@ -53,6 +55,7 @@ export function CalendarControls({
   selectedProgram,
   viewMode,
   forceFixed = false,
+  onViewModeChange,
   showKKT,
   onShowKKTChange,
   showRegistration,
@@ -101,13 +104,19 @@ export function CalendarControls({
     router.replace(newPath, { scroll: false });
   }, [router, viewMode]);
 
-  // Handle view mode change - navigate instantly and preserve settings
-  const handleViewModeChange = useCallback((newViewMode: ViewMode) => {
-    const programValue = selectedProgram as ProgramValue;
-    const newPath = getRoutePath(programValue, newViewMode);
-    // Navigate without transition for instant feedback
-    router.replace(newPath, { scroll: false });
-  }, [router, selectedProgram]);
+  // Handle view mode change - use callback if provided (client state, no appear effect), else router
+  const handleViewModeChange = useCallback(
+    (newViewMode: ViewMode) => {
+      if (onViewModeChange) {
+        onViewModeChange(newViewMode);
+      } else {
+        const programValue = selectedProgram as ProgramValue;
+        const newPath = getRoutePath(programValue, newViewMode);
+        router.replace(newPath, { scroll: false });
+      }
+    },
+    [onViewModeChange, router, selectedProgram]
+  );
 
   // Check if app is installed as PWA
   useEffect(() => {
@@ -185,7 +194,7 @@ export function CalendarControls({
       <div 
         className={`${positionClass} ${bgClass} -mx-4 sm:-mx-6 lg:-mx-4 px-4 sm:px-6 lg:px-4 transition-none isolate [contain:paint]`} 
         suppressHydrationWarning
-        style={{ transition: 'none' }}
+        style={{ transition: 'none', transform: 'translateZ(0)' }}
       >
         <div 
           className={`flex flex-row items-center justify-between gap-4 pt-8 w-full px-0 min-h-14 pb-1 ${bgClass} transition-none`} 
@@ -274,6 +283,7 @@ export function CalendarControls({
             <Button
               variant="ghost"
               size="icon"
+              onMouseEnter={() => router.prefetch('/chat')}
               onClick={() => router.push('/chat')}
               className={`${iconBaseClass} ${iconInactiveClass}`}
               title="Chat"
@@ -549,9 +559,8 @@ export function CalendarControls({
                         <Button
                           size="sm"
                           variant="secondary"
-                          onClick={() => {
-                            window.location.href = '/pwa';
-                          }}
+                          onMouseEnter={() => router.prefetch('/pwa')}
+                          onClick={() => router.push('/pwa')}
                           className="w-full justify-center text-center bg-secondary text-secondary-foreground hover:opacity-90 active:opacity-95 transition-opacity"
                         >
                           Download as PWA
