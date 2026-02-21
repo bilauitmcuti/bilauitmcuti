@@ -1,26 +1,33 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
+
+const INITIAL_BUILD_ID = process.env.NEXT_PUBLIC_BUILD_ID
+const POLL_INTERVAL = 30_000
 
 export function VersionBanner() {
   const [isVisible, setIsVisible] = useState(false)
   const [countdown, setCountdown] = useState(5)
+  const intervalRef = useRef<ReturnType<typeof setInterval>>(null)
 
   useEffect(() => {
-    if (!("serviceWorker" in navigator)) return
-
-    let hadController = !!navigator.serviceWorker.controller
-
-    const handleControllerChange = () => {
-      if (hadController) {
-        setIsVisible(true)
+    async function checkVersion() {
+      try {
+        const res = await fetch("/api/version", { cache: "no-store" })
+        if (!res.ok) return
+        const { buildId } = await res.json()
+        if (buildId && buildId !== INITIAL_BUILD_ID) {
+          setIsVisible(true)
+          if (intervalRef.current) clearInterval(intervalRef.current)
+        }
+      } catch {
+        // network error, skip
       }
-      hadController = true
     }
 
-    navigator.serviceWorker.addEventListener("controllerchange", handleControllerChange)
+    intervalRef.current = setInterval(checkVersion, POLL_INTERVAL)
     return () => {
-      navigator.serviceWorker.removeEventListener("controllerchange", handleControllerChange)
+      if (intervalRef.current) clearInterval(intervalRef.current)
     }
   }, [])
 
