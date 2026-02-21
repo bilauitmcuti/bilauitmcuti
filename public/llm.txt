@@ -1,7 +1,9 @@
 # Bila UiTM Cuti? - Academic Calendar 2026
 
+> Last updated: 2026-02-21
+
 ## Overview
-Bila UiTM Cuti? is an interactive academic calendar web app for UiTM (Universiti Teknologi MARA) showing scheduled activities for 2026. It is not an official UiTM product; it is for students and staff who need quick access to registration dates, lecture schedules, examination periods, and breaks.
+Bila UiTM Cuti? is an interactive academic calendar web app for UiTM (Universiti Teknologi MARA) showing scheduled activities for 2026. It is not an official UiTM product; it is built by Shahrul Estar for students and staff who need quick access to registration dates, lecture schedules, examination periods, and breaks.
 
 Base URL: https://cutiuitm.xyz
 
@@ -11,31 +13,81 @@ Base URL: https://cutiuitm.xyz
 - **Group-based Schedules**: Group A (Foundation/Professional) and Group B (Pre-Diploma onwards) with different schedules
 - **Activity Filters**: Toggle visibility of Registration, Lecture, Semester Pendek, Kuliah Intersesi, Examination, Others Exams, and Break
 - **KKT State Support**: Special dates for Kedah, Kelantan, and Terengganu
-- **Theme**: Light and Dark mode with smooth transitions
+- **Theme**: Light and Dark mode
 - **Responsive Design**: Works on desktop and mobile
-- **PWA**: Installable app with offline access
+- **PWA**: Installable app with offline access via service worker
 - **Persistent Preferences**: User selections (program, view, filters, theme) saved via localStorage and cookie
-
-## SEO
-- **Canonical**: https://cutiuitm.xyz
-- **Metadata**: Title, description, keywords per page; metadataBase for absolute URLs
-- **Open Graph & Twitter Card**: Supported for sharing
-- **Locale**: ms_MY
-- **Keywords**: UiTM, academic calendar, 2026, registration, examination, lectures, holidays, Malaysia, Universiti Teknologi MARA, student app
-This file (llm.txt) is intended for crawlers and LLMs to understand the site structure and content.
+- **AI Chat**: Ask questions about UiTM academic calendar via AI assistant at /chat
 
 ## Pages and Content
-- **/** — Home. All programs, grid view. Main entry point.
-- **/list** — All programs, list view. Chronological list of activities.
-- **/[program]** — Calendar grid for one program. Valid slugs: foundation-professional, pre-diploma, diploma, diploma-part-time, bachelor, bachelor-part-time, master, phd.
-- **/[program]/list** — Calendar list view for one program. Same slugs as above.
-- **/pwa** — How to install the app as PWA (Desktop, iOS, Android), offline features, and disclaimer that the app is not affiliated with UiTM.
+
+### Static Pages
+- **/** — Home. All programs calendar in grid view. Main entry point.
+- **/list** — All programs calendar in list view. Chronological list of activities.
+- **/pwa** — How to install the app as a Progressive Web App (Desktop, iOS, Android), offline features, and disclaimer.
+- **/chat** — AI chat assistant for UiTM academic calendar queries (bot-restricted, not indexed).
+
+### Program-Specific Pages
+Each program has grid and list views:
+
+- **/foundation-professional** — Foundation/Professional calendar (Group A). Dec 2025 – May 2026.
+- **/foundation-professional/list** — Foundation/Professional list view.
+- **/pre-diploma** — Pre-Diploma calendar (Group B). Mar 2026 – Sep 2026.
+- **/pre-diploma/list** — Pre-Diploma list view.
+- **/diploma** — Diploma calendar (Group B). Mar 2026 – Sep 2026.
+- **/diploma/list** — Diploma list view.
+- **/diploma-part-time** — Diploma Part-Time calendar (Group B).
+- **/diploma-part-time/list** — Diploma Part-Time list view.
+- **/bachelor** — Bachelor calendar (Group B). Mar 2026 – Sep 2026.
+- **/bachelor/list** — Bachelor list view.
+- **/bachelor-part-time** — Bachelor Part-Time calendar (Group B).
+- **/bachelor-part-time/list** — Bachelor Part-Time list view.
+- **/master** — Master calendar (Group B). Mar 2026 – Sep 2026.
+- **/master/list** — Master list view.
+- **/phd** — PhD calendar (Group B). Mar 2026 – Sep 2026.
+- **/phd/list** — PhD list view.
+
+## FAQ
+
+### Bila UiTM buka semester 2026?
+Tarikh pembukaan semester UiTM 2026 berbeza mengikut program. Layari cutiuitm.xyz untuk melihat jadual lengkap pendaftaran dan kuliah bagi Foundation, Pre-Diploma, Diploma, Bachelor, Master dan PhD.
+
+### Bila peperiksaan UiTM 2026?
+Tarikh peperiksaan UiTM 2026 bergantung kepada program dan semester. Lihat kalendar akademik interaktif di cutiuitm.xyz untuk tarikh peperiksaan tepat termasuk peperiksaan khas dan EET.
+
+### Apa itu Semester Pendek UiTM?
+Semester Pendek adalah sesi pengajian singkat yang diadakan antara semester biasa. Ia membolehkan pelajar mengambil kursus tambahan. Jadual Semester Pendek boleh dilihat di cutiuitm.xyz.
+
+### Macam mana nak guna Bila UiTM Cuti?
+Layari cutiuitm.xyz, pilih program anda (Foundation, Diploma, Bachelor, dll), dan lihat kalendar dalam paparan grid atau senarai. Anda juga boleh install sebagai PWA untuk akses lebih pantas.
+
+### Bila cuti semester UiTM 2026?
+Cuti semester UiTM 2026 berbeza mengikut kumpulan program. Semak tarikh cuti semester lengkap di cutiuitm.xyz dengan memilih program anda.
 
 ## Data Structure
-Activities are defined by: month/year, program group (A or B), activity type (registration, lecture, examination, break, other), start and end dates, optional KKT state variants. Types include Semester Pendek and Kuliah Intersesi where applicable.
+Activities are defined by: month/year, program group (A or B), activity type (registration, lecture, examination, break, other), start and end dates, optional KKT state variants. Types include Semester Pendek and Kuliah Intersesi where applicable. Each activity may have a programType (PreDiploma, Diploma, DiplomaPartTime, Bachelor, BachelorPartTime, Master, PhD) or semua flag for all students.
+
+## Structured Data (JSON-LD)
+The site uses the following Schema.org types:
+- **Organization** — Site identity with logo
+- **WebSite** — Site name, alternate names, languages (ms, en)
+- **WebApplication** — Free educational application
+- **FAQPage** — Frequently asked questions about UiTM calendar
+- **BreadcrumbList** — Navigation breadcrumbs on all pages
+- **WebPage** — Per-page descriptions on program routes
+- **SiteNavigationElement** — Main navigation links
+
+## SEO
+- **Canonical**: https://cutiuitm.xyz (and per-page canonical URLs)
+- **Metadata**: Title, description, keywords per page; metadataBase for absolute URLs
+- **Open Graph & Twitter Card**: Supported for sharing with per-program OG images
+- **Locale**: ms_MY
+- **Sitemap**: /sitemap.xml
+- **Robots**: /robots.txt
+- **Keywords**: UiTM, academic calendar, 2026, registration, examination, lectures, holidays, Malaysia, Universiti Teknologi MARA, student app, Bila UiTM Cuti, Cuti UiTM, Jadual UiTM, Kalendar UiTM
 
 ## Technology
-- Next.js (App Router), shadcn/ui, Tailwind CSS v4, React hooks, Geist font. Service worker for PWA.
+Next.js (App Router), shadcn/ui, Tailwind CSS v4, React, Geist font, Service worker for PWA.
 
 ## Author
-Alumni UiTM
+Shahrul Estar — https://shahrulestar.com

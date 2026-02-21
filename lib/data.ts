@@ -53,8 +53,8 @@ type ProgramTypeForBadge = NonNullable<Activity['programType']>;
 const programBadgeConfigMap: Record<ProgramTypeForBadge, ProgramBadgeConfig> = {
   PreDiploma: {
     label: 'Pre-Diploma',
-    bgClass: 'bg-[#0891B2]/10 dark:bg-[#22D3EE]/10',
-    textClass: 'text-[#0891B2] dark:text-[#22D3EE]',
+    bgClass: 'bg-[#D97706]/10 dark:bg-[#FBBF24]/10',
+    textClass: 'text-[#D97706] dark:text-[#FBBF24]',
   },
   Diploma: {
     label: 'Diploma',
@@ -90,8 +90,8 @@ const programBadgeConfigMap: Record<ProgramTypeForBadge, ProgramBadgeConfig> = {
 
 const allStudentsBadgeConfig: ProgramBadgeConfig = {
   label: 'All Students',
-  bgClass: 'bg-[#EA580C]/10 dark:bg-[#FB923C]/10',
-  textClass: 'text-[#EA580C] dark:text-[#FB923C]',
+  bgClass: 'bg-[#3B82F6]/10 dark:bg-[#60A5FA]/10',
+  textClass: 'text-[#3B82F6] dark:text-[#60A5FA]',
 };
 
 export function getProgramBadgeConfig(activity: Activity): ProgramBadgeConfig | null {

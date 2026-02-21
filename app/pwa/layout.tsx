@@ -3,6 +3,9 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = {
   title: 'Install App | Bila UiTM Cuti?',
   description: 'Add Bila UiTM Cuti? to your home screen for faster access to the UiTM academic calendar.',
+  alternates: {
+    canonical: 'https://cutiuitm.xyz/pwa',
+  },
   openGraph: {
     siteName: 'Bila UiTM Cuti?',
     title: 'Install App | Bila UiTM Cuti?',
@@ -19,6 +22,20 @@ export const metadata: Metadata = {
   },
 };
 
+const pwaBreadcrumbJsonLd = JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cutiuitm.xyz" },
+    { "@type": "ListItem", "position": 2, "name": "Install App", "item": "https://cutiuitm.xyz/pwa" },
+  ],
+});
+
 export default function PWALayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: pwaBreadcrumbJsonLd }} />
+      {children}
+    </>
+  );
 }

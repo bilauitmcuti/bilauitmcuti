@@ -16,11 +16,15 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
   authors: [
     {
-      name: 'Alumni UiTM',
+      name: 'Shahrul Estar',
       url: 'https://github.com',
     },
   ],
-  creator: 'Alumni UiTM',
+  creator: 'Shahrul Estar',
+  category: 'education',
+  alternates: {
+    canonical: 'https://cutiuitm.xyz',
+  },
   openGraph: {
     siteName: 'Bila UiTM Cuti?',
     title: 'Bila UiTM Cuti? - Academic Calendar 2026',
@@ -86,7 +90,6 @@ export default function RootLayout({
         <meta name="theme-color" content="#ffffff" />
         <meta name="apple-mobile-web-app-title" content="Bila UiTM Cuti?" />
         <link rel="manifest" href="/manifest.json" />
-        <link rel="canonical" href="https://cutiuitm.xyz" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -94,12 +97,20 @@ export default function RootLayout({
               "@context": "https://schema.org",
               "@graph": [
                 {
+                  "@type": "Organization",
+                  "name": "Bila UiTM Cuti?",
+                  "url": "https://cutiuitm.xyz",
+                  "logo": "https://cutiuitm.xyz/android-chrome-512x512.png",
+                  "description": "Kalendar akademik UiTM 2026 interaktif oleh Shahrul Estar.",
+                },
+                {
                   "@type": "WebSite",
                   "name": "Bila UiTM Cuti?",
-                  "alternateName": "Bila UiTM Cuti",
+                  "alternateName": ["Bila UiTM Cuti", "Cuti UiTM", "Kalendar Akademik UiTM 2026"],
                   "url": "https://cutiuitm.xyz",
                   "description": "Kalendar akademik UiTM 2026 interaktif. Jadual pendaftaran, kuliah, peperiksaan, dan cuti semester. Interactive UiTM academic calendar with registration dates, lecture schedules, examination periods, and breaks.",
                   "inLanguage": ["ms", "en"],
+                  "publisher": { "@type": "Organization", "name": "Bila UiTM Cuti?" },
                 },
                 {
                   "@type": "WebApplication",
@@ -107,11 +118,68 @@ export default function RootLayout({
                   "url": "https://cutiuitm.xyz",
                   "applicationCategory": "EducationalApplication",
                   "operatingSystem": "All",
+                  "browserRequirements": "Requires JavaScript. Requires HTML5.",
                   "offers": {
                     "@type": "Offer",
                     "price": "0",
                     "priceCurrency": "MYR",
                   },
+                },
+                {
+                  "@type": "BreadcrumbList",
+                  "itemListElement": [
+                    {
+                      "@type": "ListItem",
+                      "position": 1,
+                      "name": "Home",
+                      "item": "https://cutiuitm.xyz",
+                    },
+                  ],
+                },
+                {
+                  "@type": "FAQPage",
+                  "mainEntity": [
+                    {
+                      "@type": "Question",
+                      "name": "Bila UiTM buka semester 2026?",
+                      "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": "Tarikh pembukaan semester UiTM 2026 berbeza mengikut program. Layari cutiuitm.xyz untuk melihat jadual lengkap pendaftaran dan kuliah bagi Foundation, Pre-Diploma, Diploma, Bachelor, Master dan PhD.",
+                      },
+                    },
+                    {
+                      "@type": "Question",
+                      "name": "Bila peperiksaan UiTM 2026?",
+                      "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": "Tarikh peperiksaan UiTM 2026 bergantung kepada program dan semester. Lihat kalendar akademik interaktif di cutiuitm.xyz untuk tarikh peperiksaan tepat termasuk peperiksaan khas dan EET.",
+                      },
+                    },
+                    {
+                      "@type": "Question",
+                      "name": "Apa itu Semester Pendek UiTM?",
+                      "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": "Semester Pendek adalah sesi pengajian singkat yang diadakan antara semester biasa. Ia membolehkan pelajar mengambil kursus tambahan. Jadual Semester Pendek boleh dilihat di cutiuitm.xyz.",
+                      },
+                    },
+                    {
+                      "@type": "Question",
+                      "name": "Macam mana nak guna Bila UiTM Cuti?",
+                      "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": "Layari cutiuitm.xyz, pilih program anda (Foundation, Diploma, Bachelor, dll), dan lihat kalendar dalam paparan grid atau senarai. Anda juga boleh install sebagai PWA untuk akses lebih pantas.",
+                      },
+                    },
+                    {
+                      "@type": "Question",
+                      "name": "Bila cuti semester UiTM 2026?",
+                      "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": "Cuti semester UiTM 2026 berbeza mengikut kumpulan program. Semak tarikh cuti semester lengkap di cutiuitm.xyz dengan memilih program anda.",
+                      },
+                    },
+                  ],
                 },
                 {
                   "@type": "SiteNavigationElement",

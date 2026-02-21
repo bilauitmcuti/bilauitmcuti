@@ -24,6 +24,9 @@ export async function generateMetadata({ params }: ProgramPageProps): Promise<Me
   return {
     title,
     description,
+    alternates: {
+      canonical: `https://cutiuitm.xyz/${program}`,
+    },
     openGraph: {
       siteName: 'Bila UiTM Cuti?',
       title,
@@ -48,14 +51,49 @@ export async function generateMetadata({ params }: ProgramPageProps): Promise<Me
   };
 }
 
-// Program-specific Grid views
+function ProgramJsonLd({ program, programName }: { program: string; programName: string }) {
+  const title = `${programName} | Bila UiTM Cuti?`;
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{
+        __html: JSON.stringify({
+          "@context": "https://schema.org",
+          "@graph": [
+            {
+              "@type": "BreadcrumbList",
+              "itemListElement": [
+                { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cutiuitm.xyz" },
+                { "@type": "ListItem", "position": 2, "name": programName, "item": `https://cutiuitm.xyz/${program}` },
+              ],
+            },
+            {
+              "@type": "WebPage",
+              "name": title,
+              "url": `https://cutiuitm.xyz/${program}`,
+              "description": `Kalendar akademik UiTM 2026 untuk ${programName}. Lihat tarikh pendaftaran, jadual kuliah, tempoh peperiksaan, dan cuti.`,
+              "isPartOf": { "@type": "WebSite", "name": "Bila UiTM Cuti?", "url": "https://cutiuitm.xyz" },
+            },
+          ],
+        }),
+      }}
+    />
+  );
+}
+
 export default async function ProgramPage({ params }: ProgramPageProps) {
   const { program } = await params;
   
-  // Validate route
   if (!isValidProgramRoute(program)) {
     notFound();
   }
+
+  const programName = getProgramDisplayName(program);
   
-  return <CalendarWrapper viewMode="grid" programFromRoute={program} />;
+  return (
+    <>
+      <ProgramJsonLd program={program} programName={programName} />
+      <CalendarWrapper viewMode="grid" programFromRoute={program} />
+    </>
+  );
 }

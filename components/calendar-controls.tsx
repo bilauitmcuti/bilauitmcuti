@@ -318,10 +318,7 @@ export function CalendarControls({
                   {/* Activity Type Toggles */}
                   <div className="space-y-2 transition-none">
                     <label className="flex items-center justify-between cursor-pointer py-0.5 transition-none">
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-[#d1d5db]" />
-                        <span className="text-sm font-medium text-foreground">Registration</span>
-                      </div>
+                      <span className="text-sm font-medium text-foreground">Registration</span>
                       <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-none ${showRegistration ? 'bg-primary' : 'bg-muted'}`}
                         style={{ transition: 'none' }}
                       >
@@ -340,10 +337,7 @@ export function CalendarControls({
                     </label>
 
                     <label className="flex items-center justify-between cursor-pointer py-0.5 transition-none">
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-[#8b5cf6]" />
-                        <span className="text-sm font-medium text-foreground">Lecture</span>
-                      </div>
+                      <span className="text-sm font-medium text-foreground">Lecture</span>
                       <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-none ${showLecture ? 'bg-primary' : 'bg-muted'}`}
                         style={{ transition: 'none' }}
                       >
@@ -408,10 +402,7 @@ export function CalendarControls({
                     )}
 
                     <label className="flex items-center justify-between cursor-pointer py-0.5 transition-none">
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-[#dc2626]" />
-                        <span className="text-sm font-medium text-foreground">Examination</span>
-                      </div>
+                      <span className="text-sm font-medium text-foreground">Examination</span>
                       <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-none ${showExamination ? 'bg-primary' : 'bg-muted'}`}
                         style={{ transition: 'none' }}
                       >
@@ -453,10 +444,7 @@ export function CalendarControls({
                     )}
 
                     <label className="flex items-center justify-between cursor-pointer py-0.5 transition-none">
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-[#10b981]" />
-                        <span className="text-sm font-medium text-foreground">Break</span>
-                      </div>
+                      <span className="text-sm font-medium text-foreground">Break</span>
                       <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-none ${showBreak ? 'bg-primary' : 'bg-muted'}`}
                         style={{ transition: 'none' }}
                       >
