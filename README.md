@@ -33,8 +33,7 @@ Academic calendar web app for Universiti Teknologi MARA (UiTM) — Malaysia's la
 - **AI:** Groq SDK (llama-3.1-8b-instant, openai/gpt-oss-20b)
 - **Calendar:** react-day-picker, date-fns
 - **Validation:** Zod
-- **Analytics:** Vercel Analytics
-- **Deployment:** Vercel
+- **Deployment:** Cloudflare Workers (OpenNext)
 
 ## Getting Started
 
@@ -77,6 +76,15 @@ Open [http://localhost:3000](http://localhost:3000).
 npm run build
 npm start
 ```
+
+### Cloudflare Deployment
+
+```bash
+npm run preview
+npm run deploy
+```
+
+Use `npm run upload` when you want to upload a version without immediately promoting it.
 
 ## Project Structure
 
