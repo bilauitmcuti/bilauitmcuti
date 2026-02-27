@@ -208,21 +208,13 @@ function toReadableDate(dateStr: string): string {
   return dateStr;
 }
 
-function getActivityStatus(a: Activity, todayISO: string): "PAST" | "NOW" | "UPCOMING" {
-  const end = a.endDate ?? a.startDate;
-  if (end < todayISO) return "PAST";
-  if (a.startDate <= todayISO && end >= todayISO) return "NOW";
-  return "UPCOMING";
-}
-
-function formatActivitiesAsContext(activities: Activity[], todayISO: string): string {
+function formatActivitiesAsContext(activities: Activity[]): string {
   // Sort chronologically by startDate for clearer AI reasoning
   const sorted = [...activities].sort((a, b) => a.startDate.localeCompare(b.startDate));
 
   return sorted
     .map((a) => {
-      const status = getActivityStatus(a, todayISO);
-      let line = `- (${status}) ${a.name}: ${toDateFormat(a.startDate)}`;
+      let line = `- ${a.name}: ${toDateFormat(a.startDate)}`;
       if (a.endDate) line += ` to ${toDateFormat(a.endDate)}`;
       if (a.duration) line += ` (${a.duration})`;
       if (a.details) line += ` — ${a.details}`;
@@ -426,8 +418,8 @@ export async function POST(request: NextRequest) {
 
     const groupBActivities = getFilteredGroupBActivities(selectedProgram);
 
-    const groupAContext = formatActivitiesAsContext(activitiesGroupA, todayISO);
-    const groupBContext = formatActivitiesAsContext(groupBActivities, todayISO);
+    const groupAContext = formatActivitiesAsContext(activitiesGroupA);
+    const groupBContext = formatActivitiesAsContext(groupBActivities);
 
     const primaryActivities = primaryGroup === "A" ? activitiesGroupA : groupBActivities;
     const primaryContext = primaryGroup === "A" ? groupAContext : groupBContext;
@@ -476,6 +468,7 @@ export async function POST(request: NextRequest) {
     );
 
     const reply = rawReply
+      .replace(/\((?:PAST|NOW|UPCOMING)\)\s*/gi, "")
       .replace(/\*\*([^*]+)\*\*/g, "$1")
       .replace(/\*([^*]+)\*/g, "$1")
       .replace(/^[\s]*\*\s/gm, "- ")

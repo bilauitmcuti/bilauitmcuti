@@ -13,12 +13,13 @@ export const metadata: Metadata = {
     type: 'website',
     url: 'https://cutiuitm.xyz/pwa',
     locale: 'ms_MY',
-    images: [{ url: '/all.png', width: 1200, height: 630, alt: 'Bila UiTM Cuti?' }],
+    images: [{ url: 'https://cutiuitm.xyz/all-cover.png', width: 1200, height: 630, alt: 'Bila UiTM Cuti?' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Install App | Bila UiTM Cuti?',
     description: 'Add Bila UiTM Cuti? to your home screen for a faster, app-like experience.',
+    images: ['https://cutiuitm.xyz/all-cover.png'],
   },
 };
 

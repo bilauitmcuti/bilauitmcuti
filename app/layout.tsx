@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     locale: 'ms_MY',
     images: [
       {
-        url: '/all.png',
+        url: 'https://cutiuitm.xyz/all-cover.png',
         width: 1200,
         height: 630,
         alt: 'Bila UiTM Cuti? - Academic Calendar 2026',
@@ -45,6 +45,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Bila UiTM Cuti? - Academic Calendar 2026',
     description: 'Kalendar akademik UiTM 2026. Jadual pendaftaran, kuliah, peperiksaan, dan cuti semester untuk semua program.',
+    images: ['https://cutiuitm.xyz/all-cover.png'],
   },
   icons: {
     icon: [

@@ -98,16 +98,5 @@ export function getProgramDisplayName(route: string | null | undefined): string 
 
 // OG image path for social preview by route (program slug or null for default)
 export function getOgImageForRoute(route: string | null | undefined): string {
-  if (!route) return '/all.png';
-  const imageMap: Record<string, string> = {
-    'foundation-professional': '/foundation.png',
-    'pre-diploma': '/pre-diploma.png',
-    'diploma': '/diploma.png',
-    'diploma-part-time': '/diploma-part-time.png',
-    'bachelor': '/bachelor.png',
-    'bachelor-part-time': '/bachelor-part-time.png',
-    'master': '/master.png',
-    'phd': '/phd.png',
-  };
-  return imageMap[route] ?? '/all.png';
+  return 'https://cutiuitm.xyz/all-cover.png';
 }

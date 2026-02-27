@@ -78,20 +78,20 @@ const programBadgeConfigMap: Record<ProgramTypeForBadge, ProgramBadgeConfig> = {
   },
   Master: {
     label: 'Master',
-    bgClass: 'bg-[#475569]/10 dark:bg-[#CBD5E1]/10',
-    textClass: 'text-[#475569] dark:text-[#CBD5E1]',
+    bgClass: 'bg-[#7C3AED]/10 dark:bg-[#A78BFA]/10',
+    textClass: 'text-[#7C3AED] dark:text-[#C4B5FD]',
   },
   PhD: {
     label: 'PhD',
-    bgClass: 'bg-[#475569]/10 dark:bg-[#CBD5E1]/10',
-    textClass: 'text-[#475569] dark:text-[#CBD5E1]',
+    bgClass: 'bg-[#BE123C]/10 dark:bg-[#FB7185]/10',
+    textClass: 'text-[#BE123C] dark:text-[#FDA4AF]',
   },
 };
 
 const allStudentsBadgeConfig: ProgramBadgeConfig = {
   label: 'All Students',
-  bgClass: 'bg-[#3B82F6]/10 dark:bg-[#60A5FA]/10',
-  textClass: 'text-[#3B82F6] dark:text-[#60A5FA]',
+  bgClass: 'bg-zinc-100 dark:bg-zinc-800',
+  textClass: 'text-zinc-700 dark:text-zinc-200',
 };
 
 export function getProgramBadgeConfig(activity: Activity): ProgramBadgeConfig | null {

@@ -1,6 +1,6 @@
 import { CalendarWrapper } from '@/components/calendar-wrapper';
 import { notFound } from 'next/navigation';
-import { isValidProgramRoute, getProgramDisplayName, getOgImageForRoute } from '@/lib/route-utils';
+import { isValidProgramRoute, getProgramDisplayName } from '@/lib/route-utils';
 import type { Metadata } from 'next';
 
 export const runtime = 'edge';
@@ -38,7 +38,7 @@ export async function generateMetadata({ params }: ProgramPageProps): Promise<Me
       locale: 'ms_MY',
       images: [
         {
-          url: getOgImageForRoute(program),
+          url: 'https://cutiuitm.xyz/all-cover.png',
           width: 1200,
           height: 630,
           alt: title,
@@ -49,6 +49,7 @@ export async function generateMetadata({ params }: ProgramPageProps): Promise<Me
       card: 'summary_large_image',
       title,
       description,
+      images: ['https://cutiuitm.xyz/all-cover.png'],
     },
   };
 }

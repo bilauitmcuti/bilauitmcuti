@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     locale: "ms_MY",
     images: [
       {
-        url: "/chat-og.png",
+        url: "https://cutiuitm.xyz/chat-cover.png",
         width: 1200,
         height: 630,
         alt: "Chat - Bila UiTM Cuti?",
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     title: "Chat - Bila UiTM Cuti?",
     description:
       "Ask AI about your UiTM academic calendar. Get instant answers about lecture dates, exam schedules, breaks, and registration periods.",
-    images: ["/chat-og.png"],
+    images: ["https://cutiuitm.xyz/chat-cover.png"],
   },
 };
 

@@ -528,15 +528,15 @@ export function CalendarControls({
                     <div className="flex flex-col gap-2 w-full transition-none">
                       {/* Submit Feedback Button */}
                       <a 
-                        href="https://forms.gle/qw13g7PJJgzRD3zk8"
+                        href="/feedback"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="w-full"
                       >
                         <Button
                           size="sm"
-                          variant="secondary"
-                          className="w-full justify-center text-center bg-secondary text-secondary-foreground hover:opacity-90 active:opacity-95 transition-opacity"
+                          variant="outline"
+                          className="w-full justify-center text-center border-border bg-transparent text-foreground hover:bg-accent hover:text-accent-foreground transition-none"
                         >
                           Feedback
                         </Button>
@@ -546,10 +546,10 @@ export function CalendarControls({
                       {!isPWAInstalled && (
                         <Button
                           size="sm"
-                          variant="secondary"
+                          variant="outline"
                           onMouseEnter={() => router.prefetch('/pwa')}
                           onClick={() => router.push('/pwa')}
-                          className="w-full justify-center text-center bg-secondary text-secondary-foreground hover:opacity-90 active:opacity-95 transition-opacity"
+                          className="w-full justify-center text-center border-border bg-transparent text-foreground hover:bg-accent hover:text-accent-foreground transition-none"
                         >
                           Download as PWA
                         </Button>

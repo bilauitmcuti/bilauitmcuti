@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     locale: 'ms_MY',
     images: [
       {
-        url: '/all.png',
+        url: 'https://cutiuitm.xyz/list-cover.png',
         width: 1200,
         height: 630,
         alt: 'Bila UiTM Cuti? - Academic Calendar 2026',
@@ -26,6 +26,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Bila UiTM Cuti? - Academic Calendar 2026',
     description: 'Interactive UiTM academic calendar with support for all program groups and regional variations.',
+    images: ['https://cutiuitm.xyz/list-cover.png'],
   },
 };
 
