@@ -79,12 +79,16 @@ npm start
 
 ### Cloudflare Deployment
 
+**Local:**
 ```bash
-npm run preview
-npm run deploy
+pnpm run preview   # build + local preview
+pnpm run deploy    # build + deploy (requires wrangler login)
 ```
 
-Use `npm run upload` when you want to upload a version without immediately promoting it.
+**Cloudflare Dashboard (Pages/Workers):** Connect your repo, then set:
+- **Build command:** `pnpm run deploy`
+- **Environment variables:** `GROQ_API_KEY` (secret)
+- `CLOUDFLARE_API_TOKEN` is auto-injected when connected via Git
 
 ## Project Structure
 
