@@ -27,6 +27,22 @@ import {
 } from "@/components/ui/context-menu";
 import useEmblaCarousel from "embla-carousel-react";
 
+function getChatErrorMessage(res: Response, fallback: string): string {
+  if (res.status === 429) return "Too many requests. Please wait a moment before trying again.";
+  if (res.status === 403) return "Access was blocked. Please refresh and try again.";
+  if (res.status >= 500) return "Server is temporarily unavailable. Please try again in a moment.";
+  return fallback;
+}
+
+async function parseChatResponse(res: Response): Promise<{ error?: string; reply?: string }> {
+  const text = await res.text();
+  try {
+    return JSON.parse(text) as { error?: string; reply?: string };
+  } catch {
+    return { error: getChatErrorMessage(res, "Something went wrong. Please try again.") };
+  }
+}
+
 /**
  * Parse a [TABLE]...[/TABLE] block into headers and rows.
  * Each row is pipe-delimited. The first row is the header.
@@ -473,7 +489,7 @@ export default function ChatPage() {
             body,
           });
 
-          const data = await res.json();
+          const data = await parseChatResponse(res);
 
           if (!res.ok) {
             // Retry on 503 (model loading / busy)
@@ -481,7 +497,7 @@ export default function ChatPage() {
               await new Promise((r) => setTimeout(r, 2000));
               continue;
             }
-            content = data.error || "Something went wrong. Please try again.";
+            content = data.error || getChatErrorMessage(res, "Something went wrong. Please try again.");
           } else {
             content = data.reply || "Sorry, I could not get a response.";
           }
@@ -562,10 +578,10 @@ export default function ChatPage() {
         body: JSON.stringify({ message: userMsg.content, program, history }),
       });
 
-      const data = await res.json();
+      const data = await parseChatResponse(res);
       let content: string;
       if (!res.ok) {
-        content = data.error || "Something went wrong. Please try again.";
+        content = data.error || getChatErrorMessage(res, "Something went wrong. Please try again.");
       } else {
         content = data.reply || "Sorry, I could not get a response.";
       }

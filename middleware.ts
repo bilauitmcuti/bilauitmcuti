@@ -48,6 +48,13 @@ function hasBrowserHeaders(request: NextRequest): boolean {
   return !!(acceptLanguage && (secFetchMode || secFetchSite));
 }
 
+function hasPageOrigin(request: NextRequest): boolean {
+  const referer = request.headers.get("referer");
+  const origin = request.headers.get("origin");
+  const base = "cutiuitm.xyz";
+  return !!(referer?.includes(base) || origin?.includes(base)); // matches apex and www
+}
+
 function isBot(request: NextRequest): boolean {
   const ua = request.headers.get("user-agent") ?? "";
   if (isBotUserAgent(ua)) return true;
@@ -56,9 +63,17 @@ function isBot(request: NextRequest): boolean {
   return false;
 }
 
+function isLikelyRealBrowser(request: NextRequest, pathname: string): boolean {
+  if (pathname !== "/chat/api" && !pathname.startsWith("/chat/api/")) return false;
+  // POST from our page (Referer/Origin) is strong signal for real chat client
+  return request.method === "POST" && hasPageOrigin(request);
+}
+
 export function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+  // Allow /chat/api POST from our page (Referer/Origin) to reduce mobile false-positives
+  if (isLikelyRealBrowser(request, pathname)) return NextResponse.next();
   if (isBot(request)) {
-    const pathname = request.nextUrl.pathname;
     if (pathname === "/chat/api" || pathname.startsWith("/chat/api/")) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }

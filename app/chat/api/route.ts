@@ -35,10 +35,10 @@ const chatRequestSchema = z.object({
 // --- Rate Limiter (in-memory, IP-based sliding window) ---
 const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
 const RATE_LIMIT_MAX_PER_MIN = 10; // max 10 requests per minute
-const RATE_LIMIT_MAX_UNKNOWN_PER_MIN = 2; // stricter per-min limit when IP unknown
+const RATE_LIMIT_MAX_UNKNOWN_PER_MIN = 5; // relaxed for mobile/in-app browsers when IP unknown
 const RATE_LIMIT_DAILY_MS = 24 * 60 * 60 * 1000; // 24 hours
 const RATE_LIMIT_MAX_PER_DAY = 30; // max 30 requests per IP per day
-const RATE_LIMIT_MAX_UNKNOWN_PER_DAY = 10; // stricter daily limit when IP unknown
+const RATE_LIMIT_MAX_UNKNOWN_PER_DAY = 20; // relaxed for mobile/in-app browsers when IP unknown
 const RATE_LIMIT_GLOBAL_MAX_PER_DAY = 500; // max 500 total requests across all users per day
 
 const rateLimitMap = new Map<string, number[]>();
@@ -376,6 +376,7 @@ export async function POST(request: NextRequest) {
     }
 
     const ip =
+      request.headers.get("cf-connecting-ip") ||
       request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       request.headers.get("x-real-ip") ||
       "unknown";
