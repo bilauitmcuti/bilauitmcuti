@@ -9,7 +9,7 @@ import './globals.css'
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://cutiuitm.xyz'),
-  title: 'Bila UiTM Cuti? - Academic Calendar 2026',
+  title: 'Bila UiTM Cuti?',
   description: 'Kalendar akademik UiTM 2026 interaktif. Lihat jadual pendaftaran, kuliah, peperiksaan, dan cuti semester. Interactive UiTM academic calendar for 2026 with registration dates, lecture schedules, examination periods, and breaks. Includes regional variations for Kedah, Kelantan, and Terengganu.',
   keywords: ['UiTM', 'academic calendar', '2026', 'registration', 'examination', 'lectures', 'holidays', 'Malaysia', 'Universiti Teknologi MARA', 'student app', 'Bila UiTM Cuti', 'Cuti UiTM', 'Jadual UiTM', 'Kalendar UiTM', 'Kalendar Akademik UiTM', 'Academic Calendar UiTM', 'jadual akademik UiTM', 'cuti semester UiTM', 'tarikh peperiksaan UiTM', 'tarikh pendaftaran UiTM', 'kuliah UiTM 2026'],
   generator: 'Next.js',
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     siteName: 'Bila UiTM Cuti?',
-    title: 'Bila UiTM Cuti? - Academic Calendar 2026',
+    title: 'Bila UiTM Cuti?',
     description: 'Kalendar akademik UiTM 2026. Jadual pendaftaran, kuliah, peperiksaan, dan cuti semester. Interactive UiTM academic calendar with schedules and examination dates.',
     type: 'website',
     url: 'https://cutiuitm.xyz',
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Bila UiTM Cuti? - Academic Calendar 2026',
+    title: 'Bila UiTM Cuti?',
     description: 'Kalendar akademik UiTM 2026. Jadual pendaftaran, kuliah, peperiksaan, dan cuti semester untuk semua program.',
     images: ['https://cutiuitm.xyz/all-cover.png'],
   },
