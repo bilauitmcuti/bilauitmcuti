@@ -42,7 +42,7 @@ function TooltipTrigger({
         asChild={asChild}
         {...props}
       >
-        {React.cloneElement(children as React.ReactElement, {
+        {React.cloneElement(children as React.ReactElement<{ suppressHydrationWarning?: boolean }>, {
           suppressHydrationWarning: true,
         })}
       </TooltipPrimitive.Trigger>

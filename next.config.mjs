@@ -10,7 +10,7 @@ const nextConfig = {
     root: path.resolve(process.cwd()),
   },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   images: {
     unoptimized: true,

@@ -1,12 +1,7 @@
 import Groq from "groq-sdk";
+import { getEnv } from "@/lib/env";
 
-if (!process.env.GROQ_API_KEY) {
-  throw new Error(
-    "GROQ_API_KEY environment variable is not set. Please add it to your .env.local file."
-  );
-}
-
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const groq = new Groq({ apiKey: getEnv().GROQ_API_KEY });
 
 export const MODEL_LLAMA = "llama-3.1-8b-instant" as const;
 export const MODEL_GPT_OSS = "openai/gpt-oss-20b" as const;

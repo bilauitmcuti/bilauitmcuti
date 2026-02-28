@@ -47,7 +47,7 @@ Academic calendar web app for Universiti Teknologi MARA (UiTM) — Malaysia's la
 ```bash
 git clone https://github.com/your-username/cuti-ui-tm.git
 cd cuti-ui-tm
-npm install
+pnpm install
 ```
 
 ### Environment Variables
@@ -65,7 +65,7 @@ GROQ_API_KEY=your_groq_api_key_here
 ### Development
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
@@ -73,22 +73,27 @@ Open [http://localhost:3000](http://localhost:3000).
 ### Production Build
 
 ```bash
-npm run build
-npm start
+pnpm build
+pnpm start
 ```
 
 ### Cloudflare Deployment
 
-**Local:**
+**Local preview:**
 ```bash
-pnpm run preview   # build + local preview
-pnpm run deploy    # build + deploy (requires wrangler login)
+pnpm preview   # build + local preview
+pnpm deploy   # build + deploy (requires wrangler login)
 ```
 
 **Cloudflare Dashboard (Pages/Workers):** Connect your repo, then set:
 - **Build command:** `pnpm run deploy`
 - **Environment variables:** `GROQ_API_KEY` (secret)
 - `CLOUDFLARE_API_TOKEN` is auto-injected when connected via Git
+
+**Troubleshooting:**
+- If chat fails: ensure `GROQ_API_KEY` is set as a secret in Cloudflare
+- Health check: `GET /api/health` returns readiness (503 if GROQ is missing)
+- For distributed rate limiting: run `wrangler kv namespace create RATE_LIMIT_KV`, add the binding to `wrangler.jsonc`
 
 ## Project Structure
 
@@ -101,6 +106,9 @@ app/
     page.tsx            # AI chat interface
     api/route.ts        # Chat API (rate limiting, validation, AI)
   list/                 # List view page
+  api/
+    health/route.ts     # Health/readiness check
+    version/route.ts    # Build info
 components/
   ui/                   # shadcn/ui components
   calendar-wrapper.tsx  # Calendar display logic
@@ -111,6 +119,9 @@ components/
 lib/
   ai.ts                # Groq AI integration with fallback
   data.ts              # Academic calendar data (activities, dates)
+  env.ts               # Centralized env validation
+  rate-limit.ts        # Rate limiting (KV or in-memory fallback)
+  logger.ts            # Structured logging
   uitm-info.ts         # UiTM general knowledge base
   system-rules.json    # AI system prompts
   cookie-utils.ts      # Filter persistence

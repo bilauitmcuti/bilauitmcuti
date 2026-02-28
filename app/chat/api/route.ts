@@ -32,89 +32,12 @@ const chatRequestSchema = z.object({
     .optional(),
 });
 
-// --- Rate Limiter (in-memory, IP-based sliding window) ---
-const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
-const RATE_LIMIT_MAX_PER_MIN = 10; // max 10 requests per minute
-const RATE_LIMIT_MAX_UNKNOWN_PER_MIN = 5; // relaxed for mobile/in-app browsers when IP unknown
-const RATE_LIMIT_DAILY_MS = 24 * 60 * 60 * 1000; // 24 hours
-const RATE_LIMIT_MAX_PER_DAY = 30; // max 30 requests per IP per day
-const RATE_LIMIT_MAX_UNKNOWN_PER_DAY = 20; // relaxed for mobile/in-app browsers when IP unknown
-const RATE_LIMIT_GLOBAL_MAX_PER_DAY = 500; // max 500 total requests across all users per day
+// --- Rate Limiter (KV when on Cloudflare, in-memory fallback) ---
+import { checkRateLimit } from "@/lib/rate-limit";
+import { logger } from "@/lib/logger";
 
-const rateLimitMap = new Map<string, number[]>();
-let globalDailyTimestamps: number[] = [];
-
-const CLEANUP_THRESHOLD = 500; // Run cleanup when map exceeds this size
-
-function cleanupStaleEntries() {
-  const now = Date.now();
-  for (const [key, timestamps] of rateLimitMap.entries()) {
-    const valid = timestamps.filter((t) => now - t < RATE_LIMIT_DAILY_MS);
-    if (valid.length === 0) {
-      rateLimitMap.delete(key);
-    } else {
-      rateLimitMap.set(key, valid);
-    }
-  }
-  globalDailyTimestamps = globalDailyTimestamps.filter((t) => now - t < RATE_LIMIT_DAILY_MS);
-}
-
-function getRateLimitKey(ip: string, request: NextRequest): string {
-  if (ip !== "unknown") return ip;
-  // Edge-compatible fingerprint (no Buffer)
-  const ua = request.headers.get("user-agent") ?? "";
-  const lang = request.headers.get("accept-language") ?? "";
-  const raw = (ua + lang).replace(/\s/g, "").slice(0, 48);
-  try {
-    return `unknown:${btoa(encodeURIComponent(raw)).slice(0, 32)}`;
-  } catch {
-    return `unknown:${raw.slice(0, 32)}`;
-  }
-}
-
-interface RateLimitResult {
-  limited: boolean;
-  message: string;
-}
-
-function checkRateLimit(ip: string, request: NextRequest): RateLimitResult {
-  const now = Date.now();
-
-  // On-demand cleanup when map grows (Edge has no setInterval)
-  if (rateLimitMap.size > CLEANUP_THRESHOLD) {
-    cleanupStaleEntries();
-  }
-
-  // 1. Global daily limit
-  const globalValid = globalDailyTimestamps.filter((t) => now - t < RATE_LIMIT_DAILY_MS);
-  if (globalValid.length >= RATE_LIMIT_GLOBAL_MAX_PER_DAY) {
-    return { limited: true, message: "Service is at capacity for today. Please try again tomorrow." };
-  }
-
-  const key = getRateLimitKey(ip, request);
-  const isUnknown = ip === "unknown";
-  const timestamps = rateLimitMap.get(key) || [];
-
-  // 2. Per-IP daily limit
-  const dailyValid = timestamps.filter((t) => now - t < RATE_LIMIT_DAILY_MS);
-  const maxDaily = isUnknown ? RATE_LIMIT_MAX_UNKNOWN_PER_DAY : RATE_LIMIT_MAX_PER_DAY;
-  if (dailyValid.length >= maxDaily) {
-    return { limited: true, message: "Daily limit reached. Please try again tomorrow." };
-  }
-
-  // 3. Per-IP per-minute limit
-  const minuteValid = dailyValid.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
-  const maxPerMin = isUnknown ? RATE_LIMIT_MAX_UNKNOWN_PER_MIN : RATE_LIMIT_MAX_PER_MIN;
-  if (minuteValid.length >= maxPerMin) {
-    return { limited: true, message: "Too many requests. Please wait a moment before trying again." };
-  }
-
-  // All checks passed — record this request
-  dailyValid.push(now);
-  rateLimitMap.set(key, dailyValid);
-  globalDailyTimestamps = [...globalValid, now];
-
-  return { limited: false, message: "" };
+function generateCorrelationId(): string {
+  return `chat-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 // --- Input Validation ---
@@ -354,6 +277,7 @@ function jsonError(message: string, status: number) {
 }
 
 export async function POST(request: NextRequest) {
+  let correlationId = "unknown";
   try {
     // Content-Type validation
     const contentType = request.headers.get("content-type");
@@ -373,8 +297,10 @@ export async function POST(request: NextRequest) {
       request.headers.get("x-real-ip") ||
       "unknown";
 
-    const rateLimit = checkRateLimit(ip, request);
+    correlationId = generateCorrelationId();
+    const rateLimit = await checkRateLimit(ip, request);
     if (rateLimit.limited) {
+      logger.warn("Rate limited", { correlationId, ip });
       return jsonError(rateLimit.message, 429);
     }
 
@@ -483,9 +409,7 @@ export async function POST(request: NextRequest) {
     }
     const errMsg = error instanceof Error ? error.message : String(error);
     const status = (error as { status?: number })?.status;
-    if (process.env.NODE_ENV === "development") {
-      console.error("Chat API error:", errMsg, "status:", status);
-    }
+    logger.error("Chat API error", { correlationId, errMsg, status });
 
     if (status === 401 || errMsg.includes("401") || errMsg.includes("Unauthorized")) {
       return jsonError(

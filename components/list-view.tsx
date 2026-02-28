@@ -153,6 +153,8 @@ export const ListView = memo(function ListView({
     return acc;
   }, {} as Record<string, typeof uniqueActivities>);
 
+  const hasAnyActivities = sortedMonths.some((m) => (filteredGroupedByMonth[m]?.length ?? 0) > 0);
+
   const bgClass = 'bg-background';
   const textClass = 'text-foreground';
   const mutedClass = 'text-muted-foreground';
@@ -160,7 +162,14 @@ export const ListView = memo(function ListView({
 
   return (
     <div className={`space-y-8 ${bgClass} transition-none`} suppressHydrationWarning>
-      {sortedMonths.map((month) => {
+      {!hasAnyActivities ? (
+        <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+          <p className={`text-lg font-medium ${textClass} mb-2`}>No activities match your filters</p>
+          <p className={`text-sm ${mutedClass} max-w-md`}>
+            Try adjusting the filter toggles above to see registration, lectures, exams, or breaks.
+          </p>
+        </div>
+      ) : sortedMonths.map((month) => {
         // Hide months with no activities
         if (!filteredGroupedByMonth[month] || filteredGroupedByMonth[month].length === 0) {
           return null;
@@ -269,7 +278,7 @@ export const ListView = memo(function ListView({
           </div>
         </div>
         );
-      })      }
+      })}
     </div>
   );
 });
