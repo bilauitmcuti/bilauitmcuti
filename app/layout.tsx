@@ -92,11 +92,6 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="Bila UiTM Cuti?" />
         <link rel="manifest" href="/manifest.json" />
         <script
-          defer
-          src="https://static.cloudflareinsights.com/beacon.min.js"
-          data-cf-beacon={JSON.stringify({ token: "bfb74d5648c9433cbadbca00b60f982e" })}
-        />
-        <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
