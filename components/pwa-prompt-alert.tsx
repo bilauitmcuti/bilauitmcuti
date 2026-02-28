@@ -61,7 +61,7 @@ export function PwaPromptAlert() {
   if (!show) return null;
 
   return (
-    <div className="fixed bottom-4 left-1/2 z-50 w-full max-w-md -translate-x-1/2 px-4">
+    <div className="fixed bottom-8 left-1/2 z-50 w-full max-w-md -translate-x-1/2 px-4">
       <Alert className="w-full shadow-lg">
         <AlertTitle>Add to Home Screen for faster access.</AlertTitle>
         <AlertDescription>

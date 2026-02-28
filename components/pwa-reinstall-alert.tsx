@@ -19,6 +19,21 @@ function isPwaMode(): boolean {
   return isStandalone || isMinimalUI;
 }
 
+function isLikelyOldWwwPwaContext(): boolean {
+  if (typeof window === 'undefined') return false;
+
+  const hostname = window.location.hostname.toLowerCase();
+  if (hostname === 'www.cutiuitm.xyz') return true;
+
+  const referrer = document.referrer.toLowerCase();
+  if (referrer.includes('://www.cutiuitm.xyz')) return true;
+
+  const source = new URLSearchParams(window.location.search).get('from')?.toLowerCase();
+  if (source?.includes('www')) return true;
+
+  return false;
+}
+
 export function PwaReinstallAlert() {
   const pathname = usePathname();
   const router = useRouter();
@@ -33,6 +48,7 @@ export function PwaReinstallAlert() {
     if (!mounted || typeof window === 'undefined') return;
     if (pathname !== '/') return;
     if (!isPwaMode()) return;
+    if (!isLikelyOldWwwPwaContext()) return;
 
     try {
       const alreadyOpened = localStorage.getItem(PWA_REINSTALL_REMINDER_KEY);
@@ -46,15 +62,15 @@ export function PwaReinstallAlert() {
 
   function handleOpenGuide() {
     setShow(false);
-    router.push('/pwa#reinstall');
+    router.push('/pwa');
   }
 
   if (!show) return null;
 
   return (
-    <div className="fixed bottom-4 left-1/2 z-50 w-full max-w-md -translate-x-1/2 px-4">
+    <div className="fixed bottom-8 left-1/2 z-50 w-full max-w-md -translate-x-1/2 px-4">
       <Alert className="w-full shadow-lg">
-        <AlertTitle>Using an old home screen app?</AlertTitle>
+        <AlertTitle>Using an old Bila UiTM Cuti? app?</AlertTitle>
         <AlertDescription>
           Delete the old app from your home screen, then reinstall from your browser to get the latest version.
         </AlertDescription>
