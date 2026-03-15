@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: ProgramListPageProps): Promis
   
   const programName = getProgramDisplayName(program);
   const title = `${programName} | Bila UiTM Cuti?`;
-  const description = `Kalendar akademik UiTM 2026 untuk ${programName}. Lihat tarikh pendaftaran, jadual kuliah, tempoh peperiksaan, dan cuti.`;
+  const description = `Kalendar akademik UiTM untuk ${programName}. Lihat tarikh pendaftaran, jadual kuliah, tempoh peperiksaan, dan cuti.`;
   
   return {
     title,
@@ -75,7 +75,7 @@ function ProgramListJsonLd({ program, programName }: { program: string; programN
               "@type": "WebPage",
               "name": title,
               "url": `https://cutiuitm.xyz/${program}/list`,
-              "description": `Senarai aktiviti akademik UiTM 2026 untuk ${programName}. Pendaftaran, kuliah, peperiksaan, dan cuti dalam paparan senarai.`,
+              "description": `Senarai aktiviti akademik UiTM untuk ${programName}. Pendaftaran, kuliah, peperiksaan, dan cuti dalam paparan senarai.`,
               "isPartOf": { "@type": "WebSite", "name": "Bila UiTM Cuti?", "url": "https://cutiuitm.xyz" },
             },
           ],

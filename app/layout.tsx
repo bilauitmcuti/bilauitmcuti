@@ -11,8 +11,8 @@ import './globals.css'
 export const metadata: Metadata = {
   metadataBase: new URL('https://cutiuitm.xyz'),
   title: 'Bila UiTM Cuti?',
-  description: 'Kalendar akademik UiTM 2026 interaktif. Lihat jadual pendaftaran, kuliah, peperiksaan, dan cuti semester. Interactive UiTM academic calendar for 2026 with registration dates, lecture schedules, examination periods, and breaks. Includes regional variations for Kedah, Kelantan, and Terengganu.',
-  keywords: ['UiTM', 'academic calendar', '2026', 'registration', 'examination', 'lectures', 'holidays', 'Malaysia', 'Universiti Teknologi MARA', 'UiTM student app', 'Bila UiTM Cuti', 'Cuti UiTM', 'Jadual UiTM', 'Kalendar UiTM', 'Kalendar Akademik UiTM', 'Academic Calendar UiTM', 'jadual akademik UiTM', 'cuti semester UiTM', 'tarikh peperiksaan UiTM', 'tarikh pendaftaran UiTM', 'kuliah UiTM'],
+  description: 'Kalendar akademik UiTM interaktif. Lihat jadual pendaftaran, kuliah, peperiksaan, dan cuti semester. Interactive UiTM academic calendar with registration dates, lecture schedules, examination periods, and breaks. Includes regional variations for Kedah, Kelantan, and Terengganu.',
+  keywords: ['UiTM', 'academic calendar', 'registration', 'examination', 'lectures', 'holidays', 'Malaysia', 'Universiti Teknologi MARA', 'UiTM student app', 'Bila UiTM Cuti', 'Cuti UiTM', 'Jadual UiTM', 'Kalendar UiTM', 'Kalendar Akademik UiTM', 'Academic Calendar UiTM', 'jadual akademik UiTM', 'cuti semester UiTM', 'tarikh peperiksaan UiTM', 'tarikh pendaftaran UiTM', 'kuliah UiTM'],
   generator: 'Next.js',
   manifest: '/manifest.json',
   authors: [
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   openGraph: {
     siteName: 'Bila UiTM Cuti?',
     title: 'Bila UiTM Cuti?',
-    description: 'Kalendar akademik UiTM 2026. Jadual pendaftaran, kuliah, peperiksaan, dan cuti semester. Interactive UiTM academic calendar with schedules and examination dates.',
+    description: 'Kalendar akademik UiTM. Jadual pendaftaran, kuliah, peperiksaan, dan cuti semester. Interactive UiTM academic calendar with schedules and examination dates.',
     type: 'website',
     url: 'https://cutiuitm.xyz',
     locale: 'ms_MY',
@@ -38,14 +38,14 @@ export const metadata: Metadata = {
         url: 'https://cutiuitm.xyz/all-cover.png',
         width: 1200,
         height: 630,
-        alt: 'Bila UiTM Cuti? - Academic Calendar 2026',
+        alt: 'Bila UiTM Cuti? - Academic Calendar',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Bila UiTM Cuti?',
-    description: 'Kalendar akademik UiTM 2026. Jadual pendaftaran, kuliah, peperiksaan, dan cuti semester untuk semua program.',
+    description: 'Kalendar akademik UiTM. Jadual pendaftaran, kuliah, peperiksaan, dan cuti semester untuk semua program.',
     images: ['https://cutiuitm.xyz/all-cover.png'],
   },
   icons: {
@@ -103,14 +103,14 @@ export default function RootLayout({
                   "name": "Bila UiTM Cuti?",
                   "url": "https://cutiuitm.xyz",
                   "logo": "https://cutiuitm.xyz/android-chrome-512x512.png",
-                  "description": "Kalendar akademik UiTM 2026 interaktif oleh Shahrul Estar.",
+                  "description": "Kalendar akademik UiTM interaktif oleh Shahrul Estar.",
                 },
                 {
                   "@type": "WebSite",
                   "name": "Bila UiTM Cuti?",
-                  "alternateName": ["Bila UiTM Cuti", "Cuti UiTM", "Kalendar Akademik UiTM 2026"],
+                  "alternateName": ["Bila UiTM Cuti", "Cuti UiTM", "Kalendar Akademik UiTM"],
                   "url": "https://cutiuitm.xyz",
-                  "description": "Kalendar akademik UiTM 2026 interaktif. Jadual pendaftaran, kuliah, peperiksaan, dan cuti semester. Interactive UiTM academic calendar with registration dates, lecture schedules, examination periods, and breaks.",
+                  "description": "Kalendar akademik UiTM interaktif. Jadual pendaftaran, kuliah, peperiksaan, dan cuti semester. Interactive UiTM academic calendar with registration dates, lecture schedules, examination periods, and breaks.",
                   "inLanguage": ["ms", "en"],
                   "publisher": { "@type": "Organization", "name": "Bila UiTM Cuti?" },
                 },
@@ -143,18 +143,18 @@ export default function RootLayout({
                   "mainEntity": [
                     {
                       "@type": "Question",
-                      "name": "Bila UiTM buka semester 2026?",
+                      "name": "Bila UiTM buka semester?",
                       "acceptedAnswer": {
                         "@type": "Answer",
-                        "text": "Tarikh pembukaan semester UiTM 2026 berbeza mengikut program. Layari cutiuitm.xyz untuk melihat jadual lengkap pendaftaran dan kuliah bagi Foundation, Pre-Diploma, Diploma, Bachelor, Master dan PhD.",
+                        "text": "Tarikh pembukaan semester UiTM berbeza mengikut program. Layari cutiuitm.xyz untuk melihat jadual lengkap pendaftaran dan kuliah bagi Foundation, Pre-Diploma, Diploma, Bachelor, Master dan PhD.",
                       },
                     },
                     {
                       "@type": "Question",
-                      "name": "Bila peperiksaan UiTM 2026?",
+                      "name": "Bila peperiksaan UiTM?",
                       "acceptedAnswer": {
                         "@type": "Answer",
-                        "text": "Tarikh peperiksaan UiTM 2026 bergantung kepada program dan semester. Lihat kalendar akademik interaktif di cutiuitm.xyz untuk tarikh peperiksaan tepat termasuk peperiksaan khas dan EET.",
+                        "text": "Tarikh peperiksaan UiTM bergantung kepada program dan semester. Lihat kalendar akademik interaktif di cutiuitm.xyz untuk tarikh peperiksaan tepat termasuk peperiksaan khas dan EET.",
                       },
                     },
                     {
@@ -175,10 +175,10 @@ export default function RootLayout({
                     },
                     {
                       "@type": "Question",
-                      "name": "Bila cuti semester UiTM 2026?",
+                      "name": "Bila cuti semester UiTM?",
                       "acceptedAnswer": {
                         "@type": "Answer",
-                        "text": "Cuti semester UiTM 2026 berbeza mengikut kumpulan program. Semak tarikh cuti semester lengkap di cutiuitm.xyz dengan memilih program anda.",
+                        "text": "Cuti semester UiTM berbeza mengikut kumpulan program. Semak tarikh cuti semester lengkap di cutiuitm.xyz dengan memilih program anda.",
                       },
                     },
                   ],

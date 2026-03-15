@@ -919,7 +919,7 @@ export default function ChatPage() {
                   className="min-w-[260px] overflow-visible pt-4 pb-4 pl-3 pr-3 bg-popover dark:bg-[#2A2A2A] border border-border"
                   align="start"
                 >
-                  <div className="max-h-[min(calc(100vh-6rem),420px)] overflow-y-auto overflow-x-hidden -mx-1 px-1">
+                  <div className="-mx-1 px-1">
                     <div className="mb-2">
                       <div className="text-xs font-semibold text-muted-foreground mb-2 px-2">GROUP A</div>
                       {groupAOptions.map((opt) => (
@@ -956,7 +956,9 @@ export default function ChatPage() {
                         </DropdownMenuSub>
                       ))}
                     </div>
-                    <div className="my-2 h-px bg-border" />
+                  </div>
+                  <div className="my-2 h-px bg-border -mx-3 w-[calc(100%+1.5rem)]" />
+                  <div className="-mx-1 px-1">
                     <div>
                       <div className="text-xs font-semibold text-muted-foreground mb-2 px-2">GROUP B</div>
                       {groupBOptions.map((opt) => (
