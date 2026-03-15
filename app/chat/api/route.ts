@@ -5,10 +5,13 @@ import { z } from "zod";
 import { askGroqWithFallback, MODEL_LLAMA, MODEL_GPT_OSS, type ChatMessage } from "@/lib/ai";
 import systemRules from "@/lib/system-rules.json";
 import {
-  activitiesGroupA,
-  activitiesGroupB,
+  getActivitiesForSession,
+  getDefaultSessionForGroup,
+  getGroupFromSession,
   programOptions,
+  sessionOptions,
   type Activity,
+  type SessionId,
 } from "@/lib/data";
 import { UITM_GENERAL_INFO } from "@/lib/uitm-info";
 
@@ -18,9 +21,16 @@ const MAX_MESSAGE_LENGTH = 2000;
 const MAX_HISTORY_ARRAY_LENGTH = 20;
 const MAX_HISTORY_CONTENT_LENGTH = 8000;
 
+const MAX_SELECTED_SESSIONS = 6;
+const VALID_SESSION_IDS = new Set(sessionOptions.map((s) => s.id));
+
 const chatRequestSchema = z.object({
   message: z.string().min(1, "Message is required").max(MAX_MESSAGE_LENGTH),
   program: z.string().optional(),
+  selectedSessions: z
+    .array(z.string())
+    .max(MAX_SELECTED_SESSIONS)
+    .optional(),
   history: z
     .array(
       z.object({
@@ -91,13 +101,85 @@ function isCalendarQuestion(message: string): boolean {
   return CALENDAR_KEYWORDS.some((kw) => lower.includes(kw));
 }
 
-function getFilteredGroupBActivities(program: string): Activity[] {
-  return activitiesGroupB.filter((activity) => {
-    if (program === "All" || program === "Foundation/Professional") return true;
-    if (activity.semua) return true;
-    if (activity.programType === program) return true;
-    return false;
+const COMPARE_KEYWORDS = [
+  "compare",
+  "comparison",
+  "difference",
+  "different",
+  "vs",
+  "versus",
+  "bezakan",
+  "beza",
+  "perbandingan",
+  "banding",
+];
+
+function isComparisonQuestion(message: string): boolean {
+  const lower = message.toLowerCase();
+  return COMPARE_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
+function getActivityDedupeKey(a: Activity): string {
+  return [a.name, a.startDate, a.endDate ?? "", a.type].join("|");
+}
+
+function dedupeActivities(activities: Activity[]): Activity[] {
+  const seen = new Set<string>();
+  return activities.filter((a) => {
+    const key = getActivityDedupeKey(a);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
   });
+}
+
+function filterActivityByProgram(activity: Activity, program: string): boolean {
+  if (program === "All" || program === "Foundation/Professional") return true;
+  if (activity.semua) return true;
+  if (activity.programType === program) return true;
+  return false;
+}
+
+function getActivitiesFromSessions(
+  sessionIds: SessionId[],
+  program: string,
+  group: "A" | "B"
+): Activity[] {
+  const all: Activity[] = [];
+  for (const sid of sessionIds) {
+    if (getGroupFromSession(sid) !== group) continue;
+    const acts = getActivitiesForSession(sid).filter((a) => a.group === group);
+    all.push(...acts);
+  }
+  const deduped = dedupeActivities(all);
+  if (group === "B") {
+    return deduped.filter((a) => filterActivityByProgram(a, program));
+  }
+  return deduped;
+}
+
+function resolveEffectiveSessions(
+  selectedSessions: string[] | undefined,
+  primaryGroup: "A" | "B"
+): SessionId[] {
+  if (!selectedSessions || selectedSessions.length === 0) {
+    return [getDefaultSessionForGroup(primaryGroup)];
+  }
+  const valid = selectedSessions.filter(
+    (id): id is SessionId => id.length > 0 && VALID_SESSION_IDS.has(id)
+  );
+  const inGroup = valid.filter((id) => getGroupFromSession(id) === primaryGroup);
+  if (inGroup.length === 0) {
+    return [getDefaultSessionForGroup(primaryGroup)];
+  }
+  return inGroup;
+}
+
+function getFilteredGroupBActivities(program: string, sessionIds: SessionId[]): Activity[] {
+  const activities = getActivitiesFromSessions(sessionIds, program, "B");
+  if (activities.length > 0) return activities;
+  const fallback = getActivitiesForSession(getDefaultSessionForGroup("B"));
+  return fallback.filter((a) => filterActivityByProgram(a, program));
 }
 
 // --- Date helpers ---
@@ -222,6 +304,43 @@ function computeQuickReference(activities: Activity[], todayISO: string): string
 /** Context char limits to avoid Groq 413. */
 const MAX_PRIMARY_CONTEXT_CHARS = 8_000;
 const MAX_SECONDARY_CONTEXT_CHARS = 1_500;
+const MAX_COMPARISON_CONTEXT_CHARS = 2_000;
+
+function buildComparisonContext(
+  sessionIds: SessionId[],
+  program: string,
+  group: "A" | "B"
+): string {
+  if (sessionIds.length < 2) return "";
+  const lines: string[] = [
+    "USER SELECTED MULTIPLE SESSIONS — Use this to compare dates across sessions when asked:",
+  ];
+  for (const sid of sessionIds) {
+    const sess = sessionOptions.find((s) => s.id === sid);
+    const label = sess?.label.replace(/^Group [AB]:\s*/, "") ?? sid;
+    const activities = getActivitiesFromSessions([sid], program, group);
+    const sorted = [...activities].sort((a, b) => a.startDate.localeCompare(b.startDate));
+    const keyEvents = sorted.filter(
+      (a) =>
+        a.type === "lecture" ||
+        a.type === "examination" ||
+        a.type === "break" ||
+        a.name.includes("Ujian Pertengahan") ||
+        a.name.includes("Cuti Semester") ||
+        a.name.includes("Minggu Ulangkaji") ||
+        a.name.includes("Peperiksaan Akhir")
+    );
+    lines.push(`\n${label}:`);
+    for (const a of keyEvents.slice(0, 12)) {
+      const range = a.endDate ? `${toDateFormat(a.startDate)} to ${toDateFormat(a.endDate)}` : toDateFormat(a.startDate);
+      lines.push(`  - ${a.name}: ${range}`);
+    }
+  }
+  const out = lines.join("\n");
+  return out.length > MAX_COMPARISON_CONTEXT_CHARS
+    ? out.slice(0, MAX_COMPARISON_CONTEXT_CHARS) + "\n...[truncated]"
+    : out;
+}
 
 function buildCalendarSystemPrompt(
   programLabel: string,
@@ -232,7 +351,9 @@ function buildCalendarSystemPrompt(
   primaryDesc: string,
   secondaryDesc: string,
   todayFormatted: string,
-  quickReference: string
+  quickReference: string,
+  comparisonContext?: string,
+  forceComparisonTable?: boolean
 ): string {
   const truncatedPrimary =
     primaryContext.length > MAX_PRIMARY_CONTEXT_CHARS
@@ -245,7 +366,7 @@ function buildCalendarSystemPrompt(
 
   const rules = systemRules as { calendarPromptCompact: string; calendarPromptTemplate: string };
   const template = rules.calendarPromptCompact;
-  return template
+  let result = template
     .replace(/\{\{programLabel\}\}/g, programLabel)
     .replace(/\{\{primaryGroup\}\}/g, primaryGroup)
     .replace(/\{\{secondaryGroup\}\}/g, secondaryGroup)
@@ -255,6 +376,15 @@ function buildCalendarSystemPrompt(
     .replace(/\{\{secondaryDesc\}\}/g, secondaryDesc)
     .replace(/\{\{today\}\}/g, todayFormatted)
     .replace(/\{\{quickReference\}\}/g, quickReference);
+
+  if (comparisonContext && comparisonContext.length > 0) {
+    result += `\n\n=== SESSION COMPARISON (user selected multiple sessions) ===\n${comparisonContext}`;
+  }
+  if (forceComparisonTable) {
+    result +=
+      "\n\nCOMPARISON OUTPUT RULE (MANDATORY): For comparison answers across sessions, you MUST present the compared data in a [TABLE]...[/TABLE] block. Include a short intro sentence, then one table with clear columns (for example: Session | Activity | Date/Range | Notes). Do not output comparison results as plain paragraphs or bullet-only lists.";
+  }
+  return result;
 }
 
 /** Max chars for UiTM info context to avoid Groq 413. */
@@ -328,7 +458,7 @@ export async function POST(request: NextRequest) {
       return jsonError(userMsg, 400);
     }
 
-    const { message, program, history } = parseResult.data;
+    const { message, program, selectedSessions: rawSelectedSessions, history } = parseResult.data;
 
     const selectedProgram =
       program && VALID_PROGRAMS.has(program) ? program : "All";
@@ -336,20 +466,36 @@ export async function POST(request: NextRequest) {
 
     const programMeta = programOptions.find((p) => p.value === selectedProgram);
     const programLabel = programMeta?.label || selectedProgram;
-    const primaryGroup = programMeta?.group || "B";
+    const primaryGroup = (programMeta?.group || "B") as "A" | "B";
     const secondaryGroup = primaryGroup === "A" ? "B" : "A";
+
+    const effectiveSessions = resolveEffectiveSessions(rawSelectedSessions, primaryGroup);
 
     const todayISO = getTodayISO();
     const todayFormatted = toReadableDate(todayISO);
 
-    const groupBActivities = getFilteredGroupBActivities(selectedProgram);
+    let primaryActivities = getActivitiesFromSessions(
+      effectiveSessions,
+      selectedProgram,
+      primaryGroup
+    );
+    if (primaryActivities.length === 0) {
+      primaryActivities =
+        primaryGroup === "A"
+          ? getActivitiesForSession(getDefaultSessionForGroup("A"))
+          : getFilteredGroupBActivities(selectedProgram, [getDefaultSessionForGroup("B")]);
+    }
+    const secondaryActivities =
+      primaryGroup === "A"
+        ? getFilteredGroupBActivities(selectedProgram, [getDefaultSessionForGroup("B")])
+        : getActivitiesForSession(getDefaultSessionForGroup("A"));
 
-    const groupAContext = formatActivitiesAsContext(activitiesGroupA);
-    const groupBContext = formatActivitiesAsContext(groupBActivities);
-
-    const primaryActivities = primaryGroup === "A" ? activitiesGroupA : groupBActivities;
-    const primaryContext = primaryGroup === "A" ? groupAContext : groupBContext;
-    const secondaryContext = primaryGroup === "A" ? groupBContext : groupAContext;
+    const primaryContext = formatActivitiesAsContext(primaryActivities);
+    const secondaryContext = formatActivitiesAsContext(secondaryActivities);
+    const comparisonContext =
+      effectiveSessions.length > 1
+        ? buildComparisonContext(effectiveSessions, selectedProgram, primaryGroup)
+        : "";
     const primaryDesc =
       primaryGroup === "A"
         ? "Foundation/Professional - Semester December 2025 to May 2026"
@@ -371,6 +517,8 @@ export async function POST(request: NextRequest) {
       }));
 
     const useCalendarPrompt = isCalendarQuestion(sanitizedMessage);
+    const isCompareRequested =
+      effectiveSessions.length > 1 && isComparisonQuestion(sanitizedMessage);
     const systemPrompt = useCalendarPrompt
       ? buildCalendarSystemPrompt(
           programLabel,
@@ -381,7 +529,9 @@ export async function POST(request: NextRequest) {
           primaryDesc,
           secondaryDesc,
           todayFormatted,
-          quickReference
+          quickReference,
+          comparisonContext,
+          isCompareRequested
         )
       : buildResearchSystemPrompt(todayFormatted);
 

@@ -1,8 +1,9 @@
-import { memo, useMemo, useState, useEffect } from 'react';
-import { getActivitiesForMonth, formatDateRange, getDaysUntilStart, formatCountdown, getProgramBadgeConfig, type ProgramGroup } from '@/lib/data';
+import { memo, useMemo, useState, useEffect, useCallback } from 'react';
+import { getActivitiesForMonthMultiSessions, getMonthsForSessions, formatDateRange, getDaysUntilStart, formatCountdown, getProgramBadgeConfig, type ProgramGroup, type SessionId } from '@/lib/data';
 
 interface ListViewProps {
   selectedProgram: string;
+  selectedSessions: SessionId[];
   showKKT: boolean;
   showRegistration: boolean;
   showLecture: boolean;
@@ -32,6 +33,7 @@ function getMalaysiaTodayStr(): string {
 
 export const ListView = memo(function ListView({ 
   selectedProgram, 
+  selectedSessions,
   showKKT,
   showRegistration,
   showLecture,
@@ -64,7 +66,7 @@ export const ListView = memo(function ListView({
     return 'B';
   };
 
-  const shouldShowActivity = (type: string, activity?: any): boolean => {
+  const shouldShowActivity = useCallback((type: string, activity?: any): boolean => {
     if (type === 'registration' && !showRegistration) return false;
     if (type === 'lecture' && !showLecture) return false;
     if (type === 'examination' && !showExamination) return false;
@@ -88,78 +90,117 @@ export const ListView = memo(function ListView({
     if (activity?.programType && activity.programType !== selectedProgram) return false;
     
     return true;
-  };
+  }, [
+    showRegistration,
+    showLecture,
+    showExamination,
+    showBreak,
+    showSemesterPendek,
+    showKuliahIntersesi,
+    showOthersExams,
+    selectedProgram,
+  ]);
 
-  const group = getProgramGroup(selectedProgram);
-  const shouldMergePartTimeForAllList = group === 'B' && selectedProgram === 'All';
+  const group = useMemo(() => getProgramGroup(selectedProgram), [selectedProgram]);
+  const shouldMergePartTimeForAllList = useMemo(
+    () => group === 'B' && selectedProgram === 'All',
+    [group, selectedProgram]
+  );
 
-  function getNormalizedProgramType(programType?: string): string {
+  const getNormalizedProgramType = useCallback((programType?: string): string => {
     if (!programType) return '';
     if (!shouldMergePartTimeForAllList) return programType;
     if (programType === 'DiplomaPartTime' || programType === 'BachelorPartTime') return 'PartTime';
     return programType;
-  }
+  }, [shouldMergePartTimeForAllList]);
   
-  // Group A: Dec 2025 - May 2026
-  // Group B: Mar 2026 - Sep 2026
-  const activities = group === 'A'
-    ? getActivitiesForMonth(2025, 12, group)
-        .concat(getActivitiesForMonth(2026, 1, group))
-        .concat(getActivitiesForMonth(2026, 2, group))
-        .concat(getActivitiesForMonth(2026, 3, group))
-        .concat(getActivitiesForMonth(2026, 4, group))
-        .concat(getActivitiesForMonth(2026, 5, group))
-    : getActivitiesForMonth(2026, 3, group)
-        .concat(getActivitiesForMonth(2026, 4, group))
-        .concat(getActivitiesForMonth(2026, 5, group))
-        .concat(getActivitiesForMonth(2026, 6, group))
-        .concat(getActivitiesForMonth(2026, 7, group))
-        .concat(getActivitiesForMonth(2026, 8, group))
-        .concat(getActivitiesForMonth(2026, 9, group));
+  const months = useMemo(
+    () =>
+      getMonthsForSessions(selectedSessions, {
+        selectedProgram,
+        showRegistration,
+        showLecture,
+        showExamination,
+        showOthersExams,
+        showBreak,
+        showSemesterPendek,
+        showKuliahIntersesi,
+        showKKT,
+      }),
+    [
+      selectedSessions,
+      selectedProgram,
+      showRegistration,
+      showLecture,
+      showExamination,
+      showOthersExams,
+      showBreak,
+      showSemesterPendek,
+      showKuliahIntersesi,
+      showKKT,
+    ]
+  );
+
+  const activities = useMemo(
+    () =>
+      months.flatMap(({ month, year }) =>
+        getActivitiesForMonthMultiSessions(year, month, selectedSessions, showKKT)
+      ),
+    [months, selectedSessions, showKKT]
+  );
 
   // Filter activities by program type BEFORE deduplication to ensure correct filtering
-  const filteredActivities = activities.filter(a => shouldShowActivity(a.type, a));
+  const filteredActivities = useMemo(
+    () => activities.filter((a) => shouldShowActivity(a.type, a)),
+    [activities, shouldShowActivity]
+  );
 
   // Filter out duplicate activities.
   // For Group B "All" list, merge Diploma/Bachelor Part-Time duplicates into one row.
-  const uniqueActivities = Array.from(
-    new Map(
-      filteredActivities.map((activity) => {
-        const dedupeKey = [
-          activity.name,
-          activity.startDate,
-          activity.endDate || '',
-          activity.type,
-          activity.details || '',
-          activity.duration || '',
-          activity.regionalStartDate || '',
-          activity.regionalEndDate || '',
-          getNormalizedProgramType(activity.programType),
-        ].join('|');
+  const uniqueActivities = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          filteredActivities.map((activity) => {
+            const dedupeKey = [
+              activity.name,
+              activity.startDate,
+              activity.endDate || '',
+              activity.type,
+              activity.details || '',
+              activity.duration || '',
+              activity.regionalStartDate || '',
+              activity.regionalEndDate || '',
+              getNormalizedProgramType(activity.programType),
+            ].join('|');
 
-        return [dedupeKey, activity] as const;
-      })
-    ).values()
-  ).sort((a, b) => {
-    // Sort by start date first
-    const dateCompare = new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
-    if (dateCompare !== 0) return dateCompare;
-    // Then by name
-    return a.name.localeCompare(b.name);
-  });
+            return [dedupeKey, activity] as const;
+          })
+        ).values()
+      ).sort((a, b) => {
+        const dateCompare = new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+        if (dateCompare !== 0) return dateCompare;
+        return a.name.localeCompare(b.name);
+      }),
+    [filteredActivities, getNormalizedProgramType]
+  );
 
   // Group activities by month - use UTC to ensure consistency
-  const groupedByMonth = uniqueActivities.reduce((acc, activity) => {
-    const [year, month, day] = activity.startDate.split('-').map(Number);
-    const date = new Date(Date.UTC(year, month - 1, day));
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    const monthKey = `${monthNames[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
-    if (!acc[monthKey]) {
-      acc[monthKey] = [];
-    }
-    acc[monthKey].push(activity);
-    return acc;
-  }, {} as Record<string, typeof uniqueActivities>);
+  const groupedByMonth = useMemo(
+    () =>
+      uniqueActivities.reduce((acc, activity) => {
+        const [year, month, day] = activity.startDate.split('-').map(Number);
+        const date = new Date(Date.UTC(year, month - 1, day));
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        const monthKey = `${monthNames[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
+        if (!acc[monthKey]) {
+          acc[monthKey] = [];
+        }
+        acc[monthKey].push(activity);
+        return acc;
+      }, {} as Record<string, typeof uniqueActivities>),
+    [uniqueActivities]
+  );
 
   const getActivityColor = (activity: any) => {
     if (activity.type === 'registration') return 'bg-[#d1d5db]';
@@ -169,16 +210,40 @@ export const ListView = memo(function ListView({
     return 'bg-muted';
   };
 
-  const monthOrder = ['December 2025', 'January 2026', 'February 2026', 'March 2026', 'April 2026', 'May 2026', 'June 2026', 'July 2026', 'August 2026', 'September 2026', 'October 2026', 'November 2026'];
-  const sortedMonths = Object.keys(groupedByMonth).sort((a, b) => monthOrder.indexOf(a) - monthOrder.indexOf(b));
+  const monthNames = useMemo(
+    () => ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+    []
+  );
+  const parseMonthKey = useCallback((key: string) => {
+    const [name, yearStr] = key.split(' ');
+    const month = monthNames.indexOf(name) + 1;
+    const year = parseInt(yearStr ?? '0', 10);
+    return { year, month };
+  }, [monthNames]);
+  const sortedMonths = useMemo(
+    () =>
+      Object.keys(groupedByMonth).sort((a, b) => {
+        const pa = parseMonthKey(a);
+        const pb = parseMonthKey(b);
+        return pa.year !== pb.year ? pa.year - pb.year : pa.month - pb.month;
+      }),
+    [groupedByMonth, parseMonthKey]
+  );
 
   // Filter activities based on visibility toggles and states
-  const filteredGroupedByMonth = Object.entries(groupedByMonth).reduce((acc, [month, activities]) => {
-    acc[month] = activities.filter(a => shouldShowActivity(a.type, a));
-    return acc;
-  }, {} as Record<string, typeof uniqueActivities>);
+  const filteredGroupedByMonth = useMemo(
+    () =>
+      Object.entries(groupedByMonth).reduce((acc, [month, activities]) => {
+        acc[month] = activities.filter((a) => shouldShowActivity(a.type, a));
+        return acc;
+      }, {} as Record<string, typeof uniqueActivities>),
+    [groupedByMonth, shouldShowActivity]
+  );
 
-  const hasAnyActivities = sortedMonths.some((m) => (filteredGroupedByMonth[m]?.length ?? 0) > 0);
+  const hasAnyActivities = useMemo(
+    () => sortedMonths.some((m) => (filteredGroupedByMonth[m]?.length ?? 0) > 0),
+    [sortedMonths, filteredGroupedByMonth]
+  );
 
   const bgClass = 'bg-background';
   const textClass = 'text-foreground';

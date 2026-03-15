@@ -1,4 +1,4 @@
-import { DEFAULT_FILTER_STATES } from './data';
+import { DEFAULT_FILTER_STATES, defaultSession } from './data';
 
 export interface FilterStates {
   showKKT: boolean;
@@ -10,6 +10,8 @@ export interface FilterStates {
   showOthersExams: boolean;
   showBreak: boolean;
   showCountdown: boolean;
+  sessionId?: string;
+  sessionIds?: string[];
 }
 
 const COOKIE_NAME = 'calendar-filters';
@@ -20,12 +22,17 @@ const COOKIE_MAX_AGE = 365 * 24 * 60 * 60; // 1 year
  */
 export function parseFiltersFromCookie(cookieValue: string | null | undefined): FilterStates {
   if (!cookieValue) {
-    return DEFAULT_FILTER_STATES;
+    return { ...DEFAULT_FILTER_STATES };
   }
 
   try {
     const decoded = decodeURIComponent(cookieValue);
     const parsed = JSON.parse(decoded);
+    const sessionIds = Array.isArray(parsed.sessionIds) && parsed.sessionIds.length > 0
+      ? parsed.sessionIds
+      : parsed.sessionId
+        ? [parsed.sessionId]
+        : [defaultSession];
     return {
       showKKT: parsed.showKKT ?? DEFAULT_FILTER_STATES.showKKT,
       showRegistration: parsed.showRegistration ?? DEFAULT_FILTER_STATES.showRegistration,
@@ -36,9 +43,11 @@ export function parseFiltersFromCookie(cookieValue: string | null | undefined): 
       showOthersExams: parsed.showOthersExams ?? DEFAULT_FILTER_STATES.showOthersExams,
       showBreak: parsed.showBreak ?? DEFAULT_FILTER_STATES.showBreak,
       showCountdown: parsed.showCountdown ?? DEFAULT_FILTER_STATES.showCountdown,
+      sessionId: sessionIds[0],
+      sessionIds,
     };
   } catch {
-    return DEFAULT_FILTER_STATES;
+    return { ...DEFAULT_FILTER_STATES, sessionId: defaultSession, sessionIds: [defaultSession] };
   }
 }
 

@@ -32,14 +32,71 @@ export interface Activity {
 // Calendar data - single source of truth from calendar.json
 import calendarData from "./calendar.json";
 
-export const activitiesGroupA = calendarData.activitiesGroupA as Activity[];
-export const activitiesGroupB = calendarData.activitiesGroupB as Activity[];
-export const allActivities = [...activitiesGroupA, ...activitiesGroupB];
-export const programOptions = calendarData.programOptions as {
-  label: string;
-  value: string;
-  group: "A" | "B";
-}[];
+export type SessionId = string;
+
+export const sessionOptions = (calendarData as { sessionOptions?: Array<{ id: string; label: string; group: "A" | "B" }> }).sessionOptions ?? [];
+export const defaultSession: SessionId = (calendarData as { defaultSession?: string }).defaultSession ?? "A-20251";
+export const programOptions = (calendarData as { programOptions: Array<{ label: string; value: string; group: "A" | "B" }> }).programOptions;
+
+const sessionsData = (calendarData as { sessions?: Record<string, { activities: Activity[] }> }).sessions ?? {};
+
+/** Get activities for a session. Returns empty array if session not found. */
+export function getActivitiesForSession(sessionId: SessionId): Activity[] {
+  const session = sessionsData[sessionId];
+  return (session?.activities ?? []) as Activity[];
+}
+
+/** Get group from session ID (A-* = A, B-* = B). */
+export function getGroupFromSession(sessionId: SessionId): ProgramGroup {
+  return sessionId.startsWith("A-") ? "A" : "B";
+}
+
+/** Get default session for a group (first session in options for that group). */
+export function getDefaultSessionForGroup(group: ProgramGroup): SessionId {
+  const opt = sessionOptions.find((s) => s.group === group);
+  return opt?.id ?? (group === "A" ? "A-20251" : "B-20263");
+}
+
+/** Get session date range from activities (min start, max end). */
+function getSessionDateRange(sessionId: SessionId): { start: string; end: string } | null {
+  const activities = getActivitiesForSession(sessionId);
+  if (activities.length === 0) return null;
+  let start = activities[0]!.startDate;
+  let end = activities[0]!.endDate ?? activities[0]!.startDate;
+  for (const a of activities) {
+    if (a.startDate < start) start = a.startDate;
+    const e = a.endDate ?? a.startDate;
+    if (e > end) end = e;
+  }
+  return { start, end };
+}
+
+/** Get session for group that contains the given date (YYYY-MM-DD). Falls back to nearest future or last session. */
+export function getSessionForCurrentDate(group: ProgramGroup, dateStr: string): SessionId {
+  const opts = getSessionOptionsForGroup(group);
+  if (opts.length === 0) return getDefaultSessionForGroup(group);
+
+  // Find session that contains this date
+  for (const s of opts) {
+    const range = getSessionDateRange(s.id);
+    if (range && dateStr >= range.start && dateStr <= range.end) return s.id;
+  }
+
+  // Find nearest future session
+  const future = opts.find((s) => {
+    const range = getSessionDateRange(s.id);
+    return range && range.start > dateStr;
+  });
+  if (future) return future.id;
+
+  // Fall back to last (most recent) session
+  return opts[opts.length - 1]!.id;
+}
+
+/** Get session options for a group. */
+export function getSessionOptionsForGroup(group: ProgramGroup) {
+  return sessionOptions.filter((s) => s.group === group);
+}
 
 // Program badge config for list view - single source of truth for label and colors
 export interface ProgramBadgeConfig {
@@ -163,7 +220,7 @@ export function shouldIncludeActivity(
 
   if (activity.type === 'lecture' && activity.name.includes('Semester Pendek') && !showSemesterPendek) return false;
   if (activity.type === 'lecture' && activity.name.includes('Intersesi') && !showKuliahIntersesi) return false;
-  if (activity.type === 'examination' && (activity.name.includes('Khas') || activity.name.includes('English Exit Test') || activity.name.includes('EET Lisan')) && !showOthersExams) return false;
+  if (activity.type === 'examination' && (activity.name.includes('Khas') || activity.name.includes('English Exit Test') || activity.name.includes('EET Lisan') || activity.name.includes('EET Speaking')) && !showOthersExams) return false;
 
   if (selectedProgram === 'All') return true;
   if (activity.programType && activity.programType !== selectedProgram) return false;
@@ -176,11 +233,13 @@ export function shouldIncludeActivity(
  */
 export function getActivitiesForDate(
   dateStr: string,
-  group: ProgramGroup,
+  sessionId: SessionId,
   showKKT: boolean,
   filters: ActivityFilterOptions
 ): Activity[] {
-  return allActivities.filter(
+  const activities = getActivitiesForSession(sessionId);
+  const group = getGroupFromSession(sessionId);
+  return activities.filter(
     (a) =>
       a.group === group &&
       matchesActivityDate(a, dateStr, showKKT) &&
@@ -188,25 +247,32 @@ export function getActivitiesForDate(
   );
 }
 
-// Get all activities for a specific month
-export function getActivitiesForMonth(year: number, month: number, group: ProgramGroup): Activity[] {
-  return allActivities.filter(activity => {
+// Get all activities for a specific month. When showKKT=true, consider regional dates for overlap.
+export function getActivitiesForMonth(
+  year: number,
+  month: number,
+  sessionId: SessionId,
+  showKKT: boolean = false
+): Activity[] {
+  const activities = getActivitiesForSession(sessionId);
+  const group = getGroupFromSession(sessionId);
+  return activities.filter((activity) => {
     if (activity.group !== group) return false;
-    
-    const startDate = new Date(activity.startDate);
-    const endDate = activity.endDate ? new Date(activity.endDate) : startDate;
-    
-    // Check if activity overlaps with the given month
+
+    let startDate: Date;
+    let endDate: Date;
+    if (showKKT && activity.regionalStartDate) {
+      startDate = new Date(activity.regionalStartDate);
+      endDate = activity.regionalEndDate ? new Date(activity.regionalEndDate) : startDate;
+    } else {
+      startDate = new Date(activity.startDate);
+      endDate = activity.endDate ? new Date(activity.endDate) : startDate;
+    }
+
     const monthStart = new Date(year, month - 1, 1);
     const monthEnd = new Date(year, month, 0);
-    
     return startDate <= monthEnd && endDate >= monthStart;
   });
-}
-
-// Get activity for a specific date (first match; for backward compatibility)
-export function getActivityForDate(dateStr: string, group: ProgramGroup, showKKT: boolean = false): Activity | undefined {
-  return allActivities.find((a) => a.group === group && matchesActivityDate(a, dateStr, showKKT));
 }
 
 // Format date range in English
@@ -256,7 +322,7 @@ export function formatCountdown(days: number): string {
   return days === 1 ? 'In 1 day' : `In ${days} days`;
 }
 
-// Get months that should be displayed for a group based on available activities
+// Get months that should be displayed for a session based on available activities
 export interface GetMonthsOptions {
   selectedProgram: string;
   showRegistration?: boolean;
@@ -270,7 +336,7 @@ export interface GetMonthsOptions {
 }
 
 export function getMonthsForGroup(
-  group: ProgramGroup,
+  sessionId: SessionId,
   options: GetMonthsOptions
 ): Array<{ month: number; year: number }> {
   const {
@@ -296,9 +362,11 @@ export function getMonthsForGroup(
     showBreak,
   };
 
+  const activities = getActivitiesForSession(sessionId);
+  const group = getGroupFromSession(sessionId);
   const relevantDates: Date[] = [];
 
-  for (const activity of allActivities) {
+  for (const activity of activities) {
     if (activity.group !== group) continue;
     if (!shouldIncludeActivity(activity, filters)) continue;
 
@@ -361,4 +429,93 @@ export function getMonthsForGroup(
   }
 
   return months;
+}
+
+/** Stable dedupe key for activities. */
+function getActivityDedupeKey(a: Activity): string {
+  return [
+    a.name,
+    a.startDate,
+    a.endDate ?? '',
+    a.type,
+    a.details ?? '',
+    a.duration ?? '',
+    a.regionalStartDate ?? '',
+    a.regionalEndDate ?? '',
+    a.programType ?? '',
+  ].join('|');
+}
+
+/** Dedupe activities by stable key, preserving order. */
+function dedupeActivities(activities: Activity[]): Activity[] {
+  const seen = new Set<string>();
+  return activities.filter((a) => {
+    const key = getActivityDedupeKey(a);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/** Get months for multiple sessions (union, sorted ascending). */
+export function getMonthsForSessions(
+  sessionIds: SessionId[],
+  options: GetMonthsOptions
+): Array<{ month: number; year: number }> {
+  if (sessionIds.length === 0) {
+    const group = 'A';
+    return group === 'A'
+      ? [{ month: 12, year: 2025 }, { month: 1, year: 2026 }, { month: 2, year: 2026 }, { month: 3, year: 2026 }, { month: 4, year: 2026 }, { month: 5, year: 2026 }]
+      : [{ month: 3, year: 2026 }, { month: 4, year: 2026 }, { month: 5, year: 2026 }, { month: 6, year: 2026 }, { month: 7, year: 2026 }, { month: 8, year: 2026 }];
+  }
+  const monthSet = new Set<string>();
+  for (const sid of sessionIds) {
+    const months = getMonthsForGroup(sid, options);
+    for (const m of months) {
+      monthSet.add(`${m.year}-${m.month}`);
+    }
+  }
+  const months = Array.from(monthSet)
+    .map((s) => {
+      const [y, m] = s.split('-').map(Number);
+      return { year: y!, month: m! };
+    })
+    .sort((a, b) => (a.year !== b.year ? a.year - b.year : a.month - b.month));
+  if (months.length === 0) {
+    const group = getGroupFromSession(sessionIds[0]!);
+    return group === 'A'
+      ? [{ month: 12, year: 2025 }, { month: 1, year: 2026 }, { month: 2, year: 2026 }, { month: 3, year: 2026 }, { month: 4, year: 2026 }, { month: 5, year: 2026 }]
+      : [{ month: 3, year: 2026 }, { month: 4, year: 2026 }, { month: 5, year: 2026 }, { month: 6, year: 2026 }, { month: 7, year: 2026 }, { month: 8, year: 2026 }];
+  }
+  return months;
+}
+
+/** Get activities for a date across multiple sessions (merged, deduped). */
+export function getActivitiesForDateMultiSessions(
+  dateStr: string,
+  sessionIds: SessionId[],
+  showKKT: boolean,
+  filters: ActivityFilterOptions
+): Activity[] {
+  if (sessionIds.length === 0) return [];
+  const all: Activity[] = [];
+  for (const sid of sessionIds) {
+    all.push(...getActivitiesForDate(dateStr, sid, showKKT, filters));
+  }
+  return dedupeActivities(all);
+}
+
+/** Get activities for a month across multiple sessions (merged, deduped). */
+export function getActivitiesForMonthMultiSessions(
+  year: number,
+  month: number,
+  sessionIds: SessionId[],
+  showKKT: boolean = false
+): Activity[] {
+  if (sessionIds.length === 0) return [];
+  const all: Activity[] = [];
+  for (const sid of sessionIds) {
+    all.push(...getActivitiesForMonth(year, month, sid, showKKT));
+  }
+  return dedupeActivities(all);
 }

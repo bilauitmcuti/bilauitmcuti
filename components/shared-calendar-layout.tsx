@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useLayoutEffect, useCallback } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { CalendarHeader } from '@/components/calendar-header';
 import { CalendarControls } from '@/components/calendar-controls';
 import { PwaPromptAlert } from '@/components/pwa-prompt-alert';
@@ -10,7 +10,8 @@ import { ListView } from '@/components/list-view';
 import { GridView } from '@/components/grid-view';
 import { getProgramFromRoute, getRoutePath } from '@/lib/route-utils';
 import type { ProgramValue } from '@/lib/route-utils';
-import { DEFAULT_FILTER_STATES } from '@/lib/data';
+import { DEFAULT_FILTER_STATES, getDefaultSessionForGroup, getGroupFromSession, getSessionForCurrentDate } from '@/lib/data';
+import type { SessionId } from '@/lib/data';
 import { setFiltersToCookie, type FilterStates } from '@/lib/cookie-utils';
 import type { ViewMode } from '@/app/page';
 
@@ -28,6 +29,7 @@ export function SharedCalendarLayout({
   initialCurrentDate
 }: SharedCalendarLayoutProps) {
   const pathname = usePathname();
+  const router = useRouter();
   
   // Determine program from route
   // For homepage (/) or /list, use programFromRoute (which should be "All")
@@ -44,7 +46,18 @@ export function SharedCalendarLayout({
   
   // Use routeSegment if available, otherwise fall back to programFromRoute
   // programFromRoute is passed from the page component and should be the program slug
-  const selectedProgram = getProgramFromRoute(routeSegment || (programFromRoute && programFromRoute !== 'All' ? programFromRoute : null));
+  const routeSelectedProgram = getProgramFromRoute(
+    routeSegment || (programFromRoute && programFromRoute !== 'All' ? programFromRoute : null)
+  );
+  // Optimistic program state makes dropdown label update immediately on user click,
+  // instead of waiting for router pathname update.
+  const [selectedProgram, setSelectedProgram] = useState(routeSelectedProgram);
+  const programGroup: 'A' | 'B' = selectedProgram === 'Foundation/Professional' ? 'A' : 'B';
+
+  // Keep optimistic state aligned with actual route state.
+  useEffect(() => {
+    setSelectedProgram(routeSelectedProgram);
+  }, [routeSelectedProgram]);
 
   // Disable browser's automatic scroll restoration so back-navigation
   // doesn't fight with our own scroll-to-top, preventing sticky header jump
@@ -114,6 +127,20 @@ export function SharedCalendarLayout({
 
   const initialFilters = getInitialFilterState();
 
+  const getInitialSessions = (): SessionId[] => {
+    const fromIds = initialFiltersFromProps?.sessionIds;
+    const fromSingle = initialFiltersFromProps?.sessionId;
+    const candidates = Array.isArray(fromIds) && fromIds.length > 0
+      ? fromIds
+      : fromSingle
+        ? [fromSingle]
+        : null;
+    const inGroup = candidates?.filter((id) => getGroupFromSession(id) === programGroup) ?? [];
+    if (inGroup.length > 0) return inGroup;
+    const dateStr = initialCurrentDate ?? (typeof window !== 'undefined' ? new Date().toISOString().slice(0, 10) : '2026-03-15');
+    return [getSessionForCurrentDate(programGroup, dateStr)];
+  };
+
   // State management for settings
   // Initialize with values from DOM/data attributes to prevent flicker on first render
   // All values are read synchronously before React's first render
@@ -129,6 +156,17 @@ export function SharedCalendarLayout({
   const [isLoaded, setIsLoaded] = useState(false);
   const [currentMonth, setCurrentMonth] = useState('Academic Calendar');
   const [selectedStates, setSelectedStates] = useState<string[]>(initialFilters.showKKT ? ['Kedah', 'Kelantan', 'Terengganu'] : []);
+  const [selectedSessions, setSelectedSessions] = useState<SessionId[]>(getInitialSessions);
+
+  // When program group changes, constrain sessions to that group only
+  useEffect(() => {
+    const dateStr = initialCurrentDate ?? new Date().toISOString().slice(0, 10);
+    setSelectedSessions((prev) => {
+      const inGroup = prev.filter((id) => getGroupFromSession(id) === programGroup);
+      if (inGroup.length > 0) return inGroup;
+      return [getSessionForCurrentDate(programGroup, dateStr)];
+    });
+  }, [programGroup, initialCurrentDate]);
 
   // Keep both views mounted - toggle via display to prevent appear effect on view switch
   const [activeViewMode, setActiveViewMode] = useState(viewMode);
@@ -144,6 +182,59 @@ export function SharedCalendarLayout({
       window.history.replaceState(null, '', newPath);
     },
     [selectedProgram]
+  );
+
+  const handleProgramSessionChange = useCallback(
+    (program: ProgramValue, sessionIds: SessionId[]) => {
+      setSelectedProgram(program);
+      const targetGroup: 'A' | 'B' = program === 'Foundation/Professional' ? 'A' : 'B';
+      const inGroup = sessionIds.filter((id) => getGroupFromSession(id) === targetGroup);
+      const resolvedSessions =
+        inGroup.length > 0
+          ? inGroup
+          : [getSessionForCurrentDate(targetGroup, initialCurrentDate ?? new Date().toISOString().slice(0, 10))];
+
+      // Persist selected session(s) before route navigation to avoid remount fallback to default session.
+      setFiltersToCookie({
+        showKKT,
+        showRegistration,
+        showLecture,
+        showSemesterPendek,
+        showKuliahIntersesi,
+        showExamination,
+        showOthersExams,
+        showBreak,
+        showCountdown,
+        sessionId: resolvedSessions[0],
+        sessionIds: resolvedSessions,
+      });
+
+      if (inGroup.length > 0) {
+        setSelectedSessions(inGroup);
+      } else {
+        setSelectedSessions(resolvedSessions);
+      }
+      const newPath = getRoutePath(program, activeViewMode);
+      if (newPath !== pathname) {
+        router.replace(newPath, { scroll: false });
+        window.scrollTo(0, 0);
+      }
+    },
+    [
+      activeViewMode,
+      pathname,
+      router,
+      initialCurrentDate,
+      showKKT,
+      showRegistration,
+      showLecture,
+      showSemesterPendek,
+      showKuliahIntersesi,
+      showExamination,
+      showOthersExams,
+      showBreak,
+      showCountdown,
+    ]
   );
 
   // Mark as loaded after initial render
@@ -166,6 +257,8 @@ export function SharedCalendarLayout({
       showOthersExams,
       showBreak,
       showCountdown,
+      sessionId: selectedSessions[0],
+      sessionIds: selectedSessions,
     };
     
     // Save all settings in one go
@@ -207,7 +300,7 @@ export function SharedCalendarLayout({
     } else {
       setSelectedStates([]);
     }
-  }, [showKKT, showRegistration, showLecture, showSemesterPendek, showKuliahIntersesi, showExamination, showOthersExams, showBreak, showCountdown, isLoaded]);
+  }, [showKKT, showRegistration, showLecture, showSemesterPendek, showKuliahIntersesi, showExamination, showOthersExams, showBreak, showCountdown, selectedSessions, isLoaded]);
 
   // Theme-aware classes
   const bgClass = 'bg-background text-foreground';
@@ -221,6 +314,8 @@ export function SharedCalendarLayout({
 
         <CalendarControls
           selectedProgram={selectedProgram}
+          selectedSessions={selectedSessions}
+          onProgramSessionChange={handleProgramSessionChange}
           viewMode={activeViewMode}
           onViewModeChange={handleViewModeChange}
           showKKT={showKKT}
@@ -249,6 +344,7 @@ export function SharedCalendarLayout({
           <div style={{ display: activeViewMode === 'list' ? 'block' : 'none' }}>
             <ListView
               selectedProgram={selectedProgram}
+              selectedSessions={selectedSessions}
               showKKT={showKKT}
               showRegistration={showRegistration}
               showLecture={showLecture}
@@ -265,6 +361,7 @@ export function SharedCalendarLayout({
           <div style={{ display: activeViewMode === 'grid' ? 'block' : 'none' }}>
             <GridView
               selectedProgram={selectedProgram}
+              selectedSessions={selectedSessions}
               showKKT={showKKT}
               showRegistration={showRegistration}
               showLecture={showLecture}

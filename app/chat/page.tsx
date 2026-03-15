@@ -3,14 +3,25 @@
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronDown, ChevronUp, ArrowUp, ThumbsUp, ThumbsDown, Copy, Check, RefreshCw, Trash2, Pencil } from "lucide-react";
-import { programOptions } from "@/lib/data";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  programOptions,
+  getSessionOptionsForGroup,
+  getSessionForCurrentDate,
+  getGroupFromSession,
+} from "@/lib/data";
+import type { SessionId } from "@/lib/data";
+import type { ProgramValue } from "@/lib/route-utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuPortal,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableHeader,
@@ -245,39 +256,39 @@ function FormattedMessage({ content }: { content: string }) {
 }
 
 const SUGGESTIONS_GROUP_A = [
-  "When does Group A lecture start?",
-  "When is Group A mid-semester test?",
-  "When is Group A final exam?",
-  "When is Group A revision week?",
-  "When is Group A semester break?",
-  "When is Group A add/drop period?",
-  "Bila kuliah Group A bermula?",
-  "Bila peperiksaan akhir Group A?",
-  "Bila minggu ulangkaji Group A?",
-  "Bila cuti semester Group A?",
-  "When is entrance survey for Group A?",
-  "When is Group A convocation?",
-  "What is Group A schedule?",
-  "Bila cuti pertengahan semester Group A?",
-  "Bila tarikh bayar yuran Group A?",
+  "When does Group A lecture start for this session?",
+  "When is Group A course registration for this session?",
+  "When is Group A mid-semester test for this session?",
+  "When is Group A final exam period for this session?",
+  "When is Group A revision week for this session?",
+  "When is Group A mid-semester break for this session?",
+  "When is Group A semester break for this session?",
+  "What are the key dates for Group A this session?",
+  "What is the full Group A schedule for this session?",
+  "Bila kuliah Group A bermula untuk sesi ini?",
+  "Bila pendaftaran kursus Group A untuk sesi ini?",
+  "Bila ujian pertengahan semester Group A untuk sesi ini?",
+  "Bila peperiksaan akhir Group A untuk sesi ini?",
+  "Bila cuti pertengahan semester Group A untuk sesi ini?",
+  "Bila cuti semester Group A untuk sesi ini?",
 ];
 
 const SUGGESTIONS_GROUP_B = [
-  "When does Group B lecture start?",
-  "When is Group B mid-semester test?",
-  "When is Group B final exam?",
-  "When is Group B revision week?",
-  "When is Group B semester break?",
-  "When is Group B add/drop period?",
-  "Bila kuliah Group B bermula?",
-  "Bila peperiksaan akhir Group B?",
-  "Bila minggu ulangkaji Group B?",
-  "Bila cuti semester Group B?",
-  "When is Diploma registration?",
-  "When is semester pendek for Group B?",
-  "What is Group B schedule?",
-  "Bila cuti pertengahan semester Group B?",
-  "When is Bachelor registration?",
+  "When does Group B lecture start for this session?",
+  "When is Group B course registration for this session?",
+  "When is Group B mid-semester test for this session?",
+  "When is Group B final exam period for this session?",
+  "When is Group B revision week for this session?",
+  "When is Group B mid-semester break for this session?",
+  "When is Group B semester break for this session?",
+  "What are the key dates for Group B this session?",
+  "What is the full Group B schedule for this session?",
+  "Bila kuliah Group B bermula untuk sesi ini?",
+  "Bila pendaftaran kursus Group B untuk sesi ini?",
+  "Bila ujian pertengahan semester Group B untuk sesi ini?",
+  "Bila peperiksaan akhir Group B untuk sesi ini?",
+  "Bila cuti pertengahan semester Group B untuk sesi ini?",
+  "Bila cuti semester Group B untuk sesi ini?",
 ];
 
 const SUGGESTIONS_GENERAL = [
@@ -353,24 +364,78 @@ function formatTime24(timestamp: number): string {
   return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
+function getInitialChatSessions(program: string): SessionId[] {
+  const group: "A" | "B" = program === "Foundation/Professional" ? "A" : "B";
+  const dateStr =
+    typeof window !== "undefined" ? new Date().toISOString().slice(0, 10) : "2026-03-15";
+  return [getSessionForCurrentDate(group, dateStr)];
+}
+
 export default function ChatPage() {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [program, setProgram] = useState("All");
+  const [selectedProgram, setSelectedProgram] = useState<ProgramValue>("All");
+  const [selectedSessions, setSelectedSessions] = useState<SessionId[]>(() =>
+    getInitialChatSessions("All")
+  );
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [headerVisible, setHeaderVisible] = useState(true);
-  const [selectOpen, setSelectOpen] = useState(false);
   const [reactions, setReactions] = useState<Record<string, "up" | "down" | null>>({});
-  const currentGroup = getProgramGroup(program);
+  const currentGroup = getProgramGroup(selectedProgram);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+
+  // Sync selectedSessions when program/group changes - ensure sessions match group
+  useEffect(() => {
+    const dateStr =
+      typeof window !== "undefined" ? new Date().toISOString().slice(0, 10) : "2026-03-15";
+    setSelectedSessions((prev) => {
+      const inGroup = prev.filter((id) => getGroupFromSession(id) === currentGroup);
+      if (inGroup.length > 0) return inGroup;
+      return [getSessionForCurrentDate(currentGroup, dateStr)];
+    });
+  }, [currentGroup]);
 
   // Randomize suggestions on mount and when program/group changes
   useLayoutEffect(() => {
     setSuggestions(getRandomSuggestions(currentGroup, []));
   }, [currentGroup]);
   const [loadingPhrase, setLoadingPhrase] = useState("");
+
+  const handleSessionToggle = useCallback(
+    (programValue: ProgramValue, sessionId: SessionId, group: "A" | "B") => {
+      setSelectedProgram(programValue);
+      setSelectedSessions((prev) => {
+        const inGroup = prev.filter((id) => id.startsWith(`${group}-`));
+        const isSelected = inGroup.includes(sessionId);
+        if (isSelected && inGroup.length > 1) {
+          return inGroup.filter((id) => id !== sessionId);
+        }
+        if (!isSelected) {
+          return [...inGroup, sessionId];
+        }
+        return inGroup;
+      });
+    },
+    []
+  );
+
+  const currentProgramLabel = useMemo(() => {
+    const opt = programOptions.find((p) => p.value === selectedProgram);
+    if (!opt) return "All";
+    const sessionLabels = selectedSessions
+      .map((sid) => {
+        const sess = getSessionOptionsForGroup(getGroupFromSession(sid)).find((s) => s.id === sid);
+        return sess?.label.replace(/^Group [AB]:\s*/, "") ?? sid;
+      })
+      .filter(Boolean);
+    if (sessionLabels.length === 0) return opt.label;
+    if (sessionLabels.length === 1) return `${opt.label} · ${sessionLabels[0]}`;
+    return `${opt.label} · ${sessionLabels.length} sessions`;
+  }, [selectedProgram, selectedSessions]);
   const [disclaimerIndex, setDisclaimerIndex] = useState(0);
   const [disclaimerFade, setDisclaimerFade] = useState<"in" | "out">("in");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -477,7 +542,12 @@ export default function ChatPage() {
     try {
       const history = prepareHistory(messages);
 
-      const body = JSON.stringify({ message: text.trim(), program, history });
+      const body = JSON.stringify({
+        message: text.trim(),
+        program: selectedProgram,
+        selectedSessions,
+        history,
+      });
       let content: string | null = null;
 
       // Retry up to 2 times for recoverable errors (503 model loading, network issues)
@@ -575,7 +645,12 @@ export default function ChatPage() {
       const res = await fetch("/chat/api", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMsg.content, program, history }),
+        body: JSON.stringify({
+          message: userMsg.content,
+          program: selectedProgram,
+          selectedSessions,
+          history,
+        }),
       });
 
       const data = await parseChatResponse(res);
@@ -818,50 +893,109 @@ export default function ChatPage() {
 
             {/* Bottom bar */}
             <div className="flex items-center justify-between px-3 py-2">
-              {/* Program dropdown */}
-              <Select value={program} onValueChange={setProgram} open={selectOpen} onOpenChange={setSelectOpen}>
-                <SelectTrigger className="w-auto h-8 text-xs border-none bg-transparent shadow-none px-2 gap-1 hover:bg-background/50 dark:hover:bg-[#333] rounded-lg [&>svg]:hidden">
-                  <SelectValue placeholder="Program" />
-                  <div className="flex-shrink-0">
-                    {selectOpen ? (
-                      <ChevronUp className="size-4 opacity-50 transition-none" />
+              {/* Program + Session dropdown (same structure as homepage) */}
+              <DropdownMenu
+                open={dropdownOpen}
+                onOpenChange={(open) => {
+                  setDropdownOpen(open);
+                  if (!open) setActiveSubmenu(null);
+                }}
+              >
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-xs border-none bg-transparent shadow-none px-2 gap-1 hover:!bg-transparent dark:hover:!bg-transparent rounded-lg font-medium"
+                  >
+                    <span className="truncate max-w-[180px]">{currentProgramLabel}</span>
+                    {dropdownOpen ? (
+                      <ChevronUp className="size-4 opacity-50 flex-shrink-0" />
                     ) : (
-                      <ChevronDown className="size-4 opacity-50 transition-none" />
+                      <ChevronDown className="size-4 opacity-50 flex-shrink-0" />
                     )}
-                  </div>
-                </SelectTrigger>
-                <SelectContent className="min-w-[250px] pt-4 pb-4 pl-3 pr-3 bg-popover dark:bg-[#2A2A2A] border border-border transition-none">
-                  {/* Group A */}
-                  <div className="w-full">
-                    <div className="text-xs font-semibold text-muted-foreground mb-2">GROUP A</div>
-                    <div className="space-y-0">
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  className="min-w-[260px] overflow-visible pt-4 pb-4 pl-3 pr-3 bg-popover dark:bg-[#2A2A2A] border border-border"
+                  align="start"
+                >
+                  <div className="max-h-[min(calc(100vh-6rem),420px)] overflow-y-auto overflow-x-hidden -mx-1 px-1">
+                    <div className="mb-2">
+                      <div className="text-xs font-semibold text-muted-foreground mb-2 px-2">GROUP A</div>
                       {groupAOptions.map((opt) => (
-                        <div key={opt.value} className="w-full py-0.5 cursor-pointer hover:bg-accent dark:hover:bg-[#262626] rounded-md transition-none">
-                          <SelectItem value={opt.value} className="w-full mb-0">
-                            <div className="font-medium text-sm truncate">{opt.label}</div>
-                          </SelectItem>
-                        </div>
+                        <DropdownMenuSub
+                          key={opt.value}
+                          open={activeSubmenu === opt.value}
+                          onOpenChange={(open) => setActiveSubmenu(open ? opt.value : null)}
+                        >
+                          <DropdownMenuSubTrigger className="cursor-pointer">
+                            <span className="font-medium text-sm">{opt.label}</span>
+                          </DropdownMenuSubTrigger>
+                          <DropdownMenuPortal>
+                            <DropdownMenuSubContent className="min-w-[200px] bg-popover dark:bg-[#2A2A2A] border border-border">
+                              {getSessionOptionsForGroup("A").map((sess) => {
+                                const isSelected = selectedSessions.includes(sess.id);
+                                return (
+                                  <DropdownMenuItem
+                                    key={sess.id}
+                                    className={`relative cursor-pointer pl-8 bg-transparent data-[highlighted]:bg-transparent ${isSelected ? "text-primary data-[highlighted]:text-primary" : "data-[highlighted]:text-foreground"}`}
+                                    onClick={() =>
+                                      handleSessionToggle(opt.value as ProgramValue, sess.id, "A")
+                                    }
+                                  >
+                                    <span
+                                      className={`pointer-events-none absolute left-2 flex size-3.5 shrink-0 items-center justify-center rounded-full border ${isSelected ? "border-primary bg-primary" : "border-muted-foreground"}`}
+                                      aria-hidden
+                                    />
+                                    {sess.label.replace(/^Group A:\s*/, "")}
+                                  </DropdownMenuItem>
+                                );
+                              })}
+                            </DropdownMenuSubContent>
+                          </DropdownMenuPortal>
+                        </DropdownMenuSub>
                       ))}
                     </div>
-                  </div>
-
-                  <div className="my-3 h-px bg-border" />
-
-                  {/* Group B */}
-                  <div className="w-full">
-                    <div className="text-xs font-semibold text-muted-foreground mb-2">GROUP B</div>
-                    <div className="space-y-0">
+                    <div className="my-2 h-px bg-border" />
+                    <div>
+                      <div className="text-xs font-semibold text-muted-foreground mb-2 px-2">GROUP B</div>
                       {groupBOptions.map((opt) => (
-                        <div key={opt.value} className="w-full py-0.5 cursor-pointer hover:bg-accent dark:hover:bg-[#262626] rounded-md transition-none">
-                          <SelectItem value={opt.value} className="w-full mb-0">
-                            <div className="font-medium text-sm truncate">{opt.label}</div>
-                          </SelectItem>
-                        </div>
+                        <DropdownMenuSub
+                          key={opt.value}
+                          open={activeSubmenu === opt.value}
+                          onOpenChange={(open) => setActiveSubmenu(open ? opt.value : null)}
+                        >
+                          <DropdownMenuSubTrigger className="cursor-pointer">
+                            <span className="font-medium text-sm">{opt.label}</span>
+                          </DropdownMenuSubTrigger>
+                          <DropdownMenuPortal>
+                            <DropdownMenuSubContent className="min-w-[200px] bg-popover dark:bg-[#2A2A2A] border border-border">
+                              {getSessionOptionsForGroup("B").map((sess) => {
+                                const isSelected = selectedSessions.includes(sess.id);
+                                return (
+                                  <DropdownMenuItem
+                                    key={sess.id}
+                                    className={`relative cursor-pointer pl-8 bg-transparent data-[highlighted]:bg-transparent ${isSelected ? "text-primary data-[highlighted]:text-primary" : "data-[highlighted]:text-foreground"}`}
+                                    onClick={() =>
+                                      handleSessionToggle(opt.value as ProgramValue, sess.id, "B")
+                                    }
+                                  >
+                                    <span
+                                      className={`pointer-events-none absolute left-2 flex size-3.5 shrink-0 items-center justify-center rounded-full border ${isSelected ? "border-primary bg-primary" : "border-muted-foreground"}`}
+                                      aria-hidden
+                                    />
+                                    {sess.label.replace(/^Group B:\s*/, "")}
+                                  </DropdownMenuItem>
+                                );
+                              })}
+                            </DropdownMenuSubContent>
+                          </DropdownMenuPortal>
+                        </DropdownMenuSub>
                       ))}
                     </div>
                   </div>
-                </SelectContent>
-              </Select>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               <div className="flex items-center gap-2">
                 {/* Send button */}

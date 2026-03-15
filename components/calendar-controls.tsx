@@ -4,12 +4,15 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { List, Settings, Calendar, ChevronDown, ChevronUp, MessageCircle } from 'lucide-react';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuPortal,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Popover,
   PopoverContent,
@@ -18,13 +21,16 @@ import {
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { programOptions, allActivities } from '@/lib/data';
+import { programOptions, getActivitiesForSession, getSessionOptionsForGroup } from '@/lib/data';
+import type { SessionId } from '@/lib/data';
 import { getRoutePath } from '@/lib/route-utils';
 import type { ViewMode } from '@/app/page';
 import type { ProgramValue } from '@/lib/route-utils';
 
 interface CalendarControlsProps {
   selectedProgram: string;
+  selectedSessions: SessionId[];
+  onProgramSessionChange?: (program: ProgramValue, sessionIds: SessionId[]) => void;
   viewMode: ViewMode;
   /** When true, use fixed positioning so controls appear at top from first paint (scroll restore) */
   forceFixed?: boolean;
@@ -53,6 +59,8 @@ interface CalendarControlsProps {
 
 export function CalendarControls({
   selectedProgram,
+  selectedSessions,
+  onProgramSessionChange,
   viewMode,
   forceFixed = false,
   onViewModeChange,
@@ -78,7 +86,8 @@ export function CalendarControls({
 }: CalendarControlsProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
-  const [selectOpen, setSelectOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
   const [isPWAInstalled, setIsPWAInstalled] = useState(false);
   const [currentFooterText, setCurrentFooterText] = useState(0);
 
@@ -96,13 +105,25 @@ export function CalendarControls({
     return () => clearTimeout(timeoutId);
   }, [router, viewMode]);
 
-  // Handle program change - navigate instantly and preserve settings
-  const handleProgramChange = useCallback((programValue: ProgramValue) => {
-    const newPath = getRoutePath(programValue, viewMode);
-    setSelectOpen(false);
-    // Navigate without transition for instant feedback
-    router.replace(newPath, { scroll: false });
-  }, [router, viewMode]);
+  // Toggle session in multi-select; keep at least one selected
+  const handleSessionToggle = useCallback((programValue: ProgramValue, sessionId: SessionId, group: 'A' | 'B') => {
+    const inGroup = selectedSessions.filter((id) => id.startsWith(`${group}-`));
+    const isSelected = inGroup.includes(sessionId);
+    let next: SessionId[];
+    if (isSelected && inGroup.length > 1) {
+      next = inGroup.filter((id) => id !== sessionId);
+    } else if (!isSelected) {
+      next = [...inGroup, sessionId];
+    } else {
+      next = inGroup;
+    }
+    if (onProgramSessionChange) {
+      onProgramSessionChange(programValue, next);
+    } else {
+      const newPath = getRoutePath(programValue, viewMode);
+      router.replace(newPath, { scroll: false });
+    }
+  }, [onProgramSessionChange, selectedSessions, router, viewMode]);
 
   // Handle view mode change - use callback if provided (client state, no appear effect), else router
   const handleViewModeChange = useCallback(
@@ -133,7 +154,7 @@ export function CalendarControls({
   const groupAOptions = useMemo(() => programOptions.filter(p => p.group === 'A'), []);
   const groupBOptions = useMemo(() => programOptions.filter(p => p.group === 'B'), []);
   
-  // Memoize current program label
+  // Memoize current program and session labels
   const currentProgramLabel = useMemo(() => 
     programOptions.find(p => p.value === selectedProgram)?.label || 'Foundation/Prof',
     [selectedProgram]
@@ -152,18 +173,21 @@ export function CalendarControls({
     [groupAOptions, selectedProgram]
   );
 
-  // Memoize activity type checks to avoid repeated array iterations
+  // Memoize activity type checks from all selected sessions
+  const sessionActivities = useMemo(() => {
+    return selectedSessions.flatMap((sid) => getActivitiesForSession(sid));
+  }, [selectedSessions]);
   const activityChecks = useMemo(() => ({
-    hasSemesterPendek: allActivities.some(
-      a => a.group === currentGroup && a.type === 'lecture' && a.name.includes('Semester Pendek')
+    hasSemesterPendek: sessionActivities.some(
+      a => a.type === 'lecture' && a.name.includes('Semester Pendek')
     ),
-    hasKuliahIntersesi: allActivities.some(
-      a => a.group === currentGroup && a.type === 'lecture' && a.name.includes('Intersesi')
+    hasKuliahIntersesi: sessionActivities.some(
+      a => a.type === 'lecture' && a.name.includes('Intersesi')
     ),
-    hasOthersExams: allActivities.some(
-      a => a.group === currentGroup && a.type === 'examination' && a.name.includes('Khas')
+    hasOthersExams: sessionActivities.some(
+      a => a.type === 'examination' && a.name.includes('Khas')
     )
-  }), [currentGroup]);
+  }), [sessionActivities]);
   
   const { hasSemesterPendek, hasKuliahIntersesi, hasOthersExams } = activityChecks;
 
@@ -201,57 +225,107 @@ export function CalendarControls({
           suppressHydrationWarning
           style={{ transition: 'none' }}
         >
-        {/* Program selector - Left */}
+        {/* Program + Session selector - Left */}
         <div className="px-0">
-          <Select value={selectedProgram} onValueChange={handleProgramChange} open={selectOpen} onOpenChange={setSelectOpen}>
-            <SelectTrigger className={`w-fit max-w-[180px] sm:max-w-[200px] !h-[38px] !py-1 border bg-secondary dark:bg-[#2A2A2A] border-border ${textClass} truncate flex items-center justify-center [&>svg]:hidden rounded-lg transition-none`} suppressHydrationWarning>
-              <span className="truncate text-left font-medium text-sm min-w-0 flex-1">
-                {currentProgramLabel}
-              </span>
-              <div className="flex-shrink-0 ml-2">
-                {selectOpen ? (
-                  <ChevronUp className="h-6 w-6 transition-none" strokeWidth={2} />
+          <DropdownMenu
+            open={dropdownOpen}
+            onOpenChange={(open) => {
+              setDropdownOpen(open);
+              if (!open) setActiveSubmenu(null);
+            }}
+          >
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                className={`w-fit max-w-[220px] sm:max-w-[260px] !h-[38px] !py-1 border bg-secondary dark:bg-[#2A2A2A] hover:!bg-secondary dark:hover:!bg-[#2A2A2A] active:!bg-secondary dark:active:!bg-[#2A2A2A] border-border focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 ${textClass} truncate flex items-center justify-between gap-2 rounded-lg transition-none`}
+                suppressHydrationWarning
+              >
+                <span className="truncate text-left font-medium text-sm min-w-0">
+                  {currentProgramLabel}
+                </span>
+                {dropdownOpen ? (
+                  <ChevronUp className="h-6 w-6 flex-shrink-0" strokeWidth={2} />
                 ) : (
-                  <ChevronDown className="h-6 w-6 transition-none" strokeWidth={2} />
+                  <ChevronDown className="h-6 w-6 flex-shrink-0" strokeWidth={2} />
                 )}
-              </div>
-            </SelectTrigger>
-            <SelectContent className="min-w-[250px] pt-4 pb-4 pl-3 pr-3 bg-popover dark:bg-[#2A2A2A] border border-border transition-none" suppressHydrationWarning>
-              {/* Group A */}
-              <div className="w-full">
-                <div className="text-xs font-semibold text-muted-foreground mb-2">GROUP A</div>
-                <div className="space-y-0">
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="min-w-[260px] overflow-visible pt-4 pb-4 pl-3 pr-3 bg-popover dark:bg-[#2A2A2A] border border-border" align="start">
+              <div className="max-h-[min(calc(100vh-6rem),420px)] overflow-y-auto overflow-x-hidden -mx-1 px-1">
+                {/* Group A */}
+                <div className="mb-2">
+                  <div className="text-xs font-semibold text-muted-foreground mb-2 px-2">GROUP A</div>
                   {groupAOptions.map((option) => (
-                    <div key={option.value} className="w-full py-0.5 cursor-pointer hover:bg-accent dark:hover:bg-[#262626] rounded-md transition-none" onClick={() => {
-                      handleProgramChange(option.value as ProgramValue);
-                    }}>
-                      <SelectItem value={option.value} className="w-full mb-0">
-                        <div className={`font-medium text-sm ${textClass} truncate`}>{option.label}</div>
-                      </SelectItem>
-                    </div>
+                    <DropdownMenuSub
+                      key={option.value}
+                      open={activeSubmenu === option.value}
+                      onOpenChange={(open) => setActiveSubmenu(open ? option.value : null)}
+                    >
+                      <DropdownMenuSubTrigger className="cursor-pointer">
+                        <span className={`font-medium text-sm ${textClass}`}>{option.label}</span>
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuPortal>
+                        <DropdownMenuSubContent className="min-w-[200px] bg-popover dark:bg-[#2A2A2A] border border-border">
+                          {getSessionOptionsForGroup('A').map((sess) => {
+                            const isSelected = selectedSessions.includes(sess.id);
+                            return (
+                              <DropdownMenuItem
+                                key={sess.id}
+                                className={`relative cursor-pointer pl-8 bg-transparent data-[highlighted]:bg-transparent ${isSelected ? 'text-primary data-[highlighted]:text-primary' : 'data-[highlighted]:text-foreground'}`}
+                                onClick={() => handleSessionToggle(option.value as ProgramValue, sess.id, 'A')}
+                              >
+                                <span
+                                  className={`pointer-events-none absolute left-2 flex size-3.5 shrink-0 items-center justify-center rounded-full border ${isSelected ? 'border-primary bg-primary' : 'border-muted-foreground'}`}
+                                  aria-hidden
+                                />
+                                {sess.label.replace(/^Group A:\s*/, '')}
+                              </DropdownMenuItem>
+                            );
+                          })}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuPortal>
+                    </DropdownMenuSub>
                   ))}
                 </div>
-              </div>
-              
-              <div className="my-3 h-px bg-border" />
-              
-              {/* Group B */}
-              <div className="w-full">
-                <div className="text-xs font-semibold text-muted-foreground mb-2">GROUP B</div>
-                <div className="space-y-0">
+                <div className="my-2 h-px bg-border" />
+                {/* Group B */}
+                <div>
+                  <div className="text-xs font-semibold text-muted-foreground mb-2 px-2">GROUP B</div>
                   {groupBOptions.map((option) => (
-                    <div key={option.value} className="w-full py-0.5 cursor-pointer hover:bg-accent dark:hover:bg-[#262626] rounded-md transition-none" onClick={() => {
-                      handleProgramChange(option.value as ProgramValue);
-                    }}>
-                      <SelectItem value={option.value} className="w-full mb-0">
-                        <div className={`font-medium text-sm ${textClass} truncate`}>{option.label}</div>
-                      </SelectItem>
-                    </div>
+                    <DropdownMenuSub
+                      key={option.value}
+                      open={activeSubmenu === option.value}
+                      onOpenChange={(open) => setActiveSubmenu(open ? option.value : null)}
+                    >
+                      <DropdownMenuSubTrigger className="cursor-pointer">
+                        <span className={`font-medium text-sm ${textClass}`}>{option.label}</span>
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuPortal>
+                        <DropdownMenuSubContent className="min-w-[200px] bg-popover dark:bg-[#2A2A2A] border border-border">
+                          {getSessionOptionsForGroup('B').map((sess) => {
+                            const isSelected = selectedSessions.includes(sess.id);
+                            return (
+                              <DropdownMenuItem
+                                key={sess.id}
+                                className={`relative cursor-pointer pl-8 bg-transparent data-[highlighted]:bg-transparent ${isSelected ? 'text-primary data-[highlighted]:text-primary' : 'data-[highlighted]:text-foreground'}`}
+                                onClick={() => handleSessionToggle(option.value as ProgramValue, sess.id, 'B')}
+                              >
+                                <span
+                                  className={`pointer-events-none absolute left-2 flex size-3.5 shrink-0 items-center justify-center rounded-full border ${isSelected ? 'border-primary bg-primary' : 'border-muted-foreground'}`}
+                                  aria-hidden
+                                />
+                                {sess.label.replace(/^Group B:\s*/, '')}
+                              </DropdownMenuItem>
+                            );
+                          })}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuPortal>
+                    </DropdownMenuSub>
                   ))}
                 </div>
               </div>
-            </SelectContent>
-          </Select>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         {/* View controls and Settings combined - Right */}
         <div className="px-0 flex items-center justify-center">

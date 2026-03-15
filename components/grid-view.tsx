@@ -2,17 +2,18 @@
 
 import React, { memo } from "react"
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { getActivitiesForDate, getMonthsForGroup, getDaysUntilStart, formatCountdown, type ProgramGroup, type Activity, type ActivityType } from '@/lib/data';
+import { getActivitiesForDateMultiSessions, getMonthsForSessions, getDaysUntilStart, formatCountdown, type Activity, type ActivityType, type SessionId } from '@/lib/data';
 
 interface GridViewProps {
   selectedProgram: string;
+  selectedSessions: SessionId[];
   showKKT: boolean;
   showRegistration: boolean;
   showLecture: boolean;
@@ -27,7 +28,7 @@ interface GridViewProps {
   initialCurrentDate?: string;
 }
 
-function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, selectedDate, showRegistration, showLecture, showSemesterPendek, showKuliahIntersesi, showExamination, showOthersExams, showBreak, showCountdown, selectedStates = [], initialCurrentDate }: { month: number; year: number; selectedProgram: string; showKKT: boolean; onDateClick: (date: string) => void; selectedDate: string | null; showRegistration: boolean; showLecture: boolean; showSemesterPendek: boolean; showKuliahIntersesi: boolean; showExamination: boolean; showOthersExams: boolean; showBreak: boolean; showCountdown: boolean; selectedStates?: string[]; initialCurrentDate?: string }) {
+function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT, onDateClick, selectedDate, showRegistration, showLecture, showSemesterPendek, showKuliahIntersesi, showExamination, showOthersExams, showBreak, showCountdown, selectedStates = [], initialCurrentDate }: { month: number; year: number; selectedProgram: string; selectedSessions: SessionId[]; showKKT: boolean; onDateClick: (date: string) => void; selectedDate: string | null; showRegistration: boolean; showLecture: boolean; showSemesterPendek: boolean; showKuliahIntersesi: boolean; showExamination: boolean; showOthersExams: boolean; showBreak: boolean; showCountdown: boolean; selectedStates?: string[]; initialCurrentDate?: string }) {
   const [tooltipOpen, setTooltipOpen] = useState<string | null>(null);
   const [hoveredDateStr, setHoveredDateStr] = useState<string | null>(null);
   const [hasHoverCapability, setHasHoverCapability] = useState(false);
@@ -91,30 +92,62 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
-  const getProgramGroup = (program: string): ProgramGroup => {
-    if (program === 'Foundation/Professional' || program === 'Foundation' || program === 'Professional') return 'A';
-    return 'B';
-  };
+  const filterOptions = useMemo(
+    () => ({
+      selectedProgram,
+      showRegistration,
+      showLecture,
+      showSemesterPendek,
+      showKuliahIntersesi,
+      showExamination,
+      showOthersExams,
+      showBreak,
+    }),
+    [
+      selectedProgram,
+      showRegistration,
+      showLecture,
+      showSemesterPendek,
+      showKuliahIntersesi,
+      showExamination,
+      showOthersExams,
+      showBreak,
+    ]
+  );
 
-  const group = getProgramGroup(selectedProgram);
-
-  const filterOptions = {
-    selectedProgram,
-    showRegistration,
-    showLecture,
-    showSemesterPendek,
-    showKuliahIntersesi,
-    showExamination,
-    showOthersExams,
-    showBreak,
-  };
+  const monthsForRange = useMemo(
+    () =>
+      getMonthsForSessions(selectedSessions, {
+        selectedProgram,
+        showRegistration,
+        showLecture,
+        showExamination,
+        showOthersExams,
+        showBreak,
+        showSemesterPendek,
+        showKuliahIntersesi,
+        showKKT,
+      }),
+    [
+      selectedSessions,
+      selectedProgram,
+      showRegistration,
+      showLecture,
+      showExamination,
+      showOthersExams,
+      showBreak,
+      showSemesterPendek,
+      showKuliahIntersesi,
+      showKKT,
+    ]
+  );
 
   const getActivityPriority = (activity: Activity, allDayActivities?: Activity[]): number => {
     const { type, name } = activity;
     if (type === 'examination') return 0;
     if (type === 'break') return 1;
     if (type === 'lecture') {
-      if (/^Lecture\s+\d+$/.test(name)) return 2;
+      if (/^(Lecture|Kuliah)\s+\d+$/.test(name)) return 2;
       if (name.includes('Semester Pendek') && allDayActivities) {
         const hasSemesterPendek = allDayActivities.some(a => a.name.includes('Semester Pendek'));
         const hasLectureIntersesi = allDayActivities.some(a => a.name.includes('Intersesi'));
@@ -127,15 +160,6 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
     }
     if (type === 'registration') return 6;
     return 7;
-  };
-
-  // Single source for day activities - used by tooltip, colors, dots, ring/border
-  const getDayActivities = (day: number | null): Activity[] => {
-    if (!day) return [];
-    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const activities = getActivitiesForDate(dateStr, group, showKKT, filterOptions);
-    activities.sort((a, b) => getActivityPriority(a, activities) - getActivityPriority(b, activities));
-    return activities;
   };
 
   const daysInMonth = new Date(year, month, 0).getDate();
@@ -156,6 +180,24 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
   for (let day = 1; day <= daysInMonth; day++) {
     dayCells.push(day);
   }
+
+  const dayActivitiesMap = useMemo(() => {
+    const map = new Map<number, Activity[]>();
+    if (selectedSessions.length === 0) return map;
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const activities = getActivitiesForDateMultiSessions(dateStr, selectedSessions, showKKT, filterOptions);
+      activities.sort((a, b) => getActivityPriority(a, activities) - getActivityPriority(b, activities));
+      map.set(day, activities);
+    }
+    return map;
+  }, [daysInMonth, filterOptions, month, selectedSessions, showKKT, year]);
+
+  // Single source for day activities - used by tooltip, colors, dots, ring/border
+  const getDayActivities = (day: number | null): Activity[] => {
+    if (!day) return [];
+    return dayActivitiesMap.get(day) ?? [];
+  };
   
   // Helper function to check if date is weekend based on selected states
   const isWeekend = (day: number | null) => {
@@ -207,39 +249,21 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
 
   // Check if current date is within the calendar range for this group
   // No window check: server and client must agree when initialCurrentDate is set so SSR HTML has the border
-  const isCurrentDateInRange = (): boolean => {
-    if (!currentDateStr) return false;
-    
-    // Get all months for this group to determine the range
-    const months = getMonthsForGroup(group, {
-      selectedProgram,
-      showRegistration,
-      showLecture,
-      showExamination,
-      showOthersExams,
-      showBreak,
-      showSemesterPendek,
-      showKuliahIntersesi,
-      showKKT,
-    });
-    
-    if (months.length === 0) return false;
-    
-    // Get min and max dates from months
-    const firstMonth = months[0];
-    const lastMonth = months[months.length - 1];
+  const isCurrentDateInRange = useMemo((): boolean => {
+    if (!currentDateStr || monthsForRange.length === 0) return false;
+    const firstMonth = monthsForRange[0];
+    const lastMonth = monthsForRange[monthsForRange.length - 1];
     const minDate = new Date(firstMonth.year, firstMonth.month - 1, 1);
-    const maxDate = new Date(lastMonth.year, lastMonth.month, 0); // Last day of last month
-    
+    const maxDate = new Date(lastMonth.year, lastMonth.month, 0);
     const currentDate = new Date(currentDateStr);
     return currentDate >= minDate && currentDate <= maxDate;
-  };
+  }, [currentDateStr, monthsForRange]);
 
   const getCurrentDateBorderColor = (day: number | null): string => {
     if (!day || !currentDateStr) return '';
     const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     if (dateStr !== currentDateStr) return '';
-    if (!isCurrentDateInRange()) return '';
+    if (!isCurrentDateInRange) return '';
     const activities = getDayActivities(day);
     const highest = activities[0];
     if (!highest) return 'border border-gray-400/50';
@@ -395,7 +419,7 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
                 // Immediately blur if element somehow gets focus
                 e.currentTarget.blur();
               }}
-              className={`calendar-date-cell flex flex-col h-12 items-center justify-center rounded-lg text-sm font-semibold cursor-pointer transition-none touch-manipulation select-none outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 focus:shadow-none focus-visible:shadow-none [&:focus]:ring-0 [&:focus-visible]:ring-0 [&:focus]:shadow-none [&:focus-visible]:shadow-none [&:focus]:outline-none [&:focus-visible]:outline-none ${dayColor} ${isHighlighted ? highlightColor : ''} ${isSelected ? `ring-2 ${ringColor}` : ''} ${isCurrentDate(day) && isCurrentDateInRange() ? borderColor : 'border border-transparent'} ${textClass}`}
+              className={`calendar-date-cell flex flex-col h-12 items-center justify-center rounded-lg text-sm font-semibold cursor-pointer transition-none touch-manipulation select-none outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 focus:shadow-none focus-visible:shadow-none [&:focus]:ring-0 [&:focus-visible]:ring-0 [&:focus]:shadow-none [&:focus-visible]:shadow-none [&:focus]:outline-none [&:focus-visible]:outline-none ${dayColor} ${isHighlighted ? highlightColor : ''} ${isSelected ? `ring-2 ${ringColor}` : ''} ${isCurrentDate(day) && isCurrentDateInRange ? borderColor : 'border border-transparent'} ${textClass}`}
               tabIndex={-1}
               suppressHydrationWarning
             >
@@ -472,6 +496,7 @@ function MiniCalendar({ month, year, selectedProgram, showKKT, onDateClick, sele
 
 export const GridView = memo(function GridView({ 
   selectedProgram, 
+  selectedSessions,
   showKKT,
   showRegistration,
   showLecture,
@@ -487,25 +512,32 @@ export const GridView = memo(function GridView({
 }: GridViewProps) {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
-  const getProgramGroup = (program: string): ProgramGroup => {
-    if (program === 'Foundation/Professional' || program === 'Foundation' || program === 'Professional') return 'A';
-    return 'B';
-  };
-
-  const group = getProgramGroup(selectedProgram);
-  
-  // Calculate months dynamically based on available activities
-  const months = getMonthsForGroup(group, {
-    selectedProgram,
-    showRegistration,
-    showLecture,
-    showExamination,
-    showOthersExams,
-    showBreak,
-    showSemesterPendek,
-    showKuliahIntersesi,
-    showKKT,
-  });
+  const months = useMemo(
+    () =>
+      getMonthsForSessions(selectedSessions, {
+        selectedProgram,
+        showRegistration,
+        showLecture,
+        showExamination,
+        showOthersExams,
+        showBreak,
+        showSemesterPendek,
+        showKuliahIntersesi,
+        showKKT,
+      }),
+    [
+      selectedSessions,
+      selectedProgram,
+      showRegistration,
+      showLecture,
+      showExamination,
+      showOthersExams,
+      showBreak,
+      showSemesterPendek,
+      showKuliahIntersesi,
+      showKKT,
+    ]
+  );
 
   return (
     <TooltipProvider>
@@ -517,6 +549,7 @@ export const GridView = memo(function GridView({
               month={month}
               year={year}
               selectedProgram={selectedProgram}
+              selectedSessions={selectedSessions}
               showKKT={showKKT}
               onDateClick={setSelectedDate}
               selectedDate={selectedDate}
