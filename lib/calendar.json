@@ -272,14 +272,14 @@
           "group": "A"
         },
         {
-          "name": "Tempoh Validasi Kursus Berdaftar Semester Semasa",
+          "name": "Tempoh Pengesahan Kursus Berdaftar Semester Semasa",
           "startDate": "2026-07-07",
           "endDate": "2026-07-12",
           "type": "registration",
           "group": "A"
         },
         {
-          "name": "Permohonan Daftar / Gugur Kursus Lewat / Luar Tempoh",
+          "name": "Permohonan Tambah/Gugur Kursus Lewat/Di Luar Tempoh",
           "startDate": "2026-07-13",
           "endDate": "2026-07-23",
           "type": "registration",
@@ -468,7 +468,7 @@
           "group": "A"
         },
         {
-          "name": "Tarikh Akhir Semakan Rekod Pelajar (Nama/IC/HP) di iStudent Portal",
+          "name": "Tarikh Akhir Kemaskini Rekod Pelajar (spt Nama/IC) di iStudent Portal",
           "startDate": "2026-11-22",
           "endDate": "2026-11-22",
           "type": "registration",
@@ -503,14 +503,14 @@
           "group": "A"
         },
         {
-          "name": "Tempoh Validasi Kursus Berdaftar Semester Semasa",
+          "name": "Tempoh Pengesahan Kursus Berdaftar Semester Semasa",
           "startDate": "2026-12-14",
           "endDate": "2026-12-20",
           "type": "registration",
           "group": "A"
         },
         {
-          "name": "Permohonan Daftar / Gugur Kursus Lewat / Luar Tempoh",
+          "name": "Permohonan Tambah/Gugur Kursus Lewat/Di Luar Tempoh",
           "startDate": "2026-12-21",
           "endDate": "2027-01-08",
           "type": "registration",
@@ -1341,7 +1341,7 @@
           "group": "B"
         },
         {
-          "name": "Pendaftaran Pelajar Baharu e-PJJ dan PLK dan Taklimat Program",
+          "name": "Pendaftaran Pelajar Baharu e-PJJ dan PLK Serta Taklimat Program Pelajar Baharu e-PJJ dan PLK",
           "startDate": "2026-09-13",
           "endDate": "2026-09-14",
           "type": "registration",
@@ -1582,7 +1582,7 @@
           "semua": true
         },
         {
-          "name": "Tarikh Akhir Pembayaran Yuran / Permohonan Penangguhan Bayaran Yuran Bagi Pelajar Lulus RPGT via Online Fee Deferment",
+          "name": "Tarikh Akhir Pembayaran Yuran / Permohonan Penangguhan Bayaran Yuran Bagi Pelajar Yang Diluluskan RPGT",
           "startDate": "2026-12-11",
           "endDate": "2026-12-11",
           "type": "other",
@@ -1673,7 +1673,7 @@
           "semua": true
         },
         {
-          "name": "English Exit Test (Speaking)",
+          "name": "English Exit Test (EET Lisan)",
           "startDate": "2027-01-11",
           "endDate": "2027-01-17",
           "duration": "1 Minggu",
@@ -1683,7 +1683,7 @@
           "programType": "Bachelor"
         },
         {
-          "name": "Cuti Ulangkaji",
+          "name": "Minggu Ulangkaji",
           "startDate": "2027-01-11",
           "endDate": "2027-01-17",
           "duration": "1 Minggu",
@@ -1692,7 +1692,7 @@
           "semua": true
         },
         {
-          "name": "Penilaian / Peperiksaan Akhir / EET (Writing)",
+          "name": "Penilaian / Peperiksaan Akhir / EET (Bertulis)",
           "startDate": "2027-01-18",
           "endDate": "2027-02-07",
           "duration": "3 Minggu",
@@ -1781,7 +1781,7 @@
           "endDate": "2027-03-07",
           "type": "other",
           "group": "B",
-          "details": "Online"
+          "details": "Secara Dalam Talian"
         },
         {
           "name": "Program Minggu Edu 5.0@UiTM",
@@ -1789,7 +1789,7 @@
           "endDate": "2027-03-07",
           "type": "other",
           "group": "B",
-          "details": "Online"
+          "details": "Secara Dalam Talian"
         },
         {
           "name": "Pendaftaran Kolej Penginapan - Pelajar Baharu",
@@ -1813,7 +1813,7 @@
           "group": "B"
         },
         {
-          "name": "Pendaftaran Pelajar Baharu e-PJJ dan PLK dan Taklimat Program",
+          "name": "Pendaftaran Pelajar Baharu e-PJJ dan PLK Serta Taklimat Program Pelajar Baharu e-PJJ dan PLK",
           "startDate": "2027-03-13",
           "endDate": "2027-03-14",
           "type": "registration",
@@ -1897,7 +1897,7 @@
           "type": "other",
           "group": "B",
           "programType": "Bachelor",
-          "details": "Online"
+          "details": "Secara Dalam Talian"
         },
         {
           "name": "Program Minggu Edu 5.0@UiTM",
@@ -1906,7 +1906,7 @@
           "type": "other",
           "group": "B",
           "programType": "Bachelor",
-          "details": "Online"
+          "details": "Secara Dalam Talian"
         },
         {
           "name": "Pendaftaran Kolej Penginapan - Pelajar Baharu",
@@ -2147,7 +2147,7 @@
           "semua": true
         },
         {
-          "name": "English Exit Test (EET Speaking)",
+          "name": "English Exit Test (EET Lisan)",
           "startDate": "2027-06-28",
           "endDate": "2027-07-04",
           "duration": "1 Minggu",
@@ -2157,7 +2157,7 @@
           "programType": "Bachelor"
         },
         {
-          "name": "Cuti Ulangkaji",
+          "name": "Minggu Ulangkaji",
           "startDate": "2027-06-28",
           "endDate": "2027-07-04",
           "duration": "1 Minggu",
@@ -2166,7 +2166,7 @@
           "semua": true
         },
         {
-          "name": "Penilaian / Peperiksaan Akhir / EET (Writing)",
+          "name": "Penilaian / Peperiksaan Akhir / EET (Bertulis)",
           "startDate": "2027-07-05",
           "endDate": "2027-07-25",
           "duration": "3 Minggu",

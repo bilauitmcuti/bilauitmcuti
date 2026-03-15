@@ -449,4 +449,22 @@ input[type="checkbox"],
 
   /* Note: chat-input uses 14px (text-sm) across all devices */
   /* iOS Safari may auto-zoom on focus since font-size < 16px */
+
+  /* Mobile submenu: keep default side positioning, but prevent right overflow */
+  @media (max-width: 640px) {
+    [data-slot="dropdown-menu-sub-content"] {
+      min-width: 0;
+      /* Keep a 12px safe gap from right viewport edge on mobile */
+      max-width: min(
+        calc(88vw - 12px),
+        calc(var(--radix-popper-available-width, 88vw) - 12px)
+      );
+    }
+
+    /* Keep default submenu behavior, but nudge right-side submenu left slightly on mobile. */
+    [data-slot="dropdown-menu-sub-content"][data-side="right"] {
+      /* Shift by own width so right-side submenu stays inside viewport. */
+      translate: calc(-100% + 48px) 0;
+    }
+  }
 }
