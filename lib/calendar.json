@@ -1123,7 +1123,15 @@
           "programType": "PreDiploma"
         },
         {
-          "name": "Pendaftaran Kolej Penginapan",
+          "name": "Pendaftaran Kolej Penginapan - Pelajar Baharu",
+          "startDate": "2026-03-28",
+          "endDate": "2026-03-29",
+          "type": "registration",
+          "group": "B",
+          "programType": "PreDiploma"
+        },
+        {
+          "name": "Pendaftaran Kolej Penginapan - Pelajar Lama (Yang Mendapat Kelulusan)",
           "startDate": "2026-03-28",
           "endDate": "2026-03-29",
           "type": "registration",
@@ -1181,7 +1189,15 @@
           "programType": "Diploma"
         },
         {
-          "name": "Pendaftaran Kolej Penginapan",
+          "name": "Pendaftaran Kolej Penginapan - Pelajar Baharu",
+          "startDate": "2026-03-28",
+          "endDate": "2026-03-29",
+          "type": "registration",
+          "group": "B",
+          "programType": "Diploma"
+        },
+        {
+          "name": "Pendaftaran Kolej Penginapan - Pelajar Lama (Yang Mendapat Kelulusan)",
           "startDate": "2026-03-28",
           "endDate": "2026-03-29",
           "type": "registration",
@@ -1288,7 +1304,15 @@
           "programType": "Bachelor"
         },
         {
-          "name": "Pendaftaran Kolej Penginapan",
+          "name": "Pendaftaran Kolej Penginapan - Pelajar Baharu",
+          "startDate": "2026-03-28",
+          "endDate": "2026-03-29",
+          "type": "registration",
+          "group": "B",
+          "programType": "Bachelor"
+        },
+        {
+          "name": "Pendaftaran Kolej Penginapan - Pelajar Lama (Yang Mendapat Kelulusan)",
           "startDate": "2026-03-28",
           "endDate": "2026-03-29",
           "type": "registration",
@@ -1488,7 +1512,23 @@
           "endDate": "2026-09-20",
           "type": "registration",
           "group": "B",
-          "semua": true
+          "programType": "PreDiploma"
+        },
+        {
+          "name": "Pendaftaran Kolej Penginapan - Pelajar Baharu",
+          "startDate": "2026-09-19",
+          "endDate": "2026-09-20",
+          "type": "registration",
+          "group": "B",
+          "programType": "Diploma"
+        },
+        {
+          "name": "Pendaftaran Kolej Penginapan - Pelajar Baharu",
+          "startDate": "2026-09-19",
+          "endDate": "2026-09-20",
+          "type": "registration",
+          "group": "B",
+          "programType": "Bachelor"
         },
         {
           "name": "Proses Serahan Dokumen Pelajar Baharu",
@@ -1622,6 +1662,22 @@
           "type": "registration",
           "group": "B",
           "programType": "Bachelor"
+        },
+        {
+          "name": "Pendaftaran Kolej Penginapan - Pelajar Lama (Yang Mendapat Kelulusan)",
+          "startDate": "2026-09-26",
+          "endDate": "2026-09-27",
+          "type": "registration",
+          "group": "B",
+          "programType": "PreDiploma"
+        },
+        {
+          "name": "Pendaftaran Kolej Penginapan - Pelajar Lama (Yang Mendapat Kelulusan)",
+          "startDate": "2026-09-26",
+          "endDate": "2026-09-27",
+          "type": "registration",
+          "group": "B",
+          "programType": "Diploma"
         },
         {
           "name": "Pendaftaran Kursus English Exit Test (EET699) Bagi Yang Layak Sahaja",
@@ -1968,7 +2024,23 @@
           "endDate": "2027-03-14",
           "type": "registration",
           "group": "B",
-          "semua": true
+          "programType": "PreDiploma"
+        },
+        {
+          "name": "Pendaftaran Kolej Penginapan - Pelajar Baharu",
+          "startDate": "2027-03-13",
+          "endDate": "2027-03-14",
+          "type": "registration",
+          "group": "B",
+          "programType": "Diploma"
+        },
+        {
+          "name": "Pendaftaran Kolej Penginapan - Pelajar Baharu",
+          "startDate": "2027-03-13",
+          "endDate": "2027-03-14",
+          "type": "registration",
+          "group": "B",
+          "programType": "Bachelor"
         },
         {
           "name": "Proses Serahan Dokumen Pelajar Baharu",
@@ -2084,6 +2156,22 @@
           "type": "registration",
           "group": "B",
           "programType": "Bachelor"
+        },
+        {
+          "name": "Pendaftaran Kolej Penginapan - Pelajar Lama (Yang Mendapat Kelulusan)",
+          "startDate": "2027-03-13",
+          "endDate": "2027-03-14",
+          "type": "registration",
+          "group": "B",
+          "programType": "PreDiploma"
+        },
+        {
+          "name": "Pendaftaran Kolej Penginapan - Pelajar Lama (Yang Mendapat Kelulusan)",
+          "startDate": "2027-03-13",
+          "endDate": "2027-03-14",
+          "type": "registration",
+          "group": "B",
+          "programType": "Diploma"
         },
         {
           "name": "Pendaftaran Kursus English Exit Test (EET699) Bagi Yang Layak Sahaja",
