@@ -171,6 +171,7 @@ export const ListView = memo(function ListView({
               activity.duration || '',
               activity.regionalStartDate || '',
               activity.regionalEndDate || '',
+              activity.semua ? '1' : '0',
               getNormalizedProgramType(activity.programType),
             ].join('|');
 

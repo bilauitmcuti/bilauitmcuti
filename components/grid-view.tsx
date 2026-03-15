@@ -9,7 +9,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { getActivitiesForDateMultiSessions, getMonthsForSessions, getDaysUntilStart, formatCountdown, type Activity, type ActivityType, type SessionId } from '@/lib/data';
+import { getActivitiesForDateMultiSessions, getMonthsForSessions, getDaysUntilStart, formatCountdown, getProgramBadgeConfig, type Activity, type ActivityType, type SessionId } from '@/lib/data';
 
 interface GridViewProps {
   selectedProgram: string;
@@ -449,7 +449,15 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
                 const dayActivities = getDayActivities(day!);
                 const seenKey = new Set<string>();
                 const uniqueDayActivities = dayActivities.filter((a) => {
-                  const key = `${a.name}|${a.startDate}|${a.endDate ?? ''}`;
+                  const key = [
+                    a.name,
+                    a.startDate,
+                    a.endDate ?? '',
+                    a.type,
+                    a.programType ?? '',
+                    a.semua ? '1' : '0',
+                    a.details ?? '',
+                  ].join('|');
                   if (seenKey.has(key)) return false;
                   seenKey.add(key);
                   return true;
@@ -474,12 +482,21 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
                         const days = showCountdown && countdownTypes.includes(activity.type) && currentDateStr
                           ? getDaysUntilStart(activity, currentDateStr, showKKT)
                           : null;
+                        const badgeConfig =
+                          selectedProgram === 'All' ? getProgramBadgeConfig(activity) : null;
                         const label = activity.details ? `${activity.name} - ${activity.details}` : activity.name;
                         const displayName = days != null ? `${label} (${formatCountdown(days)})` : label;
                         return (
                           <div key={idx} className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2 transition-none" style={{ transition: 'none' }}>
                             <div className={`h-2 w-2 rounded-full mt-1 flex-shrink-0 ${dotColor} transition-none`} style={{ transition: 'none' }} />
-                            <p className="min-w-0 text-xs leading-relaxed whitespace-normal text-wrap break-words [overflow-wrap:anywhere] line-clamp-3 transition-none">{displayName}</p>
+                            <div className="min-w-0">
+                              {badgeConfig ? (
+                                <div className={`mb-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${badgeConfig.bgClass} ${badgeConfig.textClass}`}>
+                                  {badgeConfig.label}
+                                </div>
+                              ) : null}
+                              <p className="text-xs leading-relaxed whitespace-normal text-wrap break-words [overflow-wrap:anywhere] line-clamp-3 transition-none">{displayName}</p>
+                            </div>
                           </div>
                         );
                       })}
