@@ -1391,12 +1391,11 @@
           "programTypes": ["PreDiploma", "Diploma", "Bachelor"]
         },
         {
-          "name": "Pendaftaran Kolej Penginapan - Pelajar Baharu & Pelajar Lama (Yang Mendapat Kelulusan)",
+          "name": "Pendaftaran Kolej Penginapan - Pelajar Baharu",
           "startDate": "2026-09-19",
           "endDate": "2026-09-20",
           "type": "registration",
           "group": "B",
-          "details": "Pelajar Baharu",
           "programTypes": ["PreDiploma", "Diploma", "Bachelor"]
         },
         {
@@ -1525,12 +1524,11 @@
           "programType": "Bachelor"
         },
         {
-          "name": "Pendaftaran Kolej Penginapan - Pelajar Baharu & Pelajar Lama (Yang Mendapat Kelulusan)",
+          "name": "Pendaftaran Kolej Penginapan - Pelajar Lama (Yang Mendapat Kelulusan)",
           "startDate": "2026-09-26",
           "endDate": "2026-09-27",
           "type": "registration",
           "group": "B",
-          "details": "Pelajar Lama (Yang Mendapat Kelulusan)",
           "programTypes": ["PreDiploma", "Diploma", "Bachelor"]
         },
         {
