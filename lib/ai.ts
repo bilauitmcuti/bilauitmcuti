@@ -5,11 +5,11 @@ const groq = new Groq({ apiKey: getEnv().GROQ_API_KEY });
 
 export const MODEL_LLAMA = "llama-3.1-8b-instant" as const;
 
-/** Groq 413 = request body too large. Raised to 16K to avoid truncating calendar data. */
-const MAX_SYSTEM_CHARS = 16_000;
-const MAX_HISTORY_MESSAGES = 2;
-const MAX_MESSAGE_CHARS = 1_000;
-const MAX_USER_PROMPT_CHARS = 1_000;
+/** Groq 413 = request body too large. Tuned for a safer payload budget. */
+const MAX_SYSTEM_CHARS = 12_000;
+const MAX_HISTORY_MESSAGES = 8;
+const MAX_MESSAGE_CHARS = 1_200;
+const MAX_USER_PROMPT_CHARS = 1_200;
 
 const MAX_TOKENS_LLAMA = 2048;
 const DEFAULT_TEMPERATURE = 0.2;

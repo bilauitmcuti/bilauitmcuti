@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronDown, ChevronUp, ArrowUp, ThumbsUp, ThumbsDown, Copy, Check, RefreshCw, Trash2, Pencil } from "lucide-react";
+import { ChevronLeft, ChevronDown, ChevronUp, ArrowUp, ThumbsUp, ThumbsDown, Copy, Check, Trash2, Pencil } from "lucide-react";
 import {
   programOptions,
   getSessionOptionsForGroup,
@@ -581,13 +581,6 @@ export default function ChatPage() {
   }, [currentGroup, selectedSessions]);
   const [emblaRef] = useEmblaCarousel({ dragFree: true, containScroll: "trimSnaps", align: "center" });
 
-  const lastAssistantId = useMemo(() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].role === "assistant") return messages[i].id;
-    }
-    return null;
-  }, [messages]);
-
   const lastUserMsgId = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].role === "user") return messages[i].id;
@@ -765,81 +758,6 @@ export default function ChatPage() {
     }
   };
 
-  const handleRegenerate = async (assistantMsgId: string) => {
-    if (isLoading) return;
-    // Find the user message right before this assistant message
-    const msgIndex = messages.findIndex((m) => m.id === assistantMsgId);
-    if (msgIndex <= 0) return;
-    const userMsg = messages[msgIndex - 1];
-    if (userMsg.role !== "user") return;
-
-    // Remove the assistant message we're regenerating
-    const newMessages = messages.filter((m) => m.id !== assistantMsgId);
-    setMessages(newMessages);
-    setIsLoading(true);
-
-    try {
-      const history = prepareHistory(newMessages.slice(0, -1));
-      const body = JSON.stringify({
-        message: userMsg.content,
-        program: selectedProgram,
-        selectedSessions,
-        history,
-      });
-
-      let content: string | null = null;
-
-      // Quick retry path for regenerate to avoid long waits on transient model busy states.
-      for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          const res = await fetch("/chat/api", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body,
-          });
-
-          const data = await parseChatResponse(res);
-          if (!res.ok) {
-            if (res.status === 503 && attempt < 1) {
-              await new Promise((r) => setTimeout(r, FAST_RETRY_DELAY_MS));
-              continue;
-            }
-            content = data.error || getChatErrorMessage(res, "Something went wrong. Please try again.");
-          } else {
-            content = data.reply || "Sorry, I could not get a response.";
-          }
-          break;
-        } catch {
-          if (attempt < 1) {
-            await new Promise((r) => setTimeout(r, FAST_NETWORK_RETRY_DELAY_MS));
-            continue;
-          }
-          throw new Error("Network error");
-        }
-      }
-
-      const regenNow = Date.now();
-      const newAssistantMessage: Message = {
-        id: regenNow.toString(),
-        role: "assistant",
-        content: content || "Something went wrong. Please try again.",
-        timestamp: regenNow,
-      };
-      setMessages((prev) => [...prev, newAssistantMessage]);
-    } catch {
-      const regenErrorNow = Date.now();
-      const errorMessage: Message = {
-        id: regenErrorNow.toString(),
-        role: "assistant",
-        content: "Something went wrong. Please try again.",
-        timestamp: regenErrorNow,
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleReaction = (msgId: string, type: "up" | "down") => {
     setReactions((prev) => ({
       ...prev,
@@ -955,14 +873,6 @@ export default function ChatPage() {
                       ) : (
                         <Copy className="w-3.5 h-3.5" />
                       )}
-                    </button>
-                    <button
-                      onClick={() => handleRegenerate(msg.id)}
-                      disabled={isLoading || msg.id !== lastAssistantId}
-                      className="flex items-center justify-center w-7 h-7 rounded-md hover:bg-secondary dark:hover:bg-[#2A2A2A] text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors active:scale-90 transition-transform duration-150"
-                      aria-label="Regenerate answer"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => handleReaction(msg.id, "up")}
