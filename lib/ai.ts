@@ -12,6 +12,7 @@ const MAX_MESSAGE_CHARS = 1_000;
 const MAX_USER_PROMPT_CHARS = 1_000;
 
 const MAX_TOKENS_LLAMA = 2048;
+const DEFAULT_TEMPERATURE = 0.2;
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -48,12 +49,14 @@ function buildMessages(
 async function callModel(
   model: string,
   messages: { role: "system" | "user" | "assistant"; content: string }[],
-  maxTokens: number
+  maxTokens: number,
+  temperature: number
 ): Promise<string> {
   const response = await groq.chat.completions.create({
     model,
     messages,
     max_tokens: maxTokens,
+    temperature,
   });
   const content = response?.choices?.[0]?.message?.content;
   if (!content) {
@@ -66,8 +69,17 @@ export async function askGroq(
   prompt: string,
   systemPrompt: string | undefined,
   history: ChatMessage[] | undefined,
-  model: typeof MODEL_LLAMA = MODEL_LLAMA
+  model: typeof MODEL_LLAMA = MODEL_LLAMA,
+  options?: {
+    maxTokens?: number;
+    temperature?: number;
+  }
 ): Promise<string> {
   const messages = buildMessages(prompt, systemPrompt, history);
-  return callModel(model, messages, MAX_TOKENS_LLAMA);
+  return callModel(
+    model,
+    messages,
+    options?.maxTokens ?? MAX_TOKENS_LLAMA,
+    options?.temperature ?? DEFAULT_TEMPERATURE
+  );
 }

@@ -50,6 +50,93 @@ function generateCorrelationId(): string {
   return `chat-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+// --- Fast response cache for repeated/retry prompts ---
+const RESPONSE_CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
+const MAX_RESPONSE_CACHE_ITEMS = 120;
+const responseCache = new Map<string, { reply: string; expiresAt: number }>();
+
+function getCachedReply(cacheKey: string): string | null {
+  const item = responseCache.get(cacheKey);
+  if (!item) return null;
+  if (item.expiresAt <= Date.now()) {
+    responseCache.delete(cacheKey);
+    return null;
+  }
+  return item.reply;
+}
+
+function setCachedReply(cacheKey: string, reply: string): void {
+  const now = Date.now();
+  // Remove expired keys first
+  for (const [key, value] of responseCache.entries()) {
+    if (value.expiresAt <= now) responseCache.delete(key);
+  }
+  // Keep cache bounded
+  if (responseCache.size >= MAX_RESPONSE_CACHE_ITEMS) {
+    const oldestKey = responseCache.keys().next().value;
+    if (oldestKey) responseCache.delete(oldestKey);
+  }
+  responseCache.set(cacheKey, { reply, expiresAt: now + RESPONSE_CACHE_TTL_MS });
+}
+
+function normalizeErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message.toLowerCase();
+  return String(error).toLowerCase();
+}
+
+function isTransientModelError(error: unknown): boolean {
+  const msg = normalizeErrorMessage(error);
+  return (
+    msg.includes("503") ||
+    msg.includes("429") ||
+    msg.includes("rate limit") ||
+    msg.includes("busy") ||
+    msg.includes("loading") ||
+    msg.includes("temporarily unavailable")
+  );
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function getModelResponseBudget(
+  message: string,
+  useCalendarPrompt: boolean,
+  isCompareRequested: boolean
+): { maxTokens: number; temperature: number } {
+  // Keep concise answers fast by default, while allowing more room for comparison/detail questions.
+  const lower = message.toLowerCase();
+  const asksDetail =
+    lower.includes("explain") ||
+    lower.includes("why") ||
+    lower.includes("how") ||
+    lower.includes("detail") ||
+    lower.includes("huraikan") ||
+    lower.includes("jelaskan");
+
+  if (isCompareRequested) return { maxTokens: 1200, temperature: 0.15 };
+  if (useCalendarPrompt && !asksDetail) return { maxTokens: 850, temperature: 0.15 };
+  if (useCalendarPrompt) return { maxTokens: 1050, temperature: 0.2 };
+  return { maxTokens: 1200, temperature: 0.25 };
+}
+
+async function askGroqWithFastRetry(
+  message: string,
+  systemPrompt: string,
+  history: ChatMessage[] | undefined,
+  options: { maxTokens: number; temperature: number }
+): Promise<string> {
+  try {
+    return await askGroq(message, systemPrompt, history, MODEL_LLAMA, options);
+  } catch (firstError) {
+    if (!isTransientModelError(firstError)) throw firstError;
+    // Quick retry (short backoff) so user regenerate feels responsive.
+    await sleep(300);
+    return askGroq(message, systemPrompt, history, MODEL_LLAMA, options);
+  }
+}
+
 // --- Input Validation ---
 const VALID_PROGRAMS = new Set(programOptions.map((p) => p.value));
 
@@ -585,11 +672,29 @@ export async function POST(request: NextRequest) {
         )
       : buildResearchSystemPrompt(todayFormatted);
 
-    const rawReply = await askGroq(
+    const cacheKey = [
+      todayISO,
+      selectedProgram,
+      effectiveSessions.join(","),
+      useCalendarPrompt ? "calendar" : "research",
+      isCompareRequested ? "compare" : "normal",
+      sanitizedMessage,
+      JSON.stringify(sanitizedHistory),
+    ].join("||");
+
+    const cachedReply = getCachedReply(cacheKey);
+    if (cachedReply) return NextResponse.json({ reply: cachedReply });
+
+    const modelBudget = getModelResponseBudget(
+      sanitizedMessage,
+      useCalendarPrompt,
+      isCompareRequested
+    );
+    const rawReply = await askGroqWithFastRetry(
       sanitizedMessage,
       systemPrompt,
       sanitizedHistory,
-      MODEL_LLAMA
+      modelBudget
     );
 
     const reply = rawReply
@@ -601,6 +706,7 @@ export async function POST(request: NextRequest) {
       .replace(/`([^`]+)`/g, "$1")
       .replace(/~~/g, "");
 
+    setCachedReply(cacheKey, reply);
     return NextResponse.json({ reply });
   } catch (error: unknown) {
     if (error instanceof SyntaxError || (error instanceof Error && error.message?.includes("JSON"))) {

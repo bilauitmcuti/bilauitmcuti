@@ -324,6 +324,9 @@ const LOADING_PHRASES = [
   "Scanning timetable...",
 ];
 
+const FAST_RETRY_DELAY_MS = 350;
+const FAST_NETWORK_RETRY_DELAY_MS = 300;
+
 function getRandomLoadingPhrase(exclude?: string): string {
   const available = LOADING_PHRASES.filter((p) => p !== exclude);
   return available[Math.floor(Math.random() * available.length)];
@@ -700,7 +703,7 @@ export default function ChatPage() {
           if (!res.ok) {
             // Retry on 503 (model loading / busy)
             if (res.status === 503 && attempt < 1) {
-              await new Promise((r) => setTimeout(r, 2000));
+              await new Promise((r) => setTimeout(r, FAST_RETRY_DELAY_MS));
               continue;
             }
             content = data.error || getChatErrorMessage(res, "Something went wrong. Please try again.");
@@ -710,7 +713,7 @@ export default function ChatPage() {
           break;
         } catch {
           if (attempt < 1) {
-            await new Promise((r) => setTimeout(r, 2000));
+            await new Promise((r) => setTimeout(r, FAST_NETWORK_RETRY_DELAY_MS));
             continue;
           }
           throw new Error("Network error");
@@ -777,31 +780,49 @@ export default function ChatPage() {
 
     try {
       const history = prepareHistory(newMessages.slice(0, -1));
-
-      const res = await fetch("/chat/api", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: userMsg.content,
-          program: selectedProgram,
-          selectedSessions,
-          history,
-        }),
+      const body = JSON.stringify({
+        message: userMsg.content,
+        program: selectedProgram,
+        selectedSessions,
+        history,
       });
 
-      const data = await parseChatResponse(res);
-      let content: string;
-      if (!res.ok) {
-        content = data.error || getChatErrorMessage(res, "Something went wrong. Please try again.");
-      } else {
-        content = data.reply || "Sorry, I could not get a response.";
+      let content: string | null = null;
+
+      // Quick retry path for regenerate to avoid long waits on transient model busy states.
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const res = await fetch("/chat/api", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body,
+          });
+
+          const data = await parseChatResponse(res);
+          if (!res.ok) {
+            if (res.status === 503 && attempt < 1) {
+              await new Promise((r) => setTimeout(r, FAST_RETRY_DELAY_MS));
+              continue;
+            }
+            content = data.error || getChatErrorMessage(res, "Something went wrong. Please try again.");
+          } else {
+            content = data.reply || "Sorry, I could not get a response.";
+          }
+          break;
+        } catch {
+          if (attempt < 1) {
+            await new Promise((r) => setTimeout(r, FAST_NETWORK_RETRY_DELAY_MS));
+            continue;
+          }
+          throw new Error("Network error");
+        }
       }
 
       const regenNow = Date.now();
       const newAssistantMessage: Message = {
         id: regenNow.toString(),
         role: "assistant",
-        content,
+        content: content || "Something went wrong. Please try again.",
         timestamp: regenNow,
       };
       setMessages((prev) => [...prev, newAssistantMessage]);
