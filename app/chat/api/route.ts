@@ -550,10 +550,27 @@ function buildComparisonContext(
     : out;
 }
 
+function buildSessionListContext(
+  group: "A" | "B",
+  selectedSessionIds: SessionId[]
+): string {
+  const selected = new Set(selectedSessionIds);
+  const sessionsInGroup = sessionOptions.filter((session) => session.group === group);
+  if (sessionsInGroup.length === 0) return "No session options available.";
+  return sessionsInGroup
+    .map((session) => {
+      const label = session.label.replace(/^Group [AB]:\s*/, "");
+      const marker = selected.has(session.id) ? " (selected)" : "";
+      return `- ${session.id}: ${label}${marker}`;
+    })
+    .join("\n");
+}
+
 function buildCalendarSystemPrompt(
   programLabel: string,
   primaryGroup: string,
   secondaryGroup: string,
+  sessionListContext: string,
   primaryContext: string,
   secondaryContext: string,
   primaryDesc: string,
@@ -584,6 +601,8 @@ function buildCalendarSystemPrompt(
     .replace(/\{\{secondaryDesc\}\}/g, secondaryDesc)
     .replace(/\{\{today\}\}/g, todayFormatted)
     .replace(/\{\{quickReference\}\}/g, quickReference);
+
+  result += `\n\n=== SESSION LIST (GROUP ${primaryGroup}) ===\n${sessionListContext}`;
 
   if (comparisonContext && comparisonContext.length > 0) {
     result += `\n\n=== SESSION COMPARISON (user selected multiple sessions) ===\n${comparisonContext}`;
@@ -736,6 +755,7 @@ export async function POST(request: NextRequest) {
 
     const primaryContext = formatActivitiesAsContext(primaryActivities);
     const secondaryContext = formatActivitiesAsContext(secondaryActivities);
+    const sessionListContext = buildSessionListContext(primaryGroup, effectiveSessions);
     const comparisonContext =
       effectiveSessions.length > 1
         ? buildComparisonContext(effectiveSessions, selectedProgram, primaryGroup)
@@ -768,6 +788,7 @@ export async function POST(request: NextRequest) {
           programLabel,
           primaryGroup,
           secondaryGroup,
+          sessionListContext,
           primaryContext,
           secondaryContext,
           primaryDesc,
