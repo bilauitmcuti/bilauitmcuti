@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 
+const listCoverImage = '/list-cover.png';
+
 export const metadata: Metadata = {
+  metadataBase: new URL('https://cutiuitm.xyz'),
   title: 'Bila UiTM Cuti? - Academic Calendar',
   description: 'Interactive UiTM academic calendar. View registration dates, lecture schedules, examination periods, and breaks. Includes regional schedule variations for Kedah, Kelantan, and Terengganu. Supports dark/light themes and offline access.',
   alternates: {
@@ -15,10 +18,11 @@ export const metadata: Metadata = {
     locale: 'ms_MY',
     images: [
       {
-        url: 'https://cutiuitm.xyz/list-cover.png',
+        url: listCoverImage,
         width: 1200,
         height: 630,
         alt: 'Bila UiTM Cuti? - Academic Calendar',
+        type: 'image/png',
       },
     ],
   },
@@ -26,7 +30,12 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Bila UiTM Cuti? - Academic Calendar',
     description: 'Interactive UiTM academic calendar with support for all program groups and regional variations.',
-    images: ['https://cutiuitm.xyz/list-cover.png'],
+    images: [
+      {
+        url: listCoverImage,
+        alt: 'Bila UiTM Cuti? - Academic Calendar',
+      },
+    ],
   },
 };
 

@@ -146,15 +146,58 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
   const [tooltipOpen, setTooltipOpen] = useState<string | null>(null);
   const [hoveredDateStr, setHoveredDateStr] = useState<string | null>(null);
   const [hasHoverCapability, setHasHoverCapability] = useState(false);
+  const [hasTouchInput, setHasTouchInput] = useState(false);
 
   useEffect(() => {
-    const mq = typeof window !== 'undefined' ? window.matchMedia('(hover: hover)') : null;
-    if (!mq) return;
-    setHasHoverCapability(mq.matches);
-    const handler = () => setHasHoverCapability(mq.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
+    if (typeof window === 'undefined') return;
+
+    const hoverMq = window.matchMedia('(hover: hover) and (pointer: fine)');
+    const touchMq = window.matchMedia('(hover: none), (pointer: coarse)');
+    const syncCapability = () => {
+      const touchCapable = touchMq.matches || (navigator.maxTouchPoints ?? 0) > 0;
+      setHasTouchInput(touchCapable);
+      setHasHoverCapability(hoverMq.matches);
+    };
+
+    syncCapability();
+    hoverMq.addEventListener('change', syncCapability);
+    touchMq.addEventListener('change', syncCapability);
+    return () => {
+      hoverMq.removeEventListener('change', syncCapability);
+      touchMq.removeEventListener('change', syncCapability);
+    };
   }, []);
+
+  const isDesktopHoverMode = hasHoverCapability && !hasTouchInput;
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || isDesktopHoverMode || !tooltipOpen) return;
+
+    const selectorValue =
+      typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+        ? CSS.escape(tooltipOpen)
+        : tooltipOpen.replace(/["\\]/g, '\\$&');
+
+    const handleScroll = () => setTooltipOpen(null);
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+
+      const trigger = document.querySelector(`[data-mini-calendar-trigger="${selectorValue}"]`);
+      const content = document.querySelector(`[data-mini-calendar-tooltip="${selectorValue}"]`);
+      const isInsideTrigger = trigger instanceof Element && trigger.contains(target);
+      const isInsideContent = content instanceof Element && content.contains(target);
+      if (isInsideTrigger || isInsideContent) return;
+      setTooltipOpen(null);
+    };
+
+    window.addEventListener('scroll', handleScroll, true);
+    document.addEventListener('pointerdown', handlePointerDown, true);
+    return () => {
+      window.removeEventListener('scroll', handleScroll, true);
+      document.removeEventListener('pointerdown', handlePointerDown, true);
+    };
+  }, [isDesktopHoverMode, tooltipOpen]);
 
   // Initialize currentDateStr synchronously on client to prevent hydration mismatch
   // This ensures the same value is used on first render (client-side)
@@ -502,11 +545,12 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
 
           const calendarCell = (
             <div
+              data-mini-calendar-trigger={dateStr ?? undefined}
               onClick={() => {
                 if (dateStr) {
-                  // Toggle tooltip on mobile/tablet (touch); on desktop with hover, click still closes or triggers onDateClick
+                  // On desktop, keep date click behavior; on touch, use tap to toggle tooltip.
                   if (tooltipOpen === dateStr) {
-                    onDateClick(dateStr);
+                    if (isDesktopHoverMode) onDateClick(dateStr);
                     setTooltipOpen(null);
                   } else {
                     setTooltipOpen(dateStr);
@@ -514,24 +558,24 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
                 }
               }}
               onMouseEnter={() => {
-                if (hasHoverCapability && dateStr) {
+                if (isDesktopHoverMode && dateStr) {
                   setHoveredDateStr(dateStr);
                   setTooltipOpen(dateStr);
                 }
               }}
               onMouseLeave={() => {
-                if (hasHoverCapability) {
+                if (isDesktopHoverMode) {
                   setHoveredDateStr(null);
                   setTooltipOpen(null);
                 }
               }}
               onMouseDown={(e) => {
                 // Keep desktop focus suppression without affecting touch click synthesis on iOS.
-                if (hasHoverCapability) e.preventDefault();
+                if (isDesktopHoverMode) e.preventDefault();
               }}
               onFocus={(e) => {
-                // Immediately blur if element somehow gets focus
-                e.currentTarget.blur();
+                // Keep focus suppression on hover devices only.
+                if (isDesktopHoverMode) e.currentTarget.blur();
               }}
               className={`calendar-date-cell flex flex-col h-12 items-center justify-center rounded-lg text-sm font-semibold cursor-pointer transition-none touch-manipulation select-none outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 focus:shadow-none focus-visible:shadow-none [&:focus]:ring-0 [&:focus-visible]:ring-0 [&:focus]:shadow-none [&:focus-visible]:shadow-none [&:focus]:outline-none [&:focus-visible]:outline-none ${dayColor} ${isHighlighted ? highlightColor : ''} ${isSelected ? `ring-2 ${ringColor}` : ''} ${isCurrentDate(day) && isCurrentDateInRange ? borderColor : 'border border-transparent'} ${textClass}`}
               tabIndex={-1}
@@ -547,11 +591,11 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
               <Tooltip 
                 open={tooltipOpen === dateStr} 
                 onOpenChange={(open) => {
-                  if (open) {
-                    setTooltipOpen(dateStr);
-                  } else {
-                    setTooltipOpen(null);
+                  if (isDesktopHoverMode) {
+                    setTooltipOpen(open ? dateStr : null);
+                    return;
                   }
+                  if (open) setTooltipOpen(dateStr);
                 }} 
                 delayDuration={0}
               >
@@ -579,6 +623,7 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
                 
                 return (
                   <TooltipContent suppressHydrationWarning 
+                    data-mini-calendar-tooltip={dateStr}
                     side="top" 
                     className="w-auto max-w-[300px] sm:max-w-[330px] px-3 py-2 mx-2 rounded-lg shadow-lg border border-border bg-popover text-popover-foreground [&[data-side='top']]:before:content-none transition-none"
                     sideOffset={8}
