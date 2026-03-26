@@ -142,9 +142,7 @@ interface GridViewProps {
   initialCurrentDate?: string;
 }
 
-function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT, onDateClick, selectedDate, showRegistration, showLecture, showSemesterPendek, showKuliahIntersesi, showExamination, showOthersExams, showBreak, showCountdown, selectedStates = [], initialCurrentDate }: { month: number; year: number; selectedProgram: string; selectedSessions: SessionId[]; showKKT: boolean; onDateClick: (date: string) => void; selectedDate: string | null; showRegistration: boolean; showLecture: boolean; showSemesterPendek: boolean; showKuliahIntersesi: boolean; showExamination: boolean; showOthersExams: boolean; showBreak: boolean; showCountdown: boolean; selectedStates?: string[]; initialCurrentDate?: string }) {
-  const [tooltipOpen, setTooltipOpen] = useState<string | null>(null);
-  const [hoveredDateStr, setHoveredDateStr] = useState<string | null>(null);
+function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT, onDateClick, selectedDate, showRegistration, showLecture, showSemesterPendek, showKuliahIntersesi, showExamination, showOthersExams, showBreak, showCountdown, selectedStates = [], initialCurrentDate, tooltipOpenKey, hoveredDateStr, setTooltipOpenKey, setHoveredDateStr }: { month: number; year: number; selectedProgram: string; selectedSessions: SessionId[]; showKKT: boolean; onDateClick: (date: string) => void; selectedDate: string | null; showRegistration: boolean; showLecture: boolean; showSemesterPendek: boolean; showKuliahIntersesi: boolean; showExamination: boolean; showOthersExams: boolean; showBreak: boolean; showCountdown: boolean; selectedStates?: string[]; initialCurrentDate?: string; tooltipOpenKey: string | null; hoveredDateStr: string | null; setTooltipOpenKey: React.Dispatch<React.SetStateAction<string | null>>; setHoveredDateStr: React.Dispatch<React.SetStateAction<string | null>> }) {
   const [hasHoverCapability, setHasHoverCapability] = useState(false);
   const [hasTouchInput, setHasTouchInput] = useState(false);
 
@@ -173,14 +171,14 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
   useEffect(() => {
     if (isDesktopHoverMode) return;
     setHoveredDateStr(null);
-    setTooltipOpen(null);
-  }, [isDesktopHoverMode]);
+    setTooltipOpenKey(null);
+  }, [isDesktopHoverMode, setHoveredDateStr, setTooltipOpenKey]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (!tooltipOpen || isDesktopHoverMode) return;
+    if (!tooltipOpenKey || isDesktopHoverMode) return;
 
-    const closeTooltip = () => setTooltipOpen(null);
+    const closeTooltip = () => setTooltipOpenKey(null);
     const handlePointerDown = (event: PointerEvent) => {
       const target = event.target as HTMLElement | null;
       if (!target) return;
@@ -195,7 +193,7 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
       window.removeEventListener('scroll', closeTooltip, true);
       window.removeEventListener('pointerdown', handlePointerDown);
     };
-  }, [tooltipOpen, isDesktopHoverMode]);
+  }, [tooltipOpenKey, isDesktopHoverMode, setTooltipOpenKey]);
 
   // Initialize currentDateStr synchronously on client to prevent hydration mismatch
   // This ensures the same value is used on first render (client-side)
@@ -521,7 +519,7 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
           const dateStr = day ? `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` : null;
           const tooltip = getTooltip(day);
           const isSelected = selectedDate === dateStr;
-          const isHighlighted = (hoveredDateStr === dateStr || tooltipOpen === dateStr);
+          const isHighlighted = (hoveredDateStr === dateStr || tooltipOpenKey === dateStr);
           
           if (!day) {
             return (
@@ -547,7 +545,7 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
               onClick={() => {
                 if (!dateStr) return;
                 if (!isDesktopHoverMode) {
-                  setTooltipOpen((prev) => (prev === dateStr ? null : dateStr));
+                  setTooltipOpenKey((prev) => (prev === dateStr ? null : dateStr));
                   onDateClick(dateStr);
                   return;
                 }
@@ -556,13 +554,13 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
               onMouseEnter={() => {
                 if (isDesktopHoverMode && dateStr) {
                   setHoveredDateStr(dateStr);
-                  setTooltipOpen(dateStr);
+                  setTooltipOpenKey(dateStr);
                 }
               }}
               onMouseLeave={() => {
                 if (isDesktopHoverMode) {
                   setHoveredDateStr(null);
-                  setTooltipOpen(null);
+                  setTooltipOpenKey(null);
                 }
               }}
               onMouseDown={(e) => {
@@ -585,10 +583,10 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
           return (
             <div key={index} suppressHydrationWarning>
               <Tooltip
-                open={tooltipOpen === dateStr}
+                open={tooltipOpenKey === dateStr}
                 onOpenChange={(open) => {
                   if (!isDesktopHoverMode) return;
-                  setTooltipOpen(open ? dateStr : null);
+                  setTooltipOpenKey(open ? dateStr : null);
                 }}
                 delayDuration={0}
               >
@@ -660,6 +658,8 @@ export const GridView = memo(function GridView({
   initialCurrentDate,
 }: GridViewProps) {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [tooltipOpenKey, setTooltipOpenKey] = useState<string | null>(null);
+  const [hoveredDateStr, setHoveredDateStr] = useState<string | null>(null);
 
   const months = useMemo(
     () =>
@@ -712,6 +712,10 @@ export const GridView = memo(function GridView({
               showCountdown={showCountdown}
               selectedStates={selectedStates}
               initialCurrentDate={initialCurrentDate}
+              tooltipOpenKey={tooltipOpenKey}
+              hoveredDateStr={hoveredDateStr}
+              setTooltipOpenKey={setTooltipOpenKey}
+              setHoveredDateStr={setHoveredDateStr}
             />
           ))}
         </div>
