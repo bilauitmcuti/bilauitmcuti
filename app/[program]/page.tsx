@@ -27,18 +27,18 @@ export async function generateMetadata({ params }: ProgramPageProps): Promise<Me
     title,
     description,
     alternates: {
-      canonical: `https://cutiuitm.xyz/${program}`,
+      canonical: `https://bilauitmcuti.com/${program}`,
     },
     openGraph: {
       siteName: 'Bila UiTM Cuti?',
       title,
       description,
       type: 'website',
-      url: `https://cutiuitm.xyz/${program}`,
+      url: `https://bilauitmcuti.com/${program}`,
       locale: 'ms_MY',
       images: [
         {
-          url: 'https://cutiuitm.xyz/all-cover.png',
+          url: 'https://bilauitmcuti.com/all-cover.png',
           width: 1200,
           height: 630,
           alt: title,
@@ -49,7 +49,7 @@ export async function generateMetadata({ params }: ProgramPageProps): Promise<Me
       card: 'summary_large_image',
       title,
       description,
-      images: ['https://cutiuitm.xyz/all-cover.png'],
+      images: ['https://bilauitmcuti.com/all-cover.png'],
     },
   };
 }
@@ -66,16 +66,16 @@ function ProgramJsonLd({ program, programName }: { program: string; programName:
             {
               "@type": "BreadcrumbList",
               "itemListElement": [
-                { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cutiuitm.xyz" },
-                { "@type": "ListItem", "position": 2, "name": programName, "item": `https://cutiuitm.xyz/${program}` },
+                { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://bilauitmcuti.com" },
+                { "@type": "ListItem", "position": 2, "name": programName, "item": `https://bilauitmcuti.com/${program}` },
               ],
             },
             {
               "@type": "WebPage",
               "name": title,
-              "url": `https://cutiuitm.xyz/${program}`,
+              "url": `https://bilauitmcuti.com/${program}`,
               "description": `Kalendar akademik UiTM untuk ${programName}. Lihat tarikh pendaftaran, jadual kuliah, tempoh peperiksaan, dan cuti.`,
-              "isPartOf": { "@type": "WebSite", "name": "Bila UiTM Cuti?", "url": "https://cutiuitm.xyz" },
+              "isPartOf": { "@type": "WebSite", "name": "Bila UiTM Cuti?", "url": "https://bilauitmcuti.com" },
             },
           ],
         }),

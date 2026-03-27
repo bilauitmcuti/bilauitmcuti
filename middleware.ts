@@ -51,7 +51,7 @@ function hasBrowserHeaders(request: NextRequest): boolean {
 function hasPageOrigin(request: NextRequest): boolean {
   const referer = request.headers.get("referer");
   const origin = request.headers.get("origin");
-  const base = "cutiuitm.xyz";
+  const base = "bilauitmcuti.com";
   return !!(referer?.includes(base) || origin?.includes(base)); // matches apex and www
 }
 

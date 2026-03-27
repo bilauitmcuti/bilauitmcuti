@@ -98,5 +98,5 @@ export function getProgramDisplayName(route: string | null | undefined): string 
 
 // OG image path for social preview by route (program slug or null for default)
 export function getOgImageForRoute(route: string | null | undefined): string {
-  return 'https://cutiuitm.xyz/all-cover.png';
+  return 'https://bilauitmcuti.com/all-cover.png';
 }

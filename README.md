@@ -2,7 +2,7 @@
 
 Academic calendar web app for Universiti Teknologi MARA (UiTM) — Malaysia's largest public university. Built to help students quickly check semester dates, breaks, exams, and registration deadlines.
 
-**Live:** [cutiuitm.xyz](https://cutiuitm.xyz)
+**Live:** [bilauitmcuti.com](https://bilauitmcuti.com)
 
 ## Features
 

@@ -5,7 +5,7 @@
 ## Overview
 Bila UiTM Cuti? is an interactive academic calendar web app for UiTM (Universiti Teknologi MARA) showing scheduled academic activities by session. It is not an official UiTM product; it is built by Shahrul Estar for students and staff who need quick access to registration dates, lecture schedules, examination periods, and breaks.
 
-Base URL: https://cutiuitm.xyz
+Base URL: https://bilauitmcuti.com
 
 ## Key Features
 - **View Modes**: List view and Grid view for browsing the calendar
@@ -50,19 +50,19 @@ Each program has grid and list views:
 ## FAQ
 
 ### Bila UiTM buka semester?
-Tarikh pembukaan semester UiTM berbeza mengikut program dan sesi. Layari cutiuitm.xyz untuk melihat jadual lengkap pendaftaran dan kuliah bagi Foundation, Pre-Diploma, Diploma, Bachelor, Master dan PhD.
+Tarikh pembukaan semester UiTM berbeza mengikut program dan sesi. Layari bilauitmcuti.com untuk melihat jadual lengkap pendaftaran dan kuliah bagi Foundation, Pre-Diploma, Diploma, Bachelor, Master dan PhD.
 
 ### Bila peperiksaan UiTM?
-Tarikh peperiksaan UiTM bergantung kepada program dan sesi. Lihat kalendar akademik interaktif di cutiuitm.xyz untuk tarikh peperiksaan tepat termasuk peperiksaan khas dan EET.
+Tarikh peperiksaan UiTM bergantung kepada program dan sesi. Lihat kalendar akademik interaktif di bilauitmcuti.com untuk tarikh peperiksaan tepat termasuk peperiksaan khas dan EET.
 
 ### Apa itu Semester Pendek UiTM?
-Semester Pendek adalah sesi pengajian singkat yang diadakan antara semester biasa. Ia membolehkan pelajar mengambil kursus tambahan. Jadual Semester Pendek boleh dilihat di cutiuitm.xyz.
+Semester Pendek adalah sesi pengajian singkat yang diadakan antara semester biasa. Ia membolehkan pelajar mengambil kursus tambahan. Jadual Semester Pendek boleh dilihat di bilauitmcuti.com.
 
 ### Macam mana nak guna Bila UiTM Cuti?
-Layari cutiuitm.xyz, pilih program anda (Foundation, Diploma, Bachelor, dll), dan lihat kalendar dalam paparan grid atau senarai. Anda juga boleh install sebagai PWA untuk akses lebih pantas.
+Layari bilauitmcuti.com, pilih program anda (Foundation, Diploma, Bachelor, dll), dan lihat kalendar dalam paparan grid atau senarai. Anda juga boleh install sebagai PWA untuk akses lebih pantas.
 
 ### Bila cuti semester UiTM?
-Cuti semester UiTM berbeza mengikut kumpulan program dan sesi. Semak tarikh cuti semester lengkap di cutiuitm.xyz dengan memilih program anda.
+Cuti semester UiTM berbeza mengikut kumpulan program dan sesi. Semak tarikh cuti semester lengkap di bilauitmcuti.com dengan memilih program anda.
 
 ## Data Structure
 Activities are defined by: month/year, program group (A or B), activity type (registration, lecture, examination, break, other), start and end dates, optional KKT state variants. Types include Short Semester and Intersession Classes where applicable. Each activity may have a programType (PreDiploma, Diploma, DiplomaPartTime, Bachelor, BachelorPartTime, Master, PhD) or semua flag for all students.
@@ -78,7 +78,7 @@ The site uses the following Schema.org types:
 - **SiteNavigationElement** — Main navigation links
 
 ## SEO
-- **Canonical**: https://cutiuitm.xyz (and per-page canonical URLs)
+- **Canonical**: https://bilauitmcuti.com (and per-page canonical URLs)
 - **Metadata**: Title, description, keywords per page; metadataBase for absolute URLs
 - **Open Graph & Twitter Card**: Supported for sharing with per-program OG images
 - **Locale**: ms_MY

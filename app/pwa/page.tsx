@@ -61,7 +61,7 @@ export default function PWAPage() {
             <ol className="space-y-2 text-sm text-muted-foreground">
               <li className="flex gap-3">
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">1</span>
-                Open <strong className="font-semibold text-foreground">Safari</strong> and go to <strong className="font-semibold text-foreground">cutiuitm.xyz</strong>
+                Open <strong className="font-semibold text-foreground">Safari</strong> and go to <strong className="font-semibold text-foreground">bilauitmcuti.com</strong>
               </li>
               <li className="flex gap-3">
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">2</span>
@@ -87,7 +87,7 @@ export default function PWAPage() {
             <ol className="space-y-2 text-sm text-muted-foreground">
               <li className="flex gap-3">
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">1</span>
-                Open <strong className="font-semibold text-foreground">Chrome</strong> and go to <strong className="font-semibold text-foreground">cutiuitm.xyz</strong>
+                Open <strong className="font-semibold text-foreground">Chrome</strong> and go to <strong className="font-semibold text-foreground">bilauitmcuti.com</strong>
               </li>
               <li className="flex gap-3">
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">2</span>
@@ -127,14 +127,17 @@ export default function PWAPage() {
           <section>
             <h2 className="mb-4 text-lg font-semibold">What you get</h2>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <FeatureItem icon={<CalendarDays className="h-4 w-4" />} label="Academic calendar 2026" />
+              <FeatureItem icon={<CalendarDays className="h-4 w-4" />} label="Academic calendar 2026 (updated Mar 2026)" />
               <FeatureItem icon={<LayoutGrid className="h-4 w-4" />} label="Grid & list views" />
               <FeatureItem icon={<Sparkles className="h-4 w-4" />} label="Group A & B schedules" />
-              <FeatureItem icon={<MapPin className="h-4 w-4" />} label="Kedah, Kelantan & Terengganu" />
+              <FeatureItem
+                icon={<List className="h-4 w-4" />}
+                label="Event filters (Registration, Lecture, Short Semester, Intersession, Exams & Break) + countdown"
+              />
+              <FeatureItem icon={<MapPin className="h-4 w-4" />} label="Regional holidays (Kedah, Kelantan & Terengganu)" />
               <FeatureItem icon={<MessageCircle className="h-4 w-4" />} label="AI chat assistant" />
               <FeatureItem icon={<MessageSquareText className="h-4 w-4" />} label="Contact & feedback form" />
               <FeatureItem icon={<ThemeIcon />} label="Dark & light themes" />
-              <FeatureItem icon={<List className="h-4 w-4" />} label="Fast & responsive design" />
               <FeatureItem icon={<Smartphone className="h-4 w-4" />} label="Installable as native app" />
             </div>
           </section>

@@ -3,18 +3,18 @@ import type { Metadata } from 'next';
 const listCoverImage = '/list-cover.png';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://cutiuitm.xyz'),
+  metadataBase: new URL('https://bilauitmcuti.com'),
   title: 'Bila UiTM Cuti? - Academic Calendar',
   description: 'Interactive UiTM academic calendar. View registration dates, lecture schedules, examination periods, and breaks. Includes regional schedule variations for Kedah, Kelantan, and Terengganu. Supports dark/light themes and offline access.',
   alternates: {
-    canonical: 'https://cutiuitm.xyz/list',
+    canonical: 'https://bilauitmcuti.com/list',
   },
   openGraph: {
     siteName: 'Bila UiTM Cuti?',
     title: 'Bila UiTM Cuti? - Academic Calendar',
     description: 'Interactive calendar showing UiTM academic schedules, registration dates, lecture periods, and examination dates.',
     type: 'website',
-    url: 'https://cutiuitm.xyz/list',
+    url: 'https://bilauitmcuti.com/list',
     locale: 'ms_MY',
     images: [
       {
@@ -43,8 +43,8 @@ const listBreadcrumbJsonLd = JSON.stringify({
   "@context": "https://schema.org",
   "@type": "BreadcrumbList",
   "itemListElement": [
-    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cutiuitm.xyz" },
-    { "@type": "ListItem", "position": 2, "name": "List View", "item": "https://cutiuitm.xyz/list" },
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://bilauitmcuti.com" },
+    { "@type": "ListItem", "position": 2, "name": "List View", "item": "https://bilauitmcuti.com/list" },
   ],
 });
 

@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next'
 
-const baseUrl = 'https://cutiuitm.xyz'
+const baseUrl = 'https://bilauitmcuti.com'
 
 const programSlugs = [
   'foundation-professional',

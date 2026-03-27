@@ -19,16 +19,17 @@ function isPwaMode(): boolean {
   return isStandalone || isMinimalUI;
 }
 
-function isLikelyOldWwwPwaContext(): boolean {
+function isLikelyOldPwaContext(): boolean {
   if (typeof window === 'undefined') return false;
 
   const hostname = window.location.hostname.toLowerCase();
-  if (hostname === 'www.cutiuitm.xyz') return true;
+  if (hostname === 'www.cutiuitm.xyz' || hostname === 'cutiuitm.xyz') return true;
 
   const referrer = document.referrer.toLowerCase();
-  if (referrer.includes('://www.cutiuitm.xyz')) return true;
+  if (referrer.includes('://www.cutiuitm.xyz') || referrer.includes('://cutiuitm.xyz')) return true;
 
   const source = new URLSearchParams(window.location.search).get('from')?.toLowerCase();
+  if (source?.includes('cutiuitm.xyz')) return true;
   if (source?.includes('www')) return true;
 
   return false;
@@ -48,7 +49,7 @@ export function PwaReinstallAlert() {
     if (!mounted || typeof window === 'undefined') return;
     if (pathname !== '/') return;
     if (!isPwaMode()) return;
-    if (!isLikelyOldWwwPwaContext()) return;
+    if (!isLikelyOldPwaContext()) return;
 
     try {
       const alreadyOpened = localStorage.getItem(PWA_REINSTALL_REMINDER_KEY);
@@ -70,9 +71,10 @@ export function PwaReinstallAlert() {
   return (
     <div className="fixed bottom-8 left-1/2 z-50 w-full max-w-md -translate-x-1/2 px-4">
       <Alert className="w-full shadow-lg">
-        <AlertTitle>Using an old Bila UiTM Cuti? app?</AlertTitle>
+        <AlertTitle>Please reinstall the app</AlertTitle>
         <AlertDescription>
-          Delete the old app from your home screen, then reinstall from your browser to get the latest version.
+          You opened this PWA from an older `cutiuitm.xyz` domain. Delete the old version from your home screen,
+          then reinstall from your browser to get the latest updates.
         </AlertDescription>
         <AlertAction className="flex justify-end">
           <Button size="sm" variant="default" onClick={handleOpenGuide}>

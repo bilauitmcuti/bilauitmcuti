@@ -27,18 +27,18 @@ export async function generateMetadata({ params }: ProgramListPageProps): Promis
     title,
     description,
     alternates: {
-      canonical: `https://cutiuitm.xyz/${program}/list`,
+      canonical: `https://bilauitmcuti.com/${program}/list`,
     },
     openGraph: {
       siteName: 'Bila UiTM Cuti?',
       title,
       description,
       type: 'website',
-      url: `https://cutiuitm.xyz/${program}/list`,
+      url: `https://bilauitmcuti.com/${program}/list`,
       locale: 'ms_MY',
       images: [
         {
-          url: 'https://cutiuitm.xyz/list-cover.png',
+          url: 'https://bilauitmcuti.com/list-cover.png',
           width: 1200,
           height: 630,
           alt: title,
@@ -49,7 +49,7 @@ export async function generateMetadata({ params }: ProgramListPageProps): Promis
       card: 'summary_large_image',
       title,
       description,
-      images: ['https://cutiuitm.xyz/list-cover.png'],
+      images: ['https://bilauitmcuti.com/list-cover.png'],
     },
   };
 }
@@ -66,17 +66,17 @@ function ProgramListJsonLd({ program, programName }: { program: string; programN
             {
               "@type": "BreadcrumbList",
               "itemListElement": [
-                { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cutiuitm.xyz" },
-                { "@type": "ListItem", "position": 2, "name": programName, "item": `https://cutiuitm.xyz/${program}` },
-                { "@type": "ListItem", "position": 3, "name": "List View", "item": `https://cutiuitm.xyz/${program}/list` },
+                { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://bilauitmcuti.com" },
+                { "@type": "ListItem", "position": 2, "name": programName, "item": `https://bilauitmcuti.com/${program}` },
+                { "@type": "ListItem", "position": 3, "name": "List View", "item": `https://bilauitmcuti.com/${program}/list` },
               ],
             },
             {
               "@type": "WebPage",
               "name": title,
-              "url": `https://cutiuitm.xyz/${program}/list`,
+              "url": `https://bilauitmcuti.com/${program}/list`,
               "description": `Senarai aktiviti akademik UiTM untuk ${programName}. Pendaftaran, kuliah, peperiksaan, dan cuti dalam paparan senarai.`,
-              "isPartOf": { "@type": "WebSite", "name": "Bila UiTM Cuti?", "url": "https://cutiuitm.xyz" },
+              "isPartOf": { "@type": "WebSite", "name": "Bila UiTM Cuti?", "url": "https://bilauitmcuti.com" },
             },
           ],
         }),

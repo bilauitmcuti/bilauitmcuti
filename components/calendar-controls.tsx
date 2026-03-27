@@ -251,11 +251,16 @@ export function CalendarControls({
 
   // Footer crossfade animation
   useEffect(() => {
+    if (!isOpen) return;
+
+    // Restart footer rotation when the Settings popover opens.
+    setCurrentFooterText(0);
+
     const interval = setInterval(() => {
-      setCurrentFooterText((prev) => (prev + 1) % 3);
+      setCurrentFooterText((prev) => (prev + 1) % 4);
     }, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isOpen]);
 
   const positionClass = forceFixed
     ? 'fixed top-0 left-1/2 -translate-x-1/2 z-[60] w-full max-w-[1000px]'
@@ -730,6 +735,24 @@ export function CalendarControls({
                           pointerEvents: currentFooterText === 0 ? 'auto' : 'none',
                         }}
                       >
+                        Domain sponsored by{' '}
+                        <a
+                          href="https://www.threads.com/@arezmie"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium hover:underline relative z-10"
+                          style={{color: '#2563eb'}}
+                        >
+                          @arezmie
+                        </a>
+                      </div>
+                      <div 
+                        className="absolute inset-0 transition-opacity duration-500"
+                        style={{
+                          opacity: currentFooterText === 1 ? 1 : 0,
+                          pointerEvents: currentFooterText === 1 ? 'auto' : 'none',
+                        }}
+                      >
                         Built by{' '}
                         <a
                           href="https://www.threads.com/@shahrulestar"
@@ -744,8 +767,8 @@ export function CalendarControls({
                       <div 
                         className="absolute inset-0 transition-opacity duration-500"
                         style={{
-                          opacity: currentFooterText === 1 ? 1 : 0,
-                          pointerEvents: currentFooterText === 1 ? 'auto' : 'none',
+                          opacity: currentFooterText === 2 ? 1 : 0,
+                          pointerEvents: currentFooterText === 2 ? 'auto' : 'none',
                         }}
                       >
                         Source from{' '}
@@ -762,8 +785,8 @@ export function CalendarControls({
                       <div 
                         className="absolute inset-0 transition-opacity duration-500"
                         style={{
-                          opacity: currentFooterText === 2 ? 1 : 0,
-                          pointerEvents: currentFooterText === 2 ? 'auto' : 'none',
+                          opacity: currentFooterText === 3 ? 1 : 0,
+                          pointerEvents: currentFooterText === 3 ? 'auto' : 'none',
                         }}
                       >
                         Inspired by{' '}
