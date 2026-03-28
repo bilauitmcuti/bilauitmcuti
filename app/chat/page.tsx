@@ -400,7 +400,7 @@ const SUGGESTIONS_GROUP_B = [
   "When is mid-semester break / festive break (Group B)?",
   "When is revision week (Group B)?",
   "When is semester break (Group B)?",
-  "Any KKT regional differences in Group B breaks?",
+  "Do break dates differ for Kedah, Kelantan, and Terengganu (Group B)?",
   "When is EET Speaking (Group B)?",
   "When are final assessment / written EET (Group B)?",
   "When can students print the exam slip (Group B)?",

@@ -506,7 +506,7 @@ function formatActivitiesAsContext(activities: Activity[]): string {
       if (a.duration) line += ` (${a.duration})`;
       if (a.details) line += ` — ${a.details}`;
       if (a.regionalStartDate) {
-        line += `\n  Kedah/Kelantan/Terengganu: ${toDateFormat(a.regionalStartDate)}`;
+        line += `\n  Kedah, Kelantan, and Terengganu (regional dates): ${toDateFormat(a.regionalStartDate)}`;
         if (a.regionalEndDate) line += ` to ${toDateFormat(a.regionalEndDate)}`;
       }
       return line;
