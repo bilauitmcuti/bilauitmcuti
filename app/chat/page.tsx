@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronDown, ChevronUp, ArrowUp, ThumbsUp, ThumbsDown, Copy, Check, Trash2, Pencil } from "lucide-react";
+import { ChevronLeft, ChevronDown, ChevronUp, Send, ThumbsUp, ThumbsDown, Copy, Check, Trash2, Pencil } from "lucide-react";
 import {
   programOptions,
   getSessionOptionsForGroup,
@@ -62,7 +62,10 @@ async function parseChatResponse(res: Response): Promise<{ error?: string; reply
  * A separator row (e.g. ---|---|---) is skipped if present.
  */
 function parseTable(block: string): { headers: string[]; rows: string[][] } | null {
-  const lines = block.split("\n").map((l) => l.trim()).filter(Boolean);
+  const lines = block
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
   if (lines.length < 2) return null;
 
   const parseRow = (line: string) =>
@@ -80,6 +83,112 @@ function parseTable(block: string): { headers: string[]; rows: string[][] } | nu
   }
 
   return rows.length > 0 ? { headers, rows } : null;
+}
+
+function isPipeTableRow(line: string): boolean {
+  const t = line.trim();
+  if (!t.includes("|")) return false;
+  const cells = t.split("|").map((c) => c.trim()).filter((c) => c.length > 0);
+  return cells.length >= 2;
+}
+
+/** GFM / markdown table separator row e.g. | --- | --- | or |:---|:---| */
+function isMarkdownTableSeparator(line: string): boolean {
+  const cells = line
+    .trim()
+    .split("|")
+    .map((c) => c.trim())
+    .filter((c) => c.length > 0);
+  return cells.length >= 2 && cells.every((c) => /^:?-{3,}:?$/.test(c));
+}
+
+/** First row of a pipe table: not a separator-only row */
+function isMarkdownTableHeaderRow(line: string): boolean {
+  if (!isPipeTableRow(line)) return false;
+  const cells = line
+    .trim()
+    .split("|")
+    .map((c) => c.trim())
+    .filter((c) => c.length > 0);
+  const allDash = cells.every((c) => /^:?-{3,}:?$/.test(c));
+  return !allDash;
+}
+
+/**
+ * Finds GitHub-style markdown tables embedded in plain text (models often emit these
+ * instead of [TABLE]...[/TABLE]). Returns ordered text + table segments.
+ */
+function splitEmbeddedMarkdownTables(part: string): { type: "text" | "table"; body: string }[] {
+  const rawLines = part.split(/\r?\n/);
+  const segments: { type: "text" | "table"; body: string }[] = [];
+  const textBuf: string[] = [];
+  let i = 0;
+
+  function flushText() {
+    if (textBuf.length === 0) return;
+    const body = textBuf.join("\n");
+    textBuf.length = 0;
+    if (body.trim()) segments.push({ type: "text", body });
+  }
+
+  while (i < rawLines.length) {
+    const line = rawLines[i]?.replace(/\r$/, "") ?? "";
+    const line2 = rawLines[i + 1]?.replace(/\r$/, "");
+    const line3 = rawLines[i + 2]?.replace(/\r$/, "");
+
+    if (
+      line2 !== undefined &&
+      line3 !== undefined &&
+      isMarkdownTableHeaderRow(line) &&
+      isMarkdownTableSeparator(line2) &&
+      isPipeTableRow(line3) &&
+      !isMarkdownTableSeparator(line3)
+    ) {
+      flushText();
+      const tableLines: string[] = [line, line2];
+      i += 2;
+      while (i < rawLines.length) {
+        const L = rawLines[i]?.replace(/\r$/, "") ?? "";
+        if (!L.trim()) break;
+        if (isPipeTableRow(L)) {
+          tableLines.push(L);
+          i++;
+        } else break;
+      }
+      segments.push({ type: "table", body: tableLines.join("\n") });
+      continue;
+    }
+
+    textBuf.push(line);
+    i++;
+  }
+  flushText();
+  return segments;
+}
+
+function renderSegmentsWithMarkdownTables(
+  part: string,
+  keyPrefix: string
+): React.ReactNode[] {
+  const elements: React.ReactNode[] = [];
+  const segments = splitEmbeddedMarkdownTables(part);
+  segments.forEach((seg, segIdx) => {
+    if (seg.type === "table") {
+      const tableData = parseTable(seg.body);
+      if (tableData) {
+        elements.push(
+          <DataTable key={`${keyPrefix}-md-${segIdx}`} headers={tableData.headers} rows={tableData.rows} />
+        );
+      } else {
+        elements.push(
+          ...renderTextSection(seg.body.split(/\r?\n/), `${keyPrefix}-md-fail-${segIdx}`)
+        );
+      }
+    } else {
+      elements.push(...renderTextSection(seg.body.split(/\r?\n/), `${keyPrefix}-tx-${segIdx}`));
+    }
+  });
+  return elements;
 }
 
 /**
@@ -238,16 +347,13 @@ function FormattedMessage({ content }: { content: string }) {
       if (tableData) {
         elements.push(<DataTable key={`table-${pIdx}`} headers={tableData.headers} rows={tableData.rows} />);
       } else {
-        // Fallback: render as plain text if parsing fails
-        const lines = part.split("\n");
-        elements.push(...renderTextSection(lines, `tf-${pIdx}`));
+        // Fallback: may still be a markdown pipe table, or plain text
+        elements.push(...renderSegmentsWithMarkdownTables(part, `tf-${pIdx}`));
       }
     } else {
-      // Render as normal formatted text
       const trimmedPart = part.trim();
       if (trimmedPart) {
-        const lines = part.split("\n");
-        elements.push(...renderTextSection(lines, `s-${pIdx}`));
+        elements.push(...renderSegmentsWithMarkdownTables(part, `s-${pIdx}`));
       }
     }
 
@@ -258,49 +364,49 @@ function FormattedMessage({ content }: { content: string }) {
 }
 
 const SUGGESTIONS_GROUP_A = [
-  "When is Pendaftaran Kursus Pelajar Baharu dan Lama for Group A this session?",
-  "When is Tempoh Validasi/Pengesahan Kursus Berdaftar Semester Semasa for Group A?",
-  "When is Permohonan Daftar/Gugur Kursus Lewat/Di Luar Tempoh for Group A?",
-  "When is Tarikh Akhir Pembayaran Yuran for Group A this session?",
-  "When is Gugur Taraf (GT) and GT2 for Group A this session?",
-  "When is Permohonan Rayuan Pembatalan Gugur Taraf (RPGT) and when are the results for Group A?",
-  "When does Lecture 1 start and end for Group A this session?",
-  "When does the next Lecture phase (Lecture 2/3/4/5) happen for Group A?",
-  "How many lecture weeks does Group A have in this session?",
-  "Show the full lecture timeline for Group A in this session.",
-  "When is Cuti Pertengahan Semester for Group A this session?",
-  "When is Cuti Khas Perayaan (Aidil Fitri) for Group A this session?",
-  "When is Minggu Ulangkaji for Group A this session?",
-  "When is Cuti Semester for Group A this session?",
-  "When is Ujian Pertengahan Semester for Group A this session?",
-  "When is Penilaian / Peperiksaan Akhir for Group A this session?",
-  "When can Group A students start printing the exam slip?",
-  "List all exam-related dates for Group A this session.",
-  "What is Minggu Destini Siswa (MDS) at UiTM and when is it scheduled for Group A?",
-  "What is SuFO and when do Group A students need to complete it?",
+  "When is course registration for new and returning students (Group A)?",
+  "When is registered course validation / confirmation (Group A)?",
+  "When is late add/drop outside normal period (Group A)?",
+  "When is the fee payment deadline (Group A)?",
+  "When are GT and GT2 (Group A)?",
+  "When is RPGT and when are results out (Group A)?",
+  "When does Lecture 1 start and end (Group A)?",
+  "When are Lectures 2–5 (Group A)?",
+  "How many lecture weeks in this session (Group A)?",
+  "Show the full lecture timeline (Group A).",
+  "When is mid-semester break (Group A)?",
+  "When is Aidil Fitri special break (Group A)?",
+  "When is revision week (Group A)?",
+  "When is semester break (Group A)?",
+  "When is midterm exam (Group A)?",
+  "When is final exam (Group A)?",
+  "When can students print the exam slip (Group A)?",
+  "List all exam-related dates (Group A).",
+  "What is MDS and when is it (Group A)?",
+  "What is SuFO and when must it be done (Group A)?",
 ];
 
 const SUGGESTIONS_GROUP_B = [
-  "When is Pendaftaran Kursus Pelajar Baharu mod ePJJ / PLK for Group B this session?",
-  "When is Pendaftaran Kursus Pelajar Sarjana Muda for Group B this session?",
-  "When is Pendaftaran Kursus Pelajar Pra-Diploma dan Diploma for Group B this session?",
-  "When is Tempoh Validasi Kursus Berdaftar Semester Semasa for Group B this session?",
-  "When is Permohonan Daftar / Gugur Kursus Lewat / Luar Tempoh for Group B this session?",
-  "When is Tarikh Akhir Pembayaran Yuran, GT, RPGT, and GT2 for Group B this session?",
-  "When does Lecture 1 start and end for Group B this session?",
-  "When do Lecture 2 and Lecture 3 happen for Group B this session?",
-  "When is Short Semester for Group B this session?",
-  "When are Intersession Classes for Group B this session?",
-  "When is Cuti Pertengahan Semester / Cuti Perayaan for Group B this session?",
-  "When is Minggu Ulangkaji for Group B this session?",
-  "When is Cuti Semester for Group B this session?",
-  "Are there any regional holiday differences (KKT states) in Group B break periods?",
-  "When is English Exit Test (EET Speaking) for Group B this session?",
-  "When is Penilaian / Peperiksaan Akhir / EET (Bertulis) for Group B this session?",
-  "When can Group B students start printing the exam slip?",
-  "List all exam-related dates for Group B this session.",
-  "What is Minggu Destini Siswa (MDS) at UiTM and when is it scheduled for Group B?",
-  "What is SuFO and when do Group B students need to complete it?",
+  "When is ePJJ/PLK new student registration (Group B)?",
+  "When is bachelor's course registration (Group B)?",
+  "When is Pre-Diploma/Diploma registration (Group B)?",
+  "When is registered course validation (Group B)?",
+  "When is late add/drop outside normal period (Group B)?",
+  "When are fee deadline, GT, RPGT, and GT2 (Group B)?",
+  "When does Lecture 1 start and end (Group B)?",
+  "When are Lectures 2 and 3 (Group B)?",
+  "When is Short Semester (Group B)?",
+  "When are Intersession Classes (Group B)?",
+  "When is mid-semester break / festive break (Group B)?",
+  "When is revision week (Group B)?",
+  "When is semester break (Group B)?",
+  "Any KKT regional differences in Group B breaks?",
+  "When is EET Speaking (Group B)?",
+  "When are final assessment / written EET (Group B)?",
+  "When can students print the exam slip (Group B)?",
+  "List all exam-related dates (Group B).",
+  "What is MDS and when is it (Group B)?",
+  "What is SuFO and when must it be done (Group B)?",
 ];
 
 const SUGGESTIONS_GENERAL = [
@@ -681,6 +787,21 @@ export default function ChatPage() {
     setIsLoading(true);
 
     try {
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        const offlineNow = Date.now();
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: (offlineNow + 1).toString(),
+            role: "assistant",
+            content:
+              "Tiada sambungan internet. Semak rangkaian anda dan cuba lagi. / No internet connection. Check your network and try again.",
+            timestamp: offlineNow,
+          },
+        ]);
+        return;
+      }
+
       const history = prepareHistory(messages);
 
       const body = JSON.stringify({
@@ -690,7 +811,7 @@ export default function ChatPage() {
         history,
       });
       let content: string | null = null;
-      const maxAttempts = 3;
+      let maxAttempts = 3;
       const isRetryableStatus = (s: number) =>
         s === 500 || s === 502 || s === 503 || s === 504 || s === 429;
 
@@ -710,8 +831,16 @@ export default function ChatPage() {
 
           if (!res.ok) {
             content = data.error || getChatErrorMessage(res, "Something went wrong. Please try again.");
+            if (res.status === 503 && maxAttempts === 3) {
+              maxAttempts = 4;
+            }
             if (isRetryableStatus(res.status) && attempt < maxAttempts - 1) {
-              await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
+              await new Promise((r) =>
+                setTimeout(
+                  r,
+                  RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)]
+                )
+              );
               continue;
             }
           } else {
@@ -1139,7 +1268,7 @@ export default function ChatPage() {
                   className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                   aria-label="Send message"
                 >
-                  <ArrowUp className="w-4 h-4" />
+                  <Send className="w-4 h-4" />
                 </button>
               </div>
             </div>

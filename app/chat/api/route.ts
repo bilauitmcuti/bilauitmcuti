@@ -2,7 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = 'edge';
 import { z } from "zod";
-import { askGroq, MODEL_LLAMA, type ChatMessage } from "@/lib/ai";
+import {
+  askGroq,
+  isGroqRateLimitError,
+  MAX_TOKENS_LLAMA,
+  MODEL_LLAMA,
+  MODEL_LLAMA_FALLBACK,
+  MODEL_LLAMA_RATE_LIMIT_ESCAPE,
+  type ChatMessage,
+} from "@/lib/ai";
 import systemRules from "@/lib/system-rules.json";
 import {
   getActivitiesForSession,
@@ -97,7 +105,9 @@ function isTransientModelError(error: unknown): boolean {
     msg.includes("timed out") ||
     msg.includes("econnreset") ||
     msg.includes("econnrefused") ||
-    msg.includes("network")
+    msg.includes("network") ||
+    msg.includes("empty response") ||
+    msg.includes("finish_reason")
   );
 }
 
@@ -110,7 +120,6 @@ function getModelResponseBudget(
   useCalendarPrompt: boolean,
   isCompareRequested: boolean
 ): { maxTokens: number; temperature: number } {
-  // Higher maxTokens for complete long-form responses; avoid mid-sentence cutoffs.
   const lower = message.toLowerCase();
   const asksDetail =
     lower.includes("explain") ||
@@ -123,31 +132,104 @@ function getModelResponseBudget(
     lower.includes("complete") ||
     lower.includes("lengkap");
 
-  if (isCompareRequested) return { maxTokens: 1800, temperature: 0.15 };
-  if (useCalendarPrompt && !asksDetail) return { maxTokens: 1200, temperature: 0.15 };
-  if (useCalendarPrompt) return { maxTokens: 1600, temperature: 0.2 };
-  return { maxTokens: 1800, temperature: 0.25 };
+  if (!useCalendarPrompt) {
+    return { maxTokens: MAX_TOKENS_LLAMA, temperature: 0.25 };
+  }
+  if (isCompareRequested) {
+    return { maxTokens: MAX_TOKENS_LLAMA, temperature: 0.15 };
+  }
+  if (asksDetail) {
+    return { maxTokens: MAX_TOKENS_LLAMA, temperature: 0.2 };
+  }
+  return { maxTokens: 1600, temperature: 0.15 };
 }
 
 const RETRY_DELAYS_MS = [400, 800, 1600];
+
+function isFallbackWorthyError(error: unknown): boolean {
+  const msg = normalizeErrorMessage(error);
+  if (msg.includes("401") || msg.includes("unauthorized")) return false;
+  if (msg.includes("403") || msg.includes("forbidden")) return false;
+  if (msg.includes("api key") && msg.includes("invalid")) return false;
+  return true;
+}
 
 async function askGroqWithRetry(
   message: string,
   systemPrompt: string,
   history: ChatMessage[] | undefined,
-  options: { maxTokens: number; temperature: number }
+  options: { maxTokens: number; temperature: number },
+  model: string
 ): Promise<string> {
   let lastError: unknown = null;
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
     try {
-      return await askGroq(message, systemPrompt, history, MODEL_LLAMA, options);
+      return await askGroq(message, systemPrompt, history, model, options);
     } catch (err) {
       lastError = err;
       if (!isTransientModelError(err) || attempt >= RETRY_DELAYS_MS.length) throw err;
+      // Same model stays rate-limited; switch model in askGroqWithPrimaryThenFallback instead of retrying here.
+      if (isGroqRateLimitError(err)) throw err;
       await sleep(RETRY_DELAYS_MS[attempt]);
     }
   }
   throw lastError;
+}
+
+async function askGroqWithPrimaryThenFallback(
+  message: string,
+  systemPrompt: string,
+  history: ChatMessage[] | undefined,
+  options: { maxTokens: number; temperature: number },
+  correlationId: string
+): Promise<string> {
+  try {
+    return await askGroqWithRetry(
+      message,
+      systemPrompt,
+      history,
+      options,
+      MODEL_LLAMA
+    );
+  } catch (primaryErr) {
+    if (!isFallbackWorthyError(primaryErr)) throw primaryErr;
+    const rateLimitedPrimary = isGroqRateLimitError(primaryErr);
+    logger.warn("Chat using fallback model", {
+      correlationId,
+      primaryModel: MODEL_LLAMA,
+      fallbackModel: MODEL_LLAMA_FALLBACK,
+      reason: rateLimitedPrimary ? "rate_limit" : "primary_failed",
+      err:
+        primaryErr instanceof Error ? primaryErr.message : String(primaryErr),
+    });
+    try {
+      return await askGroqWithRetry(
+        message,
+        systemPrompt,
+        history,
+        options,
+        MODEL_LLAMA_FALLBACK
+      );
+    } catch (fallbackErr) {
+      if (!isFallbackWorthyError(fallbackErr)) throw fallbackErr;
+      if (!isGroqRateLimitError(fallbackErr)) throw fallbackErr;
+      logger.warn("Chat using rate-limit escape model", {
+        correlationId,
+        escapeModel: MODEL_LLAMA_RATE_LIMIT_ESCAPE,
+        err:
+          fallbackErr instanceof Error
+            ? fallbackErr.message
+            : String(fallbackErr),
+      });
+      return await askGroqWithRetry(
+        message,
+        systemPrompt,
+        history,
+        options,
+        MODEL_LLAMA_RATE_LIMIT_ESCAPE
+      );
+    }
+  }
 }
 
 // --- Input Validation ---
@@ -432,6 +514,64 @@ function formatActivitiesAsContext(activities: Activity[]): string {
     .join("\n");
 }
 
+function sessionLabelForContext(sessionId: SessionId): string {
+  const sess = sessionOptions.find((s) => s.id === sessionId);
+  const short = sess?.label.replace(/^Group [AB]:\s*/, "") ?? "";
+  return short ? `${sessionId} (${short})` : sessionId;
+}
+
+/** Activities for one session only (no cross-session dedupe), same filters as getActivitiesFromSessions. */
+function getFilteredActivitiesForSession(
+  sessionId: SessionId,
+  program: string,
+  group: "A" | "B"
+): Activity[] {
+  if (getGroupFromSession(sessionId) !== group) return [];
+  let acts = getActivitiesForSession(sessionId).filter((a) => a.group === group);
+  if (group === "B") {
+    acts = acts.filter((a) => filterActivityByProgram(a, program));
+  }
+  return dedupeActivities(acts);
+}
+
+/** Single merged block for one session; multiple === SESSION === sections when user selected more than one. */
+function formatPrimaryCalendarContext(
+  sessionIds: SessionId[],
+  program: string,
+  group: "A" | "B"
+): string {
+  if (sessionIds.length === 0) return "";
+  if (sessionIds.length === 1) {
+    const acts = getFilteredActivitiesForSession(sessionIds[0]!, program, group);
+    return formatActivitiesAsContext(acts);
+  }
+  const parts: string[] = [];
+  for (const sid of sessionIds) {
+    const acts = getFilteredActivitiesForSession(sid, program, group);
+    parts.push(`=== SESSION ${sessionLabelForContext(sid)} ===`, formatActivitiesAsContext(acts));
+  }
+  return parts.join("\n\n");
+}
+
+function computeQuickReferenceForSessions(
+  sessionIds: SessionId[],
+  program: string,
+  group: "A" | "B",
+  todayISO: string
+): string {
+  if (sessionIds.length === 0) return "";
+  if (sessionIds.length === 1) {
+    const acts = getFilteredActivitiesForSession(sessionIds[0]!, program, group);
+    return computeQuickReference(acts, todayISO);
+  }
+  return sessionIds
+    .map((sid) => {
+      const acts = getFilteredActivitiesForSession(sid, program, group);
+      return `[${sessionLabelForContext(sid)}]\n${computeQuickReference(acts, todayISO)}`;
+    })
+    .join("\n\n");
+}
+
 /**
  * Pre-compute context hints so LLaMA doesn't need to compare dates.
  * This gives immediate answers for common "next break / next exam" questions.
@@ -518,8 +658,8 @@ function buildComparisonContext(
   group: "A" | "B"
 ): string {
   if (sessionIds.length < 2) return "";
-  const lines: string[] = [
-    "USER SELECTED MULTIPLE SESSIONS — Use this to compare dates across sessions when asked:",
+    const lines: string[] = [
+    "USER SELECTED MULTIPLE SESSIONS — Use this to compare dates across sessions when asked. Each block is one session (id + label):",
   ];
   for (const sid of sessionIds) {
     const sess = sessionOptions.find((s) => s.id === sid);
@@ -538,7 +678,7 @@ function buildComparisonContext(
         a.name.includes("Minggu Ulangkaji") ||
         a.name.includes("Peperiksaan Akhir")
     );
-    lines.push(`\n${label}:`);
+    lines.push(`\n${sid} — ${label}:`);
     for (const a of keyEvents.slice(0, 12)) {
       const range = a.endDate ? `${toDateFormat(a.startDate)} to ${toDateFormat(a.endDate)}` : toDateFormat(a.startDate);
       lines.push(`  - ${a.name}: ${range}`);
@@ -578,7 +718,8 @@ function buildCalendarSystemPrompt(
   todayFormatted: string,
   quickReference: string,
   comparisonContext?: string,
-  forceComparisonTable?: boolean
+  forceComparisonTable?: boolean,
+  multipleSessionsSelected?: boolean
 ): string {
   const truncatedPrimary =
     primaryContext.length > MAX_PRIMARY_CONTEXT_CHARS
@@ -607,9 +748,13 @@ function buildCalendarSystemPrompt(
   if (comparisonContext && comparisonContext.length > 0) {
     result += `\n\n=== SESSION COMPARISON (user selected multiple sessions) ===\n${comparisonContext}`;
   }
+  if (multipleSessionsSelected) {
+    result +=
+      "\n\nMULTI-SESSION LABELING (MANDATORY): The user selected more than one session in the dropdown. The primary calendar is split into === SESSION sessionId (label) === sections. For every calendar answer, state which session each date or event belongs to—use both the session id and the human-readable label from the SESSION LIST (same format as the section headers). Do not combine dates from different sessions in one sentence without naming each session. For Malay replies, you may write sesi or penggal with the id/label.";
+  }
   if (forceComparisonTable) {
     result +=
-      "\n\nCOMPARISON OUTPUT RULE (MANDATORY): For comparison answers across sessions, you MUST present the compared data in a [TABLE]...[/TABLE] block. Include a short intro sentence, then one table with clear columns (for example: Session | Activity | Date/Range | Notes). Do not output comparison results as plain paragraphs or bullet-only lists.";
+      "\n\nCOMPARISON OUTPUT RULE (MANDATORY): The user is comparing sessions or timelines. Present results in a [TABLE]...[/TABLE] block. First column MUST identify the session using session id plus label from the SESSION LIST (e.g. B-20263 with its date range). Other columns: Activity/Event, Date or range, Notes if useful. Include a one-line intro, then the table. Do not use comparison-only bullet lists without a table.";
   }
   return result;
 }
@@ -737,29 +882,39 @@ export async function POST(request: NextRequest) {
     const todayISO = getTodayISO();
     const todayFormatted = toReadableDate(todayISO);
 
+    let contextSessionIds: SessionId[] = effectiveSessions;
     let primaryActivities = getActivitiesFromSessions(
       effectiveSessions,
       selectedProgram,
       primaryGroup
     );
     if (primaryActivities.length === 0) {
+      const fallbackId =
+        primaryGroup === "A"
+          ? getDefaultSessionForGroup("A")
+          : getDefaultSessionForGroup("B");
+      contextSessionIds = [fallbackId];
       primaryActivities =
         primaryGroup === "A"
-          ? getActivitiesForSession(getDefaultSessionForGroup("A"))
-          : getFilteredGroupBActivities(selectedProgram, [getDefaultSessionForGroup("B")]);
+          ? getActivitiesForSession(fallbackId)
+          : getFilteredGroupBActivities(selectedProgram, [fallbackId]);
     }
     const secondaryActivities =
       primaryGroup === "A"
         ? getFilteredGroupBActivities(selectedProgram, [getDefaultSessionForGroup("B")])
         : getActivitiesForSession(getDefaultSessionForGroup("A"));
 
-    const primaryContext = formatActivitiesAsContext(primaryActivities);
+    const primaryContext = formatPrimaryCalendarContext(
+      contextSessionIds,
+      selectedProgram,
+      primaryGroup
+    );
     const secondaryContext = formatActivitiesAsContext(secondaryActivities);
     const sessionListContext = buildSessionListContext(primaryGroup, effectiveSessions);
-    const comparisonContext =
-      effectiveSessions.length > 1
-        ? buildComparisonContext(effectiveSessions, selectedProgram, primaryGroup)
-        : "";
+    const multipleSessionsSelected = effectiveSessions.length > 1;
+    const comparisonContext = multipleSessionsSelected
+      ? buildComparisonContext(effectiveSessions, selectedProgram, primaryGroup)
+      : "";
     const primaryDesc =
       primaryGroup === "A"
         ? "Foundation/Professional - Semester December 2025 to May 2026"
@@ -770,7 +925,12 @@ export async function POST(request: NextRequest) {
         : "Foundation/Professional - Semester December 2025 to May 2026";
 
     // Pre-compute quick reference for the AI (next break, current activity, etc.)
-    const quickReference = computeQuickReference(primaryActivities, todayISO);
+    const quickReference = computeQuickReferenceForSessions(
+      contextSessionIds,
+      selectedProgram,
+      primaryGroup,
+      todayISO
+    );
 
     const sanitizedHistory: ChatMessage[] = (history ?? [])
       .slice(-2)
@@ -782,7 +942,7 @@ export async function POST(request: NextRequest) {
 
     const useCalendarPrompt = isCalendarQuestion(sanitizedMessage);
     const isCompareRequested =
-      effectiveSessions.length > 1 && isComparisonQuestion(sanitizedMessage);
+      multipleSessionsSelected && isComparisonQuestion(sanitizedMessage);
     const systemPrompt = useCalendarPrompt
       ? buildCalendarSystemPrompt(
           programLabel,
@@ -796,7 +956,8 @@ export async function POST(request: NextRequest) {
           todayFormatted,
           quickReference,
           comparisonContext,
-          isCompareRequested
+          isCompareRequested,
+          multipleSessionsSelected
         )
       : buildResearchSystemPrompt(todayFormatted);
 
@@ -820,12 +981,13 @@ export async function POST(request: NextRequest) {
     );
     const systemPromptWithCompletion =
       systemPrompt +
-      "\n\nIMPORTANT: Always complete your response fully. Do not stop mid-sentence or cut off mid-paragraph.";
-    const rawReply = await askGroqWithRetry(
+      "\n\nIMPORTANT: Finish every sentence and paragraph completely—never stop mid-thought or mid-list. For simple questions stay concise; for detailed or long questions use enough length to answer fully without truncating.";
+    const rawReply = await askGroqWithPrimaryThenFallback(
       sanitizedMessage,
       systemPromptWithCompletion,
       sanitizedHistory,
-      modelBudget
+      modelBudget,
+      correlationId
     );
 
     const reply = cleanAiReply(rawReply);

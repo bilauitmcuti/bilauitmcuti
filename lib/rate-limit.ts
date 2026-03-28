@@ -1,12 +1,15 @@
 import type { NextRequest } from "next/server";
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const RATE_LIMIT_MAX_PER_MIN = 10;
-const RATE_LIMIT_MAX_UNKNOWN_PER_MIN = 5;
+/** Known IP (e.g. cf-connecting-ip): requests per rolling minute. */
+const RATE_LIMIT_MAX_PER_MIN = 30;
+/** Unknown IP: fingerprinted via UA + Accept-Language; stricter per-minute cap. */
+const RATE_LIMIT_MAX_UNKNOWN_PER_MIN = 15;
 const RATE_LIMIT_DAILY_MS = 24 * 60 * 60 * 1000;
-const RATE_LIMIT_MAX_PER_DAY = 30;
-const RATE_LIMIT_MAX_UNKNOWN_PER_DAY = 20;
-const RATE_LIMIT_GLOBAL_MAX_PER_DAY = 500;
+const RATE_LIMIT_MAX_PER_DAY = 120;
+const RATE_LIMIT_MAX_UNKNOWN_PER_DAY = 60;
+/** All users combined, per rolling 24h (abuse / cost ceiling). */
+const RATE_LIMIT_GLOBAL_MAX_PER_DAY = 5000;
 const KV_PREFIX = "rl:";
 const KV_GLOBAL_KEY = "rl:global";
 

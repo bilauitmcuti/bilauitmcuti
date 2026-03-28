@@ -40,5 +40,5 @@ GitHub Actions workflow (`.github/workflows/ci.yml`) runs on push/PR:
 
 ## Known Limitations
 
-- Rate limiting uses in-memory storage by default. For distributed rate limiting on Cloudflare, add KV namespace and uncomment `kv_namespaces` in `wrangler.jsonc`.
+- Chat rate limiting uses in-memory storage when no Worker KV binding `RATE_LIMIT_KV` is configured (current default). For distributed limits across Cloudflare edges, add a KV namespace binding in `wrangler.jsonc` and the existing [`lib/rate-limit.ts`](lib/rate-limit.ts) path will use it automatically.
 - Middleware deprecation warning: Next.js 16 recommends "proxy" over "middleware" — non-blocking.

@@ -1,9 +1,25 @@
-import Groq from "groq-sdk";
+import Groq, { APIError, RateLimitError } from "groq-sdk";
 import { getEnv } from "@/lib/env";
 
 const groq = new Groq({ apiKey: getEnv().GROQ_API_KEY });
 
+/** Primary: fast, cost-efficient. */
 export const MODEL_LLAMA = "llama-3.1-8b-instant" as const;
+/** Fallback when primary fails after retries (same Groq API). */
+export const MODEL_LLAMA_FALLBACK = "llama-3.3-70b-versatile" as const;
+/** Used when primary and fallback hit Groq rate limits (separate quota pool). */
+export const MODEL_LLAMA_RATE_LIMIT_ESCAPE = "llama-3.1-70b-versatile" as const;
+
+export function isGroqRateLimitError(error: unknown): boolean {
+  if (error instanceof RateLimitError) return true;
+  if (error instanceof APIError && error.status === 429) return true;
+  const msg = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  return (
+    msg.includes("429") ||
+    msg.includes("rate limit") ||
+    msg.includes("too many requests")
+  );
+}
 
 /** Groq 413 = request body too large. Tuned for a safer payload budget. */
 const MAX_SYSTEM_CHARS = 12_000;
@@ -11,7 +27,7 @@ const MAX_HISTORY_MESSAGES = 8;
 const MAX_MESSAGE_CHARS = 1_200;
 const MAX_USER_PROMPT_CHARS = 1_200;
 
-const MAX_TOKENS_LLAMA = 2048;
+export const MAX_TOKENS_LLAMA = 2048;
 const DEFAULT_TEMPERATURE = 0.2;
 
 /** Timeout for GROQ API calls (Cloudflare Workers ~30–60s limit). */
@@ -84,7 +100,7 @@ export async function askGroq(
   prompt: string,
   systemPrompt: string | undefined,
   history: ChatMessage[] | undefined,
-  model: typeof MODEL_LLAMA = MODEL_LLAMA,
+  model: string = MODEL_LLAMA,
   options?: {
     maxTokens?: number;
     temperature?: number;
