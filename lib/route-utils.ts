@@ -11,6 +11,58 @@ export type ProgramValue =
   | 'Master' 
   | 'PhD';
 
+const PROGRAM_VALUE_SET = new Set<string>([
+  'Foundation/Professional',
+  'All',
+  'PreDiploma',
+  'Diploma',
+  'DiplomaPartTime',
+  'Bachelor',
+  'BachelorPartTime',
+  'Master',
+  'PhD',
+]);
+
+export function isProgramValue(value: string): value is ProgramValue {
+  return PROGRAM_VALUE_SET.has(value);
+}
+
+/** Dropdown label before API `programOptions` hydrates (avoids wrong Foundation fallback). */
+const PROGRAM_VALUE_LABELS: Record<ProgramValue, string> = {
+  All: 'All',
+  'Foundation/Professional': 'Foundation/Professional',
+  PreDiploma: 'Pre-Diploma',
+  Diploma: 'Diploma',
+  DiplomaPartTime: 'Diploma (Part-Time)',
+  Bachelor: 'Bachelor',
+  BachelorPartTime: 'Bachelor (Part-Time)',
+  Master: 'Master',
+  PhD: 'PhD',
+};
+
+export function getLabelForProgramValue(program: ProgramValue): string {
+  return PROGRAM_VALUE_LABELS[program] ?? program;
+}
+
+/**
+ * Prefer pathname when it encodes a program; otherwise use RSC `programFromRoute` slug
+ * (fixes refresh when `usePathname()` lags behind the real URL on first paint).
+ */
+export function resolveProgramFromPathAndProps(
+  pathname: string | null | undefined,
+  programFromRoute: string
+): ProgramValue {
+  const segments = pathname?.split('/').filter(Boolean) ?? [];
+  const pathSeg = segments[0] && segments[0] !== 'list' ? segments[0] : null;
+  const fromPath = pathSeg ? getProgramFromRoute(pathSeg) : 'All';
+  if (fromPath !== 'All') return fromPath;
+  if (programFromRoute && programFromRoute !== 'All') {
+    const fromProps = getProgramFromRoute(programFromRoute);
+    if (fromProps !== 'All') return fromProps;
+  }
+  return 'All';
+}
+
 // Map route segment to program value
 export function getProgramFromRoute(route: string | null | undefined): ProgramValue {
   if (!route) return 'All';

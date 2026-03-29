@@ -31,17 +31,39 @@ export interface Activity {
   states?: string[]; // Applicable states only (used for Kedah, Kelantan, Terengganu)
 }
 
-// Calendar data - single source of truth from calendar.json
-import calendarData from "./calendar.json";
+import { getSnapshot as getCalendarSnapshot } from "./calendar-store";
 
 export type SessionId = string;
 
-export const sessionOptions = (calendarData as { sessionOptions?: Array<{ id: string; label: string; group: "A" | "B" }> }).sessionOptions ?? [];
-export const defaultSession: SessionId = (calendarData as { defaultSession?: string }).defaultSession ?? "A-20251";
-export const programOptions = (calendarData as { programOptions: Array<{ label: string; value: string; group: "A" | "B" }> }).programOptions;
+const STATIC_DEFAULT_SESSION_FALLBACK: SessionId = "A-20251";
 
-const sessionsData = (calendarData as { sessions?: Record<string, { activities: Activity[] }> }).sessions ?? {};
-const sessionGroupById = new Map(sessionOptions.map((session) => [session.id, session.group] as const));
+/** When API meta has not loaded yet (SSR / first paint). */
+export function getDefaultSessionFallback(): SessionId {
+  return STATIC_DEFAULT_SESSION_FALLBACK;
+}
+
+export function getSessionOptions(): Array<{ id: string; label: string; group: "A" | "B" }> {
+  return getCalendarSnapshot().sessionOptions;
+}
+
+export function getProgramOptions(): Array<{ label: string; value: string; group: "A" | "B" }> {
+  return getCalendarSnapshot().programOptions;
+}
+
+export function getDefaultSession(): SessionId {
+  const d = getCalendarSnapshot().defaultSession;
+  return d || STATIC_DEFAULT_SESSION_FALLBACK;
+}
+
+function getSessionsData(): Record<string, { activities: Activity[] }> {
+  return getCalendarSnapshot().sessions;
+}
+
+function getSessionGroupById(): Map<SessionId, ProgramGroup> {
+  return new Map(
+    getCalendarSnapshot().sessionOptions.map((session) => [session.id, session.group] as const)
+  );
+}
 
 function normalizeDateString(dateStr: string): string {
   const ymd = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -85,9 +107,51 @@ function getMonthsBetweenDates(startDate: Date, endDate: Date): Array<{ month: n
   return months;
 }
 
+/**
+ * Infer calendar year from session id (e.g. B-20263 → 2026, A-20251 → 2025).
+ * Used when activities are not loaded yet so the grid/list month strip matches the session, not "today + 6 months".
+ */
+export function inferAcademicYearFromSessionId(sessionId: SessionId): number | null {
+  const segment = sessionId.split("-")[1];
+  if (!segment || segment.length < 5) return null;
+  const y = Number(segment.slice(0, 4));
+  return Number.isFinite(y) ? y : null;
+}
+
+/** Academic-year window: Aug (Y−1) through Jul Y */
+export function getAcademicMonthsForSessionYear(year: number): Array<{ month: number; year: number }> {
+  const out: Array<{ month: number; year: number }> = [];
+  for (let m = 8; m <= 12; m++) out.push({ month: m, year: year - 1 });
+  for (let m = 1; m <= 7; m++) out.push({ month: m, year });
+  return out;
+}
+
+export function getMonthsUnionFromSessionIds(
+  sessionIds: SessionId[]
+): Array<{ month: number; year: number }> | null {
+  const years = new Set<number>();
+  for (const sid of sessionIds) {
+    const y = inferAcademicYearFromSessionId(sid);
+    if (y != null) years.add(y);
+  }
+  if (years.size === 0) return null;
+  const keySet = new Set<string>();
+  for (const y of years) {
+    for (const m of getAcademicMonthsForSessionYear(y)) {
+      keySet.add(`${m.year}-${m.month}`);
+    }
+  }
+  return Array.from(keySet)
+    .map((k) => {
+      const [year, month] = k.split("-").map(Number);
+      return { year: year!, month: month! };
+    })
+    .sort((a, b) => (a.year !== b.year ? a.year - b.year : a.month - b.month));
+}
+
 /** Get activities for a session. Returns empty array if session not found. */
 export function getActivitiesForSession(sessionId: SessionId): Activity[] {
-  const session = sessionsData[sessionId];
+  const session = getSessionsData()[sessionId];
   return ((session?.activities ?? []) as Activity[]).map((activity) => ({
     ...activity,
     startDate: normalizeDateString(activity.startDate),
@@ -99,12 +163,12 @@ export function getActivitiesForSession(sessionId: SessionId): Activity[] {
 
 /** Get group from session ID (A-* = A, B-* = B). */
 export function getGroupFromSession(sessionId: SessionId): ProgramGroup {
-  return sessionGroupById.get(sessionId) ?? (sessionId.startsWith("A-") ? "A" : "B");
+  return getSessionGroupById().get(sessionId) ?? (sessionId.startsWith("A-") ? "A" : "B");
 }
 
 /** Get default session for a group (first session in options for that group). */
 export function getDefaultSessionForGroup(group: ProgramGroup): SessionId {
-  const opt = sessionOptions.find((s) => s.group === group);
+  const opt = getCalendarSnapshot().sessionOptions.find((s) => s.group === group);
   return opt?.id ?? (group === "A" ? "A-20251" : "B-20263");
 }
 
@@ -148,7 +212,7 @@ export function getSessionForCurrentDate(group: ProgramGroup, dateStr: string): 
 
 /** Get session options for a group. */
 export function getSessionOptionsForGroup(group: ProgramGroup) {
-  return sessionOptions.filter((s) => s.group === group);
+  return getCalendarSnapshot().sessionOptions.filter((s) => s.group === group);
 }
 
 // Program badge config for list view - single source of truth for label and colors
@@ -454,13 +518,20 @@ export function getMonthsForGroup(
     showBreak,
   };
 
+  // Month strip min/max: use type toggles only; selectedProgram is 'All' so the range matches
+  // the session payload in the store (Group B API is already program-scoped). Per-day cells still filter by program.
+  const filtersForMonthRange: ActivityFilterOptions = {
+    ...filters,
+    selectedProgram: 'All',
+  };
+
   const activities = getActivitiesForSession(sessionId);
   const group = getGroupFromSession(sessionId);
   const relevantDates: Date[] = [];
 
   for (const activity of activities) {
     if (activity.group !== group) continue;
-    if (!shouldIncludeActivity(activity, filters)) continue;
+    if (!shouldIncludeActivity(activity, filtersForMonthRange)) continue;
 
     // Use regional dates if KKT filter is on and regional dates exist
     let startDate: Date;
@@ -485,6 +556,8 @@ export function getMonthsForGroup(
       const rangeEnd = toDateOrNull(sessionRange.end);
       if (rangeStart && rangeEnd) return getMonthsBetweenDates(rangeStart, rangeEnd);
     }
+    const fromSessionId = getMonthsUnionFromSessionIds([sessionId]);
+    if (fromSessionId && fromSessionId.length > 0) return fromSessionId;
     return getDefaultMonthsWindow();
   }
 
@@ -558,6 +631,8 @@ export function getMonthsForSessions(
     })
     .sort((a, b) => (a.year !== b.year ? a.year - b.year : a.month - b.month));
   if (months.length === 0) {
+    const fromIds = getMonthsUnionFromSessionIds(sessionIds);
+    if (fromIds && fromIds.length > 0) return fromIds;
     const fallbackMonths = getMonthsForGroup(sessionIds[0]!, {
       ...options,
       showRegistration: true,

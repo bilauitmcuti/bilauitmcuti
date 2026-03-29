@@ -1,4 +1,6 @@
-import { memo, useMemo, useState, useEffect, useCallback } from 'react';
+import { memo, useMemo, useCallback, useSyncExternalStore } from 'react';
+import { useCalendarHydrationVersion } from '@/components/calendar-hydration-context';
+import { getSnapshot, subscribe } from '@/lib/calendar-store';
 import { getActivitiesForMonthMultiSessions, getMonthsForSessions, formatDateRange, getDaysUntilStart, formatCountdown, getProgramBadgeConfig, getProgramBadgesConfig, type ProgramGroup, type SessionId } from '@/lib/data';
 
 interface ListViewProps {
@@ -15,6 +17,8 @@ interface ListViewProps {
   showCountdown: boolean;
   onMonthChange?: (month: string) => void;
   selectedStates?: string[];
+  /** Malaysia YYYY-MM-DD from RSC; keeps countdown row identical on SSR and first client paint */
+  initialCurrentDate?: string;
 }
 
 function getMalaysiaTodayStr(): string {
@@ -45,10 +49,18 @@ export const ListView = memo(function ListView({
   showCountdown,
   onMonthChange,
   selectedStates = [],
+  initialCurrentDate,
 }: ListViewProps) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
-  const todayStr = useMemo(() => getMalaysiaTodayStr(), []);
+  const hydrationServerVersion = useCalendarHydrationVersion();
+  const calendarDataVersion = useSyncExternalStore(
+    subscribe,
+    () => getSnapshot().version,
+    () => hydrationServerVersion
+  );
+  const todayStr = useMemo(() => {
+    if (initialCurrentDate) return initialCurrentDate;
+    return getMalaysiaTodayStr();
+  }, [initialCurrentDate]);
 
   // Helper function untuk format date - always calculates correctly
   const formatDateSafe = (dateStr: string) => {
@@ -126,8 +138,9 @@ export const ListView = memo(function ListView({
   }, [shouldMergePartTimeForAllList]);
   
   const months = useMemo(
-    () =>
-      getMonthsForSessions(selectedSessions, {
+    () => {
+      void calendarDataVersion;
+      return getMonthsForSessions(selectedSessions, {
         selectedProgram,
         showRegistration,
         showLecture,
@@ -137,7 +150,8 @@ export const ListView = memo(function ListView({
         showSemesterPendek,
         showKuliahIntersesi,
         showKKT,
-      }),
+      });
+    },
     [
       selectedSessions,
       selectedProgram,
@@ -149,15 +163,18 @@ export const ListView = memo(function ListView({
       showSemesterPendek,
       showKuliahIntersesi,
       showKKT,
+      calendarDataVersion,
     ]
   );
 
   const activities = useMemo(
-    () =>
-      months.flatMap(({ month, year }) =>
+    () => {
+      void calendarDataVersion;
+      return months.flatMap(({ month, year }) =>
         getActivitiesForMonthMultiSessions(year, month, selectedSessions, showKKT)
-      ),
-    [months, selectedSessions, showKKT]
+      );
+    },
+    [months, selectedSessions, showKKT, calendarDataVersion]
   );
 
   // Filter activities by program type BEFORE deduplication to ensure correct filtering
@@ -308,7 +325,7 @@ export const ListView = memo(function ListView({
                           ? `${formattedDate.dayNum} ${formattedDate.monthShort}` 
                           : formattedDate.dayNum}
                       </div>
-                      {mounted && showCountdown && ['lecture', 'examination', 'break'].includes(activity.type) && todayStr && (() => {
+                      {showCountdown && ['lecture', 'examination', 'break'].includes(activity.type) && todayStr && (() => {
                         const days = getDaysUntilStart(activity, todayStr, showKKT);
                         return days != null ? (
                           <div className={`text-xs ${mutedClass} mt-0.5 transition-none`} suppressHydrationWarning>

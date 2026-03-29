@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronDown, ChevronUp, Send, ThumbsUp, ThumbsDown, Copy, Check, Trash2, Pencil } from "lucide-react";
+import { useCalendarHydrationVersion } from "@/components/calendar-hydration-context";
+import { getSnapshot, subscribe } from "@/lib/calendar-store";
 import {
-  programOptions,
+  getProgramOptions,
   getSessionOptionsForGroup,
   getSessionForCurrentDate,
   getGroupFromSession,
@@ -457,7 +459,7 @@ function getSessionMemoryKey(program: ProgramValue): ProgramValue {
 }
 
 function isProgramValue(value: string | null): value is ProgramValue {
-  return !!value && programOptions.some((option) => option.value === value);
+  return !!value && getProgramOptions().some((option) => option.value === value);
 }
 
 type ProgramSessionMap = Partial<Record<ProgramValue, SessionId[]>>;
@@ -530,7 +532,16 @@ function getInitialChatSessions(program: string): SessionId[] {
 }
 
 export default function ChatPage() {
+  const hydrationServerVersion = useCalendarHydrationVersion();
+  useSyncExternalStore(
+    subscribe,
+    () => getSnapshot().version,
+    () => hydrationServerVersion
+  );
+
   const router = useRouter();
+  const programOptions = getProgramOptions();
+  const calendarDataVersion = getSnapshot().version;
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [selectedProgram, setSelectedProgram] = useState<ProgramValue>("All");
@@ -600,6 +611,11 @@ export default function ChatPage() {
     }
   }, [selectedProgram]);
 
+  useEffect(() => {
+    router.prefetch(getRoutePath(selectedProgram, "grid"));
+    router.prefetch(getRoutePath(selectedProgram, "list"));
+  }, [router, selectedProgram]);
+
   // Sync selectedSessions when program changes using per-program memory.
   useEffect(() => {
     const dateStr =
@@ -666,19 +682,20 @@ export default function ChatPage() {
   const currentProgramLabel = useMemo(() => {
     const opt = programOptions.find((p) => p.value === selectedProgram);
     return opt?.label ?? "All";
-  }, [selectedProgram]);
+  }, [selectedProgram, programOptions]);
   const [disclaimerIndex, setDisclaimerIndex] = useState(0);
   const [disclaimerFade, setDisclaimerFade] = useState<"in" | "out">("in");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const lastScrollTop = useRef(0);
-  const groupAOptions = useMemo(() => programOptions.filter(p => p.group === 'A'), []);
-  const groupBOptions = useMemo(() => programOptions.filter(p => p.group === 'B'), []);
+  const groupAOptions = useMemo(() => programOptions.filter(p => p.group === 'A'), [programOptions]);
+  const groupBOptions = useMemo(() => programOptions.filter(p => p.group === 'B'), [programOptions]);
   const groupBProgramForSessions = groupBOptions.some((p) => p.value === selectedProgram)
     ? selectedProgram
     : ("All" as ProgramValue);
   const groupBSessionLabel = useMemo(() => {
+    void calendarDataVersion;
     if (currentGroup === "A") return "";
     const labels = selectedSessions
       .filter((sessionId) => sessionId.startsWith("B-"))
@@ -689,7 +706,7 @@ export default function ChatPage() {
     if (labels.length === 0) return "Select sessions";
     if (labels.length === 1) return labels[0];
     return `${labels.length} Selected`;
-  }, [currentGroup, selectedSessions]);
+  }, [currentGroup, selectedSessions, calendarDataVersion]);
   const [emblaRef] = useEmblaCarousel({ dragFree: true, containScroll: "trimSnaps", align: "center" });
 
   const lastUserMsgId = useMemo(() => {

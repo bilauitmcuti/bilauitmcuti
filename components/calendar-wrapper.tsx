@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { SharedCalendarLayout } from './shared-calendar-layout';
 import { parseFiltersFromCookie } from '@/lib/cookie-utils';
+import { loadInitialCalendarSnapshot } from '@/lib/calendar-initial-server';
 import type { ViewMode } from '@/app/page';
 
 interface CalendarWrapperProps {
@@ -40,6 +41,10 @@ export async function CalendarWrapper({ viewMode, programFromRoute }: CalendarWr
   const cookieString = cookieStore.get('calendar-filters')?.value || null;
   const initialFilters = parseFiltersFromCookie(cookieString);
   const initialCurrentDate = getMalaysiaCurrentDate();
+  const initialCalendar = await loadInitialCalendarSnapshot({
+    programFromRoute,
+    cookieValue: cookieString,
+  });
 
   return (
     <SharedCalendarLayout 
@@ -47,6 +52,15 @@ export async function CalendarWrapper({ viewMode, programFromRoute }: CalendarWr
       programFromRoute={programFromRoute}
       initialFilters={initialFilters}
       initialCurrentDate={initialCurrentDate}
+      initialCalendarSnapshot={initialCalendar.snapshot}
+      initialCalendarHydration={
+        initialCalendar.programUsed != null && initialCalendar.hydrateKey != null
+          ? {
+              programUsed: initialCalendar.programUsed,
+              hydrateKey: initialCalendar.hydrateKey,
+            }
+          : null
+      }
     />
   );
 }

@@ -1,0 +1,129 @@
+import type { NextRequest } from "next/server";
+
+const DEFAULT_UPSTREAM = "https://api.bilauitmcuti.com";
+
+export type CalendarProxyApiSuffix = "v1/meta" | "v1/calendar";
+
+/** Allowed upstream API suffixes only — not an open proxy. */
+const ALLOWED_PATHS = new Set<string>(["v1/meta", "v1/calendar"]);
+
+/** Meta: only these are forwarded; other keys (e.g. Next.js `_rsc`) are ignored. */
+const META_QUERY_KEYS = ["group", "entire"] as const;
+
+/** Calendar: whitelist matches public API OpenAPI. */
+const CALENDAR_QUERY_KEYS = [
+  "session",
+  "group",
+  "program",
+  "allSessions",
+  "entire",
+  "type",
+] as const;
+
+function upstreamOrigin(): string {
+  const raw =
+    process.env.CALENDAR_API_BASE?.trim() ||
+    process.env.NEXT_PUBLIC_CALENDAR_API_BASE?.trim() ||
+    DEFAULT_UPSTREAM;
+  let u = raw.replace(/\/$/, "");
+  if (u.endsWith("/api")) u = u.slice(0, -4);
+  return u;
+}
+
+function normalizeAllSessionsValue(raw: string): string | null {
+  const v = raw.trim().toLowerCase();
+  if (v === "true" || v === "1" || v === "yes") return "true";
+  if (v === "false" || v === "0" || v === "no") return "false";
+  return null;
+}
+
+function buildForwardedSearch(
+  apiSuffix: CalendarProxyApiSuffix,
+  request: NextRequest
+): string {
+  const inParams = request.nextUrl.searchParams;
+
+  if (apiSuffix === "v1/meta") {
+    const out = new URLSearchParams();
+    for (const key of META_QUERY_KEYS) {
+      const v = inParams.get(key);
+      if (v === null || v === "") continue;
+      out.set(key, v);
+    }
+    const group = out.get("group");
+    if (group !== null && group !== "A" && group !== "B") {
+      return "__invalid__";
+    }
+    const qs = out.toString();
+    return qs ? `?${qs}` : "";
+  }
+
+  const out = new URLSearchParams();
+  for (const key of CALENDAR_QUERY_KEYS) {
+    const v = inParams.get(key);
+    if (v === null || v === "") continue;
+    if (key === "allSessions") {
+      const norm = normalizeAllSessionsValue(v);
+      if (norm === null) return "__invalid__";
+      out.set(key, norm);
+    } else {
+      out.set(key, v);
+    }
+  }
+
+  const group = out.get("group");
+  if (group !== null && group !== "A" && group !== "B") {
+    return "__invalid__";
+  }
+
+  const qs = out.toString();
+  return qs ? `?${qs}` : "";
+}
+
+/**
+ * Forwards GET to the upstream calendar API. Same-origin entry points:
+ * `/api/v1/meta`, `/api/v1/calendar`, and legacy `/api/calendar-proxy/v1/...`.
+ */
+export async function calendarProxyForward(
+  request: NextRequest,
+  apiSuffix: CalendarProxyApiSuffix
+): Promise<Response> {
+  if (!ALLOWED_PATHS.has(apiSuffix)) {
+    return Response.json({ error: "Not found" }, { status: 404 });
+  }
+
+  const search = buildForwardedSearch(apiSuffix, request);
+  if (search === "__invalid__") {
+    return Response.json({ error: "Invalid query" }, { status: 400 });
+  }
+
+  const target = `${upstreamOrigin()}/api/${apiSuffix}${search}`;
+  const res = await fetch(target, {
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+
+  const body = await res.text();
+  return new Response(body, {
+    status: res.status,
+    headers: {
+      "Content-Type": res.headers.get("Content-Type") ?? "application/json",
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
+/** Legacy catch-all: validate `v1/meta` / `v1/calendar` from path segments. */
+export async function calendarProxyForwardFromPathSegments(
+  request: NextRequest,
+  segments: string[]
+): Promise<Response> {
+  if (segments.some((s) => s === ".." || s.includes("/"))) {
+    return Response.json({ error: "Invalid path" }, { status: 400 });
+  }
+  const suffix = segments.join("/");
+  if (!suffix || !ALLOWED_PATHS.has(suffix)) {
+    return Response.json({ error: "Not found" }, { status: 404 });
+  }
+  return calendarProxyForward(request, suffix as CalendarProxyApiSuffix);
+}

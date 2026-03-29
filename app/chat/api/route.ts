@@ -13,11 +13,17 @@ import {
 } from "@/lib/ai";
 import systemRules from "@/lib/system-rules.json";
 import {
+  ensureSessionsInStore,
+  loadActivitiesIntoStoreForChat,
+  loadMetaIntoStore,
+  validSetsFromMeta,
+} from "@/lib/chat-calendar-load";
+import {
   getActivitiesForSession,
   getDefaultSessionForGroup,
   getGroupFromSession,
-  programOptions,
-  sessionOptions,
+  getProgramOptions,
+  getSessionOptions,
   type Activity,
   type SessionId,
 } from "@/lib/data";
@@ -30,7 +36,6 @@ const MAX_HISTORY_ARRAY_LENGTH = 20;
 const MAX_HISTORY_CONTENT_LENGTH = 8000;
 
 const MAX_SELECTED_SESSIONS = 6;
-const VALID_SESSION_IDS = new Set(sessionOptions.map((s) => s.id));
 
 const chatRequestSchema = z.object({
   message: z.string().min(1, "Message is required").max(MAX_MESSAGE_LENGTH),
@@ -233,8 +238,6 @@ async function askGroqWithPrimaryThenFallback(
 }
 
 // --- Input Validation ---
-const VALID_PROGRAMS = new Set(programOptions.map((p) => p.value));
-
 function sanitizeMessage(message: string): string {
   return message
     .replace(/ignore\s+(all\s+)?previous\s+instructions/gi, "")
@@ -391,12 +394,17 @@ function dedupeActivities(activities: Activity[]): Activity[] {
   });
 }
 
+/**
+ * Align with {@link shouldIncludeActivity} in lib/data.ts: cohort-wide rows have no programType/programTypes.
+ */
 function filterActivityByProgram(activity: Activity, program: string): boolean {
   if (program === "All" || program === "Foundation/Professional") return true;
   if (activity.semua) return true;
-  if (activity.programTypes?.length && activity.programTypes.includes(program)) return true;
-  if (activity.programType === program) return true;
-  return false;
+  if (activity.general) return true;
+  if (activity.programTypes?.length)
+    return activity.programTypes.includes(program);
+  if (activity.programType) return activity.programType === program;
+  return true;
 }
 
 function getActivitiesFromSessions(
@@ -419,13 +427,14 @@ function getActivitiesFromSessions(
 
 function resolveEffectiveSessions(
   selectedSessions: string[] | undefined,
-  primaryGroup: "A" | "B"
+  primaryGroup: "A" | "B",
+  validSessionIds: Set<string>
 ): SessionId[] {
   if (!selectedSessions || selectedSessions.length === 0) {
     return [getDefaultSessionForGroup(primaryGroup)];
   }
   const valid = selectedSessions.filter(
-    (id): id is SessionId => id.length > 0 && VALID_SESSION_IDS.has(id)
+    (id): id is SessionId => id.length > 0 && validSessionIds.has(id)
   );
   const inGroup = valid.filter((id) => getGroupFromSession(id) === primaryGroup);
   if (inGroup.length === 0) {
@@ -515,7 +524,7 @@ function formatActivitiesAsContext(activities: Activity[]): string {
 }
 
 function sessionLabelForContext(sessionId: SessionId): string {
-  const sess = sessionOptions.find((s) => s.id === sessionId);
+  const sess = getSessionOptions().find((s) => s.id === sessionId);
   const short = sess?.label.replace(/^Group [AB]:\s*/, "") ?? "";
   return short ? `${sessionId} (${short})` : sessionId;
 }
@@ -649,8 +658,34 @@ function computeQuickReference(activities: Activity[], todayISO: string): string
 
 /** Context char limits to avoid Groq 413. */
 const MAX_PRIMARY_CONTEXT_CHARS = 8_000;
-const MAX_SECONDARY_CONTEXT_CHARS = 1_500;
+const MAX_SECONDARY_CONTEXT_CHARS = 4_500;
 const MAX_COMPARISON_CONTEXT_CHARS = 2_000;
+/** Calendar prompt: uitm-info.json supplement (system-rules DATA PRIORITY). */
+const MAX_CALENDAR_UITM_SUPPLEMENT_CHARS = 4_000;
+
+function isKeyScheduleActivityForReference(a: Activity): boolean {
+  return (
+    a.type === "registration" ||
+    a.type === "lecture" ||
+    a.type === "examination" ||
+    a.type === "break" ||
+    a.name.includes("Ujian Pertengahan") ||
+    a.name.includes("Cuti Semester") ||
+    a.name.includes("Minggu Ulangkaji") ||
+    a.name.includes("Peperiksaan Akhir")
+  );
+}
+
+/** When reference group has very long JSON-backed lists, keep milestone rows so truncation does not hide breaks/exams. */
+function narrowActivitiesForSecondaryReference(activities: Activity[]): Activity[] {
+  if (activities.length <= 50) return activities;
+  const sorted = [...activities].sort(
+    (a, b) => toComparableDateValue(a.startDate) - toComparableDateValue(b.startDate)
+  );
+  const key = sorted.filter((a) => isKeyScheduleActivityForReference(a));
+  const narrowed = key.length > 0 ? key : sorted.slice(0, 60);
+  return narrowed.length > 100 ? narrowed.slice(0, 100) : narrowed;
+}
 
 function buildComparisonContext(
   sessionIds: SessionId[],
@@ -662,7 +697,7 @@ function buildComparisonContext(
     "USER SELECTED MULTIPLE SESSIONS — Use this to compare dates across sessions when asked. Each block is one session (id + label):",
   ];
   for (const sid of sessionIds) {
-    const sess = sessionOptions.find((s) => s.id === sid);
+    const sess = getSessionOptions().find((s) => s.id === sid);
     const label = sess?.label.replace(/^Group [AB]:\s*/, "") ?? sid;
     const activities = getActivitiesFromSessions([sid], program, group);
     const sorted = [...activities].sort(
@@ -695,7 +730,7 @@ function buildSessionListContext(
   selectedSessionIds: SessionId[]
 ): string {
   const selected = new Set(selectedSessionIds);
-  const sessionsInGroup = sessionOptions.filter((session) => session.group === group);
+  const sessionsInGroup = getSessionOptions().filter((session) => session.group === group);
   if (sessionsInGroup.length === 0) return "No session options available.";
   return sessionsInGroup
     .map((session) => {
@@ -719,7 +754,8 @@ function buildCalendarSystemPrompt(
   quickReference: string,
   comparisonContext?: string,
   forceComparisonTable?: boolean,
-  multipleSessionsSelected?: boolean
+  multipleSessionsSelected?: boolean,
+  uitmSupplement?: string
 ): string {
   const truncatedPrimary =
     primaryContext.length > MAX_PRIMARY_CONTEXT_CHARS
@@ -755,6 +791,17 @@ function buildCalendarSystemPrompt(
   if (forceComparisonTable) {
     result +=
       "\n\nCOMPARISON OUTPUT RULE (MANDATORY): The user is comparing sessions or timelines. Present results in a [TABLE]...[/TABLE] block. First column MUST identify the session using session id plus label from the SESSION LIST (e.g. B-20263 with its date range). Other columns: Activity/Event, Date or range, Notes if useful. Include a one-line intro, then the table. Do not use comparison-only bullet lists without a table.";
+  }
+  const uitm =
+    uitmSupplement && uitmSupplement.length > 0
+      ? uitmSupplement.length > MAX_CALENDAR_UITM_SUPPLEMENT_CHARS
+        ? uitmSupplement.slice(0, MAX_CALENDAR_UITM_SUPPLEMENT_CHARS) + "\n...[truncated]"
+        : uitmSupplement
+      : "";
+  if (uitm.length > 0) {
+    result +=
+      "\n\n=== UITM KNOWLEDGE (SUPPLEMENTARY — from uitm-info.json; use for campuses, faculties, portals, admissions. For dates/schedules prefer GROUP sections and QUICK REFERENCE above.) ===\n" +
+      uitm;
   }
   return result;
 }
@@ -868,16 +915,29 @@ export async function POST(request: NextRequest) {
 
     const { message, program, selectedSessions: rawSelectedSessions, history } = parseResult.data;
 
+    const meta = await loadMetaIntoStore();
+    const { validSessionIds, validPrograms } = validSetsFromMeta(meta);
+
     const selectedProgram =
-      program && VALID_PROGRAMS.has(program) ? program : "All";
+      program && validPrograms.has(program) ? program : "All";
     const sanitizedMessage = sanitizeMessage(message);
 
-    const programMeta = programOptions.find((p) => p.value === selectedProgram);
+    const programMeta = getProgramOptions().find((p) => p.value === selectedProgram);
     const programLabel = programMeta?.label || selectedProgram;
     const primaryGroup = (programMeta?.group || "B") as "A" | "B";
     const secondaryGroup = primaryGroup === "A" ? "B" : "A";
 
-    const effectiveSessions = resolveEffectiveSessions(rawSelectedSessions, primaryGroup);
+    const effectiveSessions = resolveEffectiveSessions(
+      rawSelectedSessions,
+      primaryGroup,
+      validSessionIds
+    );
+
+    await loadActivitiesIntoStoreForChat(
+      selectedProgram,
+      primaryGroup,
+      effectiveSessions
+    );
 
     const todayISO = getTodayISO();
     const todayFormatted = toReadableDate(todayISO);
@@ -894,15 +954,17 @@ export async function POST(request: NextRequest) {
           ? getDefaultSessionForGroup("A")
           : getDefaultSessionForGroup("B");
       contextSessionIds = [fallbackId];
+      await ensureSessionsInStore(contextSessionIds, selectedProgram);
       primaryActivities =
         primaryGroup === "A"
           ? getActivitiesForSession(fallbackId)
           : getFilteredGroupBActivities(selectedProgram, [fallbackId]);
     }
-    const secondaryActivities =
+    const secondaryActivitiesRaw =
       primaryGroup === "A"
         ? getFilteredGroupBActivities(selectedProgram, [getDefaultSessionForGroup("B")])
         : getActivitiesForSession(getDefaultSessionForGroup("A"));
+    const secondaryActivities = narrowActivitiesForSecondaryReference(secondaryActivitiesRaw);
 
     const primaryContext = formatPrimaryCalendarContext(
       contextSessionIds,
@@ -957,7 +1019,8 @@ export async function POST(request: NextRequest) {
           quickReference,
           comparisonContext,
           isCompareRequested,
-          multipleSessionsSelected
+          multipleSessionsSelected,
+          UITM_GENERAL_INFO
         )
       : buildResearchSystemPrompt(todayFormatted);
 

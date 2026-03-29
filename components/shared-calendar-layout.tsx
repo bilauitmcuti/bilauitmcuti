@@ -1,20 +1,155 @@
 'use client';
 
-import { useState, useEffect, useLayoutEffect, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useSyncExternalStore } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { CalendarHeader } from '@/components/calendar-header';
 import { CalendarControls } from '@/components/calendar-controls';
 import { PwaPromptAlert } from '@/components/pwa-prompt-alert';
 import { ListView } from '@/components/list-view';
 import { GridView } from '@/components/grid-view';
-import { getProgramFromRoute, getRoutePath } from '@/lib/route-utils';
+import {
+  getRoutePath,
+  isProgramValue,
+  resolveProgramFromPathAndProps,
+} from '@/lib/route-utils';
 import type { ProgramValue } from '@/lib/route-utils';
+import {
+  CalendarDataGate,
+  useCalendarCommittedProgram,
+  useCalendarCommittedSessions,
+} from '@/components/calendar-data-gate';
+import { CalendarHydrationProvider } from '@/components/calendar-hydration-context';
+import {
+  assignCalendarStoreSnapshot,
+  notifyCalendarStoreListeners,
+  getSnapshot,
+  subscribe,
+} from '@/lib/calendar-store';
+import type { CalendarSnapshot } from '@/lib/calendar-store';
 import { DEFAULT_FILTER_STATES, getGroupFromSession, getSessionForCurrentDate } from '@/lib/data';
 import type { SessionId } from '@/lib/data';
 import { setFiltersToCookie, type FilterStates } from '@/lib/cookie-utils';
 import type { ViewMode } from '@/app/page';
+import { parseSessionIdsFromHydrateKey } from '@/lib/calendar-initial-server';
 
 type ProgramSessionMap = Partial<Record<ProgramValue, SessionId[]>>;
+
+interface CalendarGridListMountProps {
+  bothViewsMounted: boolean;
+  activeViewMode: ViewMode;
+  showKKT: boolean;
+  showRegistration: boolean;
+  showLecture: boolean;
+  showSemesterPendek: boolean;
+  showKuliahIntersesi: boolean;
+  showExamination: boolean;
+  showOthersExams: boolean;
+  showBreak: boolean;
+  showCountdown: boolean;
+  onMonthChange: (month: string) => void;
+  selectedStates: string[];
+  initialCurrentDate?: string;
+}
+
+/** Grid/list use committed program + sessions so they stay in sync with the store (see CalendarDataGate). */
+function CalendarGridListMount({
+  bothViewsMounted,
+  activeViewMode,
+  showKKT,
+  showRegistration,
+  showLecture,
+  showSemesterPendek,
+  showKuliahIntersesi,
+  showExamination,
+  showOthersExams,
+  showBreak,
+  showCountdown,
+  onMonthChange,
+  selectedStates,
+  initialCurrentDate,
+}: CalendarGridListMountProps) {
+  const calendarDataProgram = useCalendarCommittedProgram();
+  const calendarDataSessions = useCalendarCommittedSessions();
+
+  return (
+    <>
+      {bothViewsMounted ? (
+        <>
+          <div style={{ display: activeViewMode === 'list' ? 'block' : 'none' }}>
+            <ListView
+              selectedProgram={calendarDataProgram}
+              selectedSessions={calendarDataSessions}
+              showKKT={showKKT}
+              showRegistration={showRegistration}
+              showLecture={showLecture}
+              showSemesterPendek={showSemesterPendek}
+              showKuliahIntersesi={showKuliahIntersesi}
+              showExamination={showExamination}
+              showOthersExams={showOthersExams}
+              showBreak={showBreak}
+              showCountdown={showCountdown}
+              onMonthChange={onMonthChange}
+              selectedStates={selectedStates}
+              initialCurrentDate={initialCurrentDate}
+            />
+          </div>
+          <div style={{ display: activeViewMode === 'grid' ? 'block' : 'none' }}>
+            <GridView
+              selectedProgram={calendarDataProgram}
+              selectedSessions={calendarDataSessions}
+              showKKT={showKKT}
+              showRegistration={showRegistration}
+              showLecture={showLecture}
+              showSemesterPendek={showSemesterPendek}
+              showKuliahIntersesi={showKuliahIntersesi}
+              showExamination={showExamination}
+              showOthersExams={showOthersExams}
+              showBreak={showBreak}
+              showCountdown={showCountdown}
+              onMonthChange={onMonthChange}
+              selectedStates={selectedStates}
+              initialCurrentDate={initialCurrentDate}
+            />
+          </div>
+        </>
+      ) : activeViewMode === 'list' ? (
+        <ListView
+          selectedProgram={calendarDataProgram}
+          selectedSessions={calendarDataSessions}
+          showKKT={showKKT}
+          showRegistration={showRegistration}
+          showLecture={showLecture}
+          showSemesterPendek={showSemesterPendek}
+          showKuliahIntersesi={showKuliahIntersesi}
+          showExamination={showExamination}
+          showOthersExams={showOthersExams}
+          showBreak={showBreak}
+          showCountdown={showCountdown}
+          onMonthChange={onMonthChange}
+          selectedStates={selectedStates}
+          initialCurrentDate={initialCurrentDate}
+        />
+      ) : (
+        <GridView
+          selectedProgram={calendarDataProgram}
+          selectedSessions={calendarDataSessions}
+          showKKT={showKKT}
+          showRegistration={showRegistration}
+          showLecture={showLecture}
+          showSemesterPendek={showSemesterPendek}
+          showKuliahIntersesi={showKuliahIntersesi}
+          showExamination={showExamination}
+          showOthersExams={showOthersExams}
+          showBreak={showBreak}
+          showCountdown={showCountdown}
+          onMonthChange={onMonthChange}
+          selectedStates={selectedStates}
+          initialCurrentDate={initialCurrentDate}
+        />
+      )}
+    </>
+  );
+}
 
 function getGroupFromProgram(program: ProgramValue): 'A' | 'B' {
   return program === 'Foundation/Professional' ? 'A' : 'B';
@@ -39,37 +174,56 @@ interface SharedCalendarLayoutProps {
   programFromRoute: string;
   initialFilters?: FilterStates; // Optional: passed from server component that reads cookies
   initialCurrentDate?: string; // Optional: passed from server component with Malaysia timezone date
+  /** RSC-fetched meta + activities; hydrates client store before first paint */
+  initialCalendarSnapshot?: CalendarSnapshot | null;
+  /** Program + load key used when building the snapshot (avoids wrong hydration skip after program change). */
+  initialCalendarHydration?: {
+    programUsed: ProgramValue;
+    hydrateKey: string;
+  } | null;
 }
 
 export function SharedCalendarLayout({ 
   viewMode, 
   programFromRoute,
   initialFilters: initialFiltersFromProps,
-  initialCurrentDate
+  initialCurrentDate,
+  initialCalendarSnapshot = null,
+  initialCalendarHydration = null,
 }: SharedCalendarLayoutProps) {
+  const hydrationVersion = initialCalendarSnapshot?.version ?? 0;
+  // Apply RSC payload synchronously so children read the right getSnapshot(); do not emit here
+  // (emit would update useSyncExternalStore subscribers during this render — React forbids that).
+  useMemo(() => {
+    if (initialCalendarSnapshot) {
+      assignCalendarStoreSnapshot(initialCalendarSnapshot);
+    }
+    return 0;
+  }, [initialCalendarSnapshot]);
+
+  useLayoutEffect(() => {
+    if (initialCalendarSnapshot) {
+      notifyCalendarStoreListeners();
+    }
+  }, [initialCalendarSnapshot]);
+
+  useSyncExternalStore(
+    subscribe,
+    () => getSnapshot().version,
+    () => hydrationVersion
+  );
+
   const pathname = usePathname();
   const router = useRouter();
-  
-  // Determine program from route
-  // For homepage (/) or /list, use programFromRoute (which should be "All")
-  // For /[program] or /[program]/list, extract the program segment
-  let routeSegment: string | null = null;
-  if (pathname) {
-    const segments = pathname.split('/').filter(Boolean);
-    // If first segment is "list", it's /list (All programs)
-    // Otherwise, first segment is the program route
-    if (segments.length > 0 && segments[0] !== 'list') {
-      routeSegment = segments[0];
-    }
-  }
-  
-  // Use routeSegment if available, otherwise fall back to programFromRoute
-  // programFromRoute is passed from the page component and should be the program slug
-  const routeSelectedProgram = getProgramFromRoute(
-    routeSegment || (programFromRoute && programFromRoute !== 'All' ? programFromRoute : null)
-  );
-  // Optimistic program state makes dropdown label update immediately on user click,
-  // instead of waiting for router pathname update.
+
+  const routeSelectedProgram = useMemo((): ProgramValue => {
+    const fromUrl = resolveProgramFromPathAndProps(pathname, programFromRoute);
+    if (fromUrl !== 'All') return fromUrl;
+    const c = initialFiltersFromProps?.selectedProgram;
+    if (c && isProgramValue(c)) return c;
+    return 'All';
+  }, [pathname, programFromRoute, initialFiltersFromProps?.selectedProgram]);
+
   const [selectedProgram, setSelectedProgram] = useState(routeSelectedProgram);
   const programGroup = getGroupFromProgram(selectedProgram);
 
@@ -194,10 +348,35 @@ export function SharedCalendarLayout({
       nextMap[routeSessionKey] = fallbackForRoute;
     }
 
+    if (
+      initialCalendarHydration &&
+      initialCalendarSnapshot &&
+      routeSelectedProgram === initialCalendarHydration.programUsed
+    ) {
+      const fromServer = parseSessionIdsFromHydrateKey(
+        initialCalendarHydration.hydrateKey
+      );
+      if (fromServer.length > 0) {
+        const g = getGroupFromProgram(routeSelectedProgram);
+        nextMap[getSessionMemoryKey(routeSelectedProgram)] =
+          normalizeSessionsForGroup(fromServer, g);
+      }
+    }
+
     return nextMap;
   };
 
   const getInitialSessions = (): SessionId[] => {
+    const hyd = initialCalendarHydration;
+    if (
+      hyd &&
+      initialCalendarSnapshot &&
+      routeSelectedProgram === hyd.programUsed
+    ) {
+      const fromServer = parseSessionIdsFromHydrateKey(hyd.hydrateKey);
+      if (fromServer.length > 0) return fromServer;
+    }
+
     const initialMap = getInitialProgramSessions();
     const fromProgram = initialMap[getSessionMemoryKey(routeSelectedProgram)];
     if (fromProgram && fromProgram.length > 0) return fromProgram;
@@ -247,14 +426,17 @@ export function SharedCalendarLayout({
     });
   }, [selectedProgram, sessionsByProgram, initialCurrentDate]);
 
-  // Keep both views mounted - toggle via display to prevent appear effect on view switch
+  // Mount only the active view first (smaller JS on route load). After the user toggles
+  // grid/list once, keep both mounted so switching stays instant (display toggle).
   const [activeViewMode, setActiveViewMode] = useState(viewMode);
+  const [bothViewsMounted, setBothViewsMounted] = useState(false);
   useEffect(() => {
     setActiveViewMode(viewMode);
   }, [viewMode]);
 
   const handleViewModeChange = useCallback(
     (newMode: ViewMode) => {
+      setBothViewsMounted(true);
       window.scrollTo(0, 0);
       setActiveViewMode(newMode);
       const newPath = getRoutePath(selectedProgram as ProgramValue, newMode);
@@ -295,6 +477,7 @@ export function SharedCalendarLayout({
         sessionId: resolvedSessions[0],
         sessionIds: resolvedSessions,
         sessionIdsByProgram: nextSessionsByProgram,
+        selectedProgram: program,
       });
       setSessionsByProgram(nextSessionsByProgram);
 
@@ -346,6 +529,7 @@ export function SharedCalendarLayout({
       sessionId: selectedSessions[0],
       sessionIds: selectedSessions,
       sessionIdsByProgram: sessionsByProgram,
+      selectedProgram: selectedProgram as ProgramValue,
     };
     
     // Save all settings in one go
@@ -389,12 +573,20 @@ export function SharedCalendarLayout({
     } else {
       setSelectedStates([]);
     }
-  }, [showKKT, showRegistration, showLecture, showSemesterPendek, showKuliahIntersesi, showExamination, showOthersExams, showBreak, showCountdown, selectedSessions, sessionsByProgram, isLoaded]);
+  }, [showKKT, showRegistration, showLecture, showSemesterPendek, showKuliahIntersesi, showExamination, showOthersExams, showBreak, showCountdown, selectedProgram, selectedSessions, sessionsByProgram, isLoaded]);
 
   // Theme-aware classes
   const bgClass = 'bg-background text-foreground';
 
   return (
+    <CalendarHydrationProvider hydrationVersion={hydrationVersion}>
+    <CalendarDataGate
+      selectedSessions={selectedSessions}
+      selectedProgram={selectedProgram}
+      hydratedLoadKey={initialCalendarHydration?.hydrateKey ?? null}
+      hydratedSnapshotProgram={initialCalendarHydration?.programUsed ?? null}
+      serverHydrateKey={initialCalendarHydration?.hydrateKey ?? null}
+    >
     <div className={`min-h-screen ${bgClass} transition-none relative`} style={{ transition: 'none' }}>
       <div className="mx-auto max-w-[1000px] px-4 py-8 sm:px-6 lg:px-4 transition-none" style={{ transition: 'none' }}>
         <CalendarHeader />
@@ -427,45 +619,27 @@ export function SharedCalendarLayout({
           currentMonth={currentMonth}
         />
 
-        {/* Both views always mounted - toggle via display to prevent appear effect on view switch */}
         <div className="mt-0 min-h-[400px] transition-none" style={{ transition: 'none' }}>
-          <div style={{ display: activeViewMode === 'list' ? 'block' : 'none' }}>
-            <ListView
-              selectedProgram={selectedProgram}
-              selectedSessions={selectedSessions}
-              showKKT={showKKT}
-              showRegistration={showRegistration}
-              showLecture={showLecture}
-              showSemesterPendek={showSemesterPendek}
-              showKuliahIntersesi={showKuliahIntersesi}
-              showExamination={showExamination}
-              showOthersExams={showOthersExams}
-              showBreak={showBreak}
-              showCountdown={showCountdown}
-              onMonthChange={setCurrentMonth}
-              selectedStates={selectedStates}
-            />
-          </div>
-          <div style={{ display: activeViewMode === 'grid' ? 'block' : 'none' }}>
-            <GridView
-              selectedProgram={selectedProgram}
-              selectedSessions={selectedSessions}
-              showKKT={showKKT}
-              showRegistration={showRegistration}
-              showLecture={showLecture}
-              showSemesterPendek={showSemesterPendek}
-              showKuliahIntersesi={showKuliahIntersesi}
-              showExamination={showExamination}
-              showOthersExams={showOthersExams}
-              showBreak={showBreak}
-              showCountdown={showCountdown}
-              onMonthChange={setCurrentMonth}
-              selectedStates={selectedStates}
-              initialCurrentDate={initialCurrentDate}
-            />
-          </div>
+          <CalendarGridListMount
+            bothViewsMounted={bothViewsMounted}
+            activeViewMode={activeViewMode}
+            showKKT={showKKT}
+            showRegistration={showRegistration}
+            showLecture={showLecture}
+            showSemesterPendek={showSemesterPendek}
+            showKuliahIntersesi={showKuliahIntersesi}
+            showExamination={showExamination}
+            showOthersExams={showOthersExams}
+            showBreak={showBreak}
+            showCountdown={showCountdown}
+            onMonthChange={setCurrentMonth}
+            selectedStates={selectedStates}
+            initialCurrentDate={initialCurrentDate}
+          />
         </div>
       </div>
     </div>
+    </CalendarDataGate>
+    </CalendarHydrationProvider>
   );
 }

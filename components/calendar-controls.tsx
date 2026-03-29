@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { List, Settings, Calendar, ChevronDown, ChevronUp, MessageCircle } from 'lucide-react';
@@ -22,9 +22,11 @@ import {
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { programOptions, getActivitiesForSession, getSessionOptionsForGroup } from '@/lib/data';
+import { getProgramOptions, getActivitiesForSession, getSessionOptionsForGroup } from '@/lib/data';
+import { useCalendarHydrationVersion } from '@/components/calendar-hydration-context';
+import { getSnapshot, subscribe } from '@/lib/calendar-store';
 import type { SessionId } from '@/lib/data';
-import { getRoutePath } from '@/lib/route-utils';
+import { getLabelForProgramValue, getRoutePath } from '@/lib/route-utils';
 import type { ViewMode } from '@/app/page';
 import type { ProgramValue } from '@/lib/route-utils';
 
@@ -94,6 +96,17 @@ export function CalendarControls({
   const [isPWAInstalled, setIsPWAInstalled] = useState(false);
   const [currentFooterText, setCurrentFooterText] = useState(0);
 
+  const hydrationServerVersion = useCalendarHydrationVersion();
+  const calendarDataVersion = useSyncExternalStore(
+    subscribe,
+    () => getSnapshot().version,
+    () => hydrationServerVersion
+  );
+  const programOptions = useMemo(() => {
+    void calendarDataVersion;
+    return getProgramOptions();
+  }, [calendarDataVersion]);
+
   // Optimized prefetch strategy - delay prefetch until user interaction
   useEffect(() => {
     // Delay prefetch to not block initial render
@@ -106,7 +119,7 @@ export function CalendarControls({
     }, 1000); // Delay 1 second after mount
     
     return () => clearTimeout(timeoutId);
-  }, [router, viewMode]);
+  }, [router, viewMode, programOptions]);
 
   // Toggle session in multi-select; keep at least one selected
   const handleSessionToggle = useCallback((programValue: ProgramValue, sessionId: SessionId, group: 'A' | 'B') => {
@@ -164,8 +177,8 @@ export function CalendarControls({
   }, []);
 
   // Memoize filtered program options to avoid recalculation
-  const groupAOptions = useMemo(() => programOptions.filter(p => p.group === 'A'), []);
-  const groupBOptions = useMemo(() => programOptions.filter(p => p.group === 'B'), []);
+  const groupAOptions = useMemo(() => programOptions.filter(p => p.group === 'A'), [programOptions]);
+  const groupBOptions = useMemo(() => programOptions.filter(p => p.group === 'B'), [programOptions]);
   const groupBProgramForSessions = groupBOptions.some((p) => p.value === selectedProgram)
     ? (selectedProgram as ProgramValue)
     : ('All' as ProgramValue);
@@ -184,10 +197,12 @@ export function CalendarControls({
   }, [groupAOptions, selectedProgram, selectedSessions]);
 
   // Memoize current program and session labels
-  const currentProgramLabel = useMemo(() => 
-    programOptions.find(p => p.value === selectedProgram)?.label || 'Foundation/Prof',
-    [selectedProgram]
-  );
+  const currentProgramLabel = useMemo(() => {
+    if (selectedProgram === 'All') return 'All';
+    const fromApi = programOptions.find((p) => p.value === selectedProgram)?.label;
+    if (fromApi) return fromApi;
+    return getLabelForProgramValue(selectedProgram as ProgramValue);
+  }, [selectedProgram, programOptions]);
   
   // Theme-aware classes
   const bgClass = 'bg-background';
@@ -204,8 +219,9 @@ export function CalendarControls({
 
   // Memoize activity type checks from all selected sessions
   const sessionActivities = useMemo(() => {
+    void calendarDataVersion;
     return selectedSessions.flatMap((sid) => getActivitiesForSession(sid));
-  }, [selectedSessions]);
+  }, [selectedSessions, calendarDataVersion]);
   const activityChecks = useMemo(() => ({
     hasSemesterPendek: sessionActivities.some(
       a => a.type === 'lecture' && (a.name.includes('Short Semester') || a.name.includes('Semester Pendek'))

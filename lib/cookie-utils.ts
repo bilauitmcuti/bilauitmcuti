@@ -1,5 +1,13 @@
-import { DEFAULT_FILTER_STATES, defaultSession } from './data';
-import type { ProgramValue } from './route-utils';
+import { getSnapshot } from './calendar-store';
+import { DEFAULT_FILTER_STATES, getDefaultSessionFallback } from './data';
+import { isProgramValue, type ProgramValue } from './route-utils';
+
+/** Prefer API defaultSession when store is hydrated; else static fallback (SSR-safe). */
+export function getDefaultSessionForCookie(): string {
+  const d = getSnapshot().defaultSession;
+  if (d) return d;
+  return getDefaultSessionFallback();
+}
 
 export interface FilterStates {
   showKKT: boolean;
@@ -14,15 +22,24 @@ export interface FilterStates {
   sessionId?: string;
   sessionIds?: string[];
   sessionIdsByProgram?: Partial<Record<ProgramValue, string[]>>;
+  /** Last selected program (used on `/` / `/list` refresh when URL does not encode one). */
+  selectedProgram?: ProgramValue;
 }
 
 const COOKIE_NAME = 'calendar-filters';
 const COOKIE_MAX_AGE = 365 * 24 * 60 * 60; // 1 year
 
 /**
- * Parse filter states from cookie value (decoded cookie value, not full cookie string)
+ * Parse filter states from cookie value (decoded cookie value, not full cookie string).
+ * @param defaultSessionWhenMissing — e.g. API `defaultSession` when parsing on the server before the client store exists.
  */
-export function parseFiltersFromCookie(cookieValue: string | null | undefined): FilterStates {
+export function parseFiltersFromCookie(
+  cookieValue: string | null | undefined,
+  defaultSessionWhenMissing?: string
+): FilterStates {
+  const resolveDefaultSession = (): string =>
+    defaultSessionWhenMissing ?? getDefaultSessionForCookie();
+
   if (!cookieValue) {
     return { ...DEFAULT_FILTER_STATES };
   }
@@ -34,7 +51,7 @@ export function parseFiltersFromCookie(cookieValue: string | null | undefined): 
       ? parsed.sessionIds
       : parsed.sessionId
         ? [parsed.sessionId]
-        : [defaultSession];
+        : [resolveDefaultSession()];
     const sessionIdsByProgram =
       parsed.sessionIdsByProgram && typeof parsed.sessionIdsByProgram === 'object'
         ? Object.fromEntries(
@@ -42,6 +59,10 @@ export function parseFiltersFromCookie(cookieValue: string | null | undefined): 
               .filter(([, value]) => Array.isArray(value) && value.length > 0)
               .map(([key, value]) => [key, value as string[]])
           ) as Partial<Record<ProgramValue, string[]>>
+        : undefined;
+    const selectedProgram =
+      typeof parsed.selectedProgram === 'string' && isProgramValue(parsed.selectedProgram)
+        ? parsed.selectedProgram
         : undefined;
     return {
       showKKT: parsed.showKKT ?? DEFAULT_FILTER_STATES.showKKT,
@@ -56,9 +77,14 @@ export function parseFiltersFromCookie(cookieValue: string | null | undefined): 
       sessionId: sessionIds[0],
       sessionIds,
       sessionIdsByProgram,
+      selectedProgram,
     };
   } catch {
-    return { ...DEFAULT_FILTER_STATES, sessionId: defaultSession, sessionIds: [defaultSession] };
+    return {
+      ...DEFAULT_FILTER_STATES,
+      sessionId: resolveDefaultSession(),
+      sessionIds: [resolveDefaultSession()],
+    };
   }
 }
 

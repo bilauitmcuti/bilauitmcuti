@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ChatCalendarBootstrap } from "@/components/chat-calendar-bootstrap";
 
 export const metadata: Metadata = {
   title: "Chat | Bila UiTM Cuti",
@@ -35,5 +36,10 @@ export default function ChatLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return (
+    <>
+      <ChatCalendarBootstrap />
+      {children}
+    </>
+  );
 }

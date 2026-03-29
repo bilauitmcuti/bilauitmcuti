@@ -3,13 +3,15 @@
 import React, { memo } from "react"
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useSyncExternalStore, useRef } from 'react';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { useCalendarHydrationVersion } from '@/components/calendar-hydration-context';
+import { getSnapshot, subscribe } from '@/lib/calendar-store';
 import { getActivitiesForDateMultiSessions, getMonthsForSessions, getDaysUntilStart, formatCountdown, getProgramBadgeConfig, getProgramBadgesConfig, type Activity, type ActivityType, type SessionId } from '@/lib/data';
 
 interface TooltipActivityListProps {
@@ -86,7 +88,7 @@ function TooltipActivityList({
             : getProgramBadgesConfig(activity, selectedProgram).length > 0
               ? getProgramBadgesConfig(activity, selectedProgram)
               : getProgramBadgeConfig(activity) ? [getProgramBadgeConfig(activity)!] : [];
-          // Tooltip should show clean "name" (from calendar.json) + optional countdown only.
+          // Tooltip should show clean activity name + optional countdown only.
           // We intentionally do NOT concatenate `details` into the name.
           const label = activity.name;
           const displayName = days != null ? `${label} (${formatCountdown(days)})` : label;
@@ -144,7 +146,7 @@ interface GridViewProps {
   initialCurrentDate?: string;
 }
 
-function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT, onDateClick, selectedDate, showRegistration, showLecture, showSemesterPendek, showKuliahIntersesi, showExamination, showOthersExams, showBreak, showCountdown, selectedStates = [], initialCurrentDate, tooltipOpenKey, hoveredDateStr, setTooltipOpenKey, setHoveredDateStr }: { month: number; year: number; selectedProgram: string; selectedSessions: SessionId[]; showKKT: boolean; onDateClick: (date: string) => void; selectedDate: string | null; showRegistration: boolean; showLecture: boolean; showSemesterPendek: boolean; showKuliahIntersesi: boolean; showExamination: boolean; showOthersExams: boolean; showBreak: boolean; showCountdown: boolean; selectedStates?: string[]; initialCurrentDate?: string; tooltipOpenKey: string | null; hoveredDateStr: string | null; setTooltipOpenKey: React.Dispatch<React.SetStateAction<string | null>>; setHoveredDateStr: React.Dispatch<React.SetStateAction<string | null>> }) {
+function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT, onDateClick, selectedDate, showRegistration, showLecture, showSemesterPendek, showKuliahIntersesi, showExamination, showOthersExams, showBreak, showCountdown, selectedStates = [], initialCurrentDate, tooltipOpenKey, hoveredDateStr, setTooltipOpenKey, setHoveredDateStr, calendarDataVersion, suppressHoverDuringScrollRef }: { month: number; year: number; selectedProgram: string; selectedSessions: SessionId[]; showKKT: boolean; onDateClick: (date: string) => void; selectedDate: string | null; showRegistration: boolean; showLecture: boolean; showSemesterPendek: boolean; showKuliahIntersesi: boolean; showExamination: boolean; showOthersExams: boolean; showBreak: boolean; showCountdown: boolean; selectedStates?: string[]; initialCurrentDate?: string; tooltipOpenKey: string | null; hoveredDateStr: string | null; setTooltipOpenKey: React.Dispatch<React.SetStateAction<string | null>>; setHoveredDateStr: React.Dispatch<React.SetStateAction<string | null>>; calendarDataVersion: number; suppressHoverDuringScrollRef: React.MutableRefObject<boolean> }) {
   const [hasHoverCapability, setHasHoverCapability] = useState(false);
   const [hasTouchInput, setHasTouchInput] = useState(false);
 
@@ -271,8 +273,9 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
   );
 
   const monthsForRange = useMemo(
-    () =>
-      getMonthsForSessions(selectedSessions, {
+    () => {
+      void calendarDataVersion;
+      return getMonthsForSessions(selectedSessions, {
         selectedProgram,
         showRegistration,
         showLecture,
@@ -282,7 +285,8 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
         showSemesterPendek,
         showKuliahIntersesi,
         showKKT,
-      }),
+      });
+    },
     [
       selectedSessions,
       selectedProgram,
@@ -294,6 +298,7 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
       showSemesterPendek,
       showKuliahIntersesi,
       showKKT,
+      calendarDataVersion,
     ]
   );
 
@@ -337,6 +342,7 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
   }
 
   const dayActivitiesMap = useMemo(() => {
+    void calendarDataVersion;
     const map = new Map<number, Activity[]>();
     if (selectedSessions.length === 0) return map;
     for (let day = 1; day <= daysInMonth; day++) {
@@ -346,7 +352,7 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
       map.set(day, activities);
     }
     return map;
-  }, [daysInMonth, filterOptions, month, selectedSessions, showKKT, year]);
+  }, [daysInMonth, filterOptions, month, selectedSessions, showKKT, year, calendarDataVersion]);
 
   // Single source for day activities - used by tooltip, colors, dots, ring/border
   const getDayActivities = (day: number | null): Activity[] => {
@@ -554,12 +560,14 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
                 onDateClick(dateStr);
               }}
               onMouseEnter={() => {
+                if (suppressHoverDuringScrollRef.current) return;
                 if (isDesktopHoverMode && dateStr) {
                   setHoveredDateStr(dateStr);
                   setTooltipOpenKey(dateStr);
                 }
               }}
               onMouseLeave={() => {
+                if (suppressHoverDuringScrollRef.current) return;
                 if (isDesktopHoverMode) {
                   setHoveredDateStr(null);
                   setTooltipOpenKey(null);
@@ -588,6 +596,7 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
                 open={tooltipOpenKey === dateStr}
                 onOpenChange={(open) => {
                   if (!isDesktopHoverMode) return;
+                  if (suppressHoverDuringScrollRef.current) return;
                   setTooltipOpenKey(open ? dateStr : null);
                 }}
                 delayDuration={0}
@@ -658,13 +667,55 @@ export const GridView = memo(function GridView({
   selectedStates = [],
   initialCurrentDate,
 }: GridViewProps) {
+  const hydrationServerVersion = useCalendarHydrationVersion();
+  const calendarDataVersion = useSyncExternalStore(
+    subscribe,
+    () => getSnapshot().version,
+    () => hydrationServerVersion
+  );
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [tooltipOpenKey, setTooltipOpenKey] = useState<string | null>(null);
   const [hoveredDateStr, setHoveredDateStr] = useState<string | null>(null);
 
+  const suppressHoverDuringScrollRef = useRef(false);
+  const scrollSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const SCROLL_SETTLE_MS = 160;
+
+    const onScrollActivity = () => {
+      const wasSuppressed = suppressHoverDuringScrollRef.current;
+      suppressHoverDuringScrollRef.current = true;
+      if (!wasSuppressed) {
+        setHoveredDateStr(null);
+        setTooltipOpenKey(null);
+      }
+      if (scrollSettleTimerRef.current) clearTimeout(scrollSettleTimerRef.current);
+      scrollSettleTimerRef.current = setTimeout(() => {
+        suppressHoverDuringScrollRef.current = false;
+        scrollSettleTimerRef.current = null;
+      }, SCROLL_SETTLE_MS);
+    };
+
+    const opts: AddEventListenerOptions = { passive: true, capture: true };
+    window.addEventListener('wheel', onScrollActivity, opts);
+    window.addEventListener('scroll', onScrollActivity, opts);
+    window.addEventListener('touchmove', onScrollActivity, opts);
+
+    return () => {
+      window.removeEventListener('wheel', onScrollActivity, opts);
+      window.removeEventListener('scroll', onScrollActivity, opts);
+      window.removeEventListener('touchmove', onScrollActivity, opts);
+      if (scrollSettleTimerRef.current) clearTimeout(scrollSettleTimerRef.current);
+    };
+  }, []);
+
   const months = useMemo(
-    () =>
-      getMonthsForSessions(selectedSessions, {
+    () => {
+      void calendarDataVersion;
+      return getMonthsForSessions(selectedSessions, {
         selectedProgram,
         showRegistration,
         showLecture,
@@ -674,7 +725,8 @@ export const GridView = memo(function GridView({
         showSemesterPendek,
         showKuliahIntersesi,
         showKKT,
-      }),
+      });
+    },
     [
       selectedSessions,
       selectedProgram,
@@ -686,6 +738,7 @@ export const GridView = memo(function GridView({
       showSemesterPendek,
       showKuliahIntersesi,
       showKKT,
+      calendarDataVersion,
     ]
   );
 
@@ -717,6 +770,8 @@ export const GridView = memo(function GridView({
               hoveredDateStr={hoveredDateStr}
               setTooltipOpenKey={setTooltipOpenKey}
               setHoveredDateStr={setHoveredDateStr}
+              calendarDataVersion={calendarDataVersion}
+              suppressHoverDuringScrollRef={suppressHoverDuringScrollRef}
             />
           ))}
         </div>
