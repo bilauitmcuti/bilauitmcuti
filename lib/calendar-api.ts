@@ -150,13 +150,33 @@ function metaCacheKey(options?: FetchMetaOptions): "default" | "entire" {
   return options?.entire ? "entire" : "default";
 }
 
+/** Concurrent callers with the same options share one in-flight request (e.g. React Strict Mode double mount). */
+const metaInflight = new Map<
+  "default" | "entire",
+  Promise<MetaResponse>
+>();
+
 /** Full catalogue: both groups’ session and program options. */
 export async function fetchMeta(options?: FetchMetaOptions): Promise<MetaResponse> {
+  const key = metaCacheKey(options);
+  const existing = metaInflight.get(key);
+  if (existing) return existing;
+
   const url = options?.entire
     ? buildCalendarRequestUrl("v1/meta", new URLSearchParams({ entire: "true" }))
     : buildCalendarRequestUrl("v1/meta");
-  const data = await fetchJsonWithRetry(url);
-  return asMetaPayload(data);
+
+  const promise = (async () => {
+    try {
+      const data = await fetchJsonWithRetry(url);
+      return asMetaPayload(data);
+    } finally {
+      metaInflight.delete(key);
+    }
+  })();
+
+  metaInflight.set(key, promise);
+  return promise;
 }
 
 const metaCache = new Map<

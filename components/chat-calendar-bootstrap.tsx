@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { fetchMeta, type MetaResponse } from "@/lib/calendar-api";
+import { fetchMetaCached, type MetaResponse } from "@/lib/calendar-api";
 import calendarData from "@/lib/calendar.json";
 import { getSnapshot, setMeta } from "@/lib/calendar-store";
 
@@ -22,7 +22,7 @@ function metaFromCalendarJson(): MetaResponse {
 
 /**
  * Keeps program/session dropdowns aligned with the homepage: same source as SSR and
- * CalendarDataGate — `/api/v1/meta?entire=true` (see `fetchMeta({ entire: true })`).
+ * CalendarDataGate — `/api/v1/meta?entire=true` (see `fetchMetaCached({ entire: true })`).
  * Refetches on every /chat visit so the catalogue matches even after navigating from other routes.
  */
 export function ChatCalendarBootstrap() {
@@ -33,7 +33,7 @@ export function ChatCalendarBootstrap() {
 
     void (async () => {
       try {
-        const meta = await fetchMeta({ entire: true });
+        const meta = await fetchMetaCached({ entire: true });
         if (cancelled) return;
         if (meta.sessionOptions.length > 0) {
           setMeta(meta);
