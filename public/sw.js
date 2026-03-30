@@ -1,61 +1,70 @@
-const CACHE_NAME = 'bilauitmcuti-v1';
-const urlsToCache = [
-  '/',
-  '/favicon.ico',
-  '/manifest.json',
-];
+const SW_VERSION = 'v2026-03-30-02';
+const CACHE_NAME = `bilauitmcuti-${SW_VERSION}`;
+const PRECACHE_URLS = ['/', '/favicon.ico', '/manifest.json'];
+const TURNSTILE_HOST = 'challenges.cloudflare.com';
+const CLOUDFLARE_INSIGHTS_HOST = 'static.cloudflareinsights.com';
 
-// Install event
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(urlsToCache);
-    })
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS))
   );
   self.skipWaiting();
 });
 
-// Activate event
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
+    caches.keys().then((cacheNames) =>
+      Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName);
-          }
+          if (cacheName !== CACHE_NAME) return caches.delete(cacheName);
+          return Promise.resolve();
         })
-      );
-    })
+      )
+    )
   );
   self.clients.claim();
 });
 
-// Fetch event - Network first, fallback to cache
-// Exclude API routes from caching (e.g. /chat/api) to prevent sensitive data leaks
-self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
+async function networkFirst(request) {
+  try {
+    const response = await fetch(request);
+    if (response && response.status === 200 && response.type !== 'error') {
+      const cache = await caches.open(CACHE_NAME);
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch {
+    return caches.match(request);
+  }
+}
 
-  // Never cache API routes — pass through to network only
-  if (url.pathname.startsWith('/chat/api')) {
-    event.respondWith(fetch(event.request));
+self.addEventListener('fetch', (event) => {
+  const request = event.request;
+  const url = new URL(request.url);
+
+  // Never intercept non-GET requests.
+  if (request.method !== 'GET') return;
+
+  // Never intercept cross-origin requests (including Turnstile / Insights).
+  if (url.origin !== self.location.origin) return;
+
+  // Defensive bypass for known Cloudflare hosts.
+  if (url.hostname === TURNSTILE_HOST || url.hostname === CLOUDFLARE_INSIGHTS_HOST) return;
+
+  // Never cache API routes.
+  if (url.pathname.startsWith('/api/')) return;
+
+  // Network-first for navigations to avoid stale HTML/CSP traps.
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request).catch(async () => {
+        const cachedRoot = await caches.match('/');
+        return cachedRoot || Response.error();
+      })
+    );
     return;
   }
 
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        if (!response || response.status !== 200 || response.type === 'error') {
-          return response;
-        }
-        const responseToCache = response.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
-        return response;
-      })
-      .catch(() => {
-        return caches.match(event.request);
-      })
-  );
+  // Static same-origin assets: network-first with cache fallback.
+  event.respondWith(networkFirst(request));
 });
