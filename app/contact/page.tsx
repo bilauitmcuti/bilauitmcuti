@@ -22,7 +22,6 @@ import {
 } from "@/components/turnstile-widget";
 
 const MAX_MESSAGE_LENGTH = 400;
-const TURNSTILE_DEV_SITE_KEY = "1x00000000000000000000AA";
 const CONTACT_TURNSTILE_COOKIE = "contact_turnstile_verified";
 
 export default function ContactPage() {
@@ -43,9 +42,8 @@ export default function ContactPage() {
   const lastScrollTop = useRef(0);
   const turnstileRef = useRef<TurnstileWidgetHandle>(null);
 
-  const turnstileSiteKey =
-    process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ??
-    (process.env.NODE_ENV === "development" ? TURNSTILE_DEV_SITE_KEY : "");
+  const isProduction = process.env.NODE_ENV === "production";
+  const turnstileSiteKey = isProduction ? (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "") : "";
   const requiresTurnstile = Boolean(turnstileSiteKey) && !isTurnstileSessionVerified;
 
   useEffect(() => {

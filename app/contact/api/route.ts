@@ -134,9 +134,10 @@ export async function POST(request: NextRequest) {
       return jsonError("Please take a moment before submitting the form.", 429);
     }
 
+    const isTurnstileRequired = process.env.NODE_ENV === "production";
     const hasVerifiedCookie =
       request.cookies.get(CONTACT_TURNSTILE_COOKIE)?.value === "1";
-    if (!hasVerifiedCookie) {
+    if (isTurnstileRequired && !hasVerifiedCookie) {
       const token = parsed.data.turnstileToken?.trim() ?? "";
       if (!token) {
         return jsonError("Please complete verification first.", 403);

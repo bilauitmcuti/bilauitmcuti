@@ -940,10 +940,11 @@ export async function POST(request: NextRequest) {
     }
 
     const { message, program, selectedSessions: rawSelectedSessions, history, turnstileToken } = parseResult.data;
+    const isTurnstileRequired = process.env.NODE_ENV === "production";
     const hasVerifiedCookie =
       request.cookies.get(CHAT_TURNSTILE_COOKIE)?.value === "1";
 
-    if (!hasVerifiedCookie) {
+    if (isTurnstileRequired && !hasVerifiedCookie) {
       if (!turnstileToken?.trim()) {
         return jsonError("Please complete verification first.", 403);
       }

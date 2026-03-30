@@ -447,7 +447,6 @@ const LOADING_PHRASES = [
 
 const FETCH_TIMEOUT_MS = 60_000;
 const RETRY_DELAYS_MS = [400, 800, 1600];
-const TURNSTILE_DEV_SITE_KEY = "1x00000000000000000000AA";
 const CHAT_TURNSTILE_COOKIE = "chat_turnstile_verified";
 
 function getRandomLoadingPhrase(exclude?: string): string {
@@ -606,9 +605,8 @@ export default function ChatPage() {
   const currentGroup = getProgramGroup(selectedProgram);
   const [suggestions, setSuggestions] = useState<string[]>([]);
 
-  const turnstileSiteKey =
-    process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ??
-    (process.env.NODE_ENV === "development" ? TURNSTILE_DEV_SITE_KEY : "");
+  const isProduction = process.env.NODE_ENV === "production";
+  const turnstileSiteKey = isProduction ? (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "") : "";
   const requiresTurnstile = Boolean(turnstileSiteKey) && !isTurnstileSessionVerified;
 
   useEffect(() => {
@@ -878,6 +876,7 @@ export default function ChatPage() {
       turnstileRef.current?.execute();
       return;
     }
+    if (requiresTurnstile) setIsTurnstileSessionVerified(true);
 
     const now = Date.now();
     const userMessage: Message = {
@@ -940,11 +939,6 @@ export default function ChatPage() {
 
           if (!res.ok) {
             content = data.error || getChatErrorMessage(res, "Something went wrong. Please try again.");
-            if (res.status === 403) {
-              setIsTurnstileSessionVerified(false);
-              setTurnstileToken("");
-              setTurnstileNonce((prev) => prev + 1);
-            }
             if (res.status === 503 && maxAttempts === 3) {
               maxAttempts = 4;
             }
@@ -996,10 +990,6 @@ export default function ChatPage() {
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
-      if (didAttemptFetch && requiresTurnstile && !isTurnstileSessionVerified) {
-        setTurnstileToken("");
-        setTurnstileNonce((prev) => prev + 1);
-      }
     }
   }, [
     isLoading,
@@ -1230,9 +1220,7 @@ export default function ChatPage() {
                       key={suggestion}
                       type="button"
                       disabled={
-                        !turnstileSiteKey ||
-                        (requiresTurnstile && !turnstileToken.trim()) ||
-                        isLoading
+                        (requiresTurnstile && !turnstileToken.trim()) || isLoading
                       }
                       onClick={() => sendMessage(suggestion)}
                       className="embla__slide flex-none text-xs px-3 py-1.5 rounded-full border border-border bg-secondary/50 hover:bg-secondary dark:bg-[#2A2A2A] dark:hover:bg-[#333] text-foreground transition-colors whitespace-nowrap disabled:opacity-40 disabled:pointer-events-none disabled:cursor-not-allowed"

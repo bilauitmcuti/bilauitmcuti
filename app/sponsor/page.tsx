@@ -27,7 +27,6 @@ import {
 import type { SponsorSocialPlatform } from "@/lib/sponsor";
 
 const QR_IMAGE_SRC = "/sponsor-qr.png";
-const TURNSTILE_DEV_SITE_KEY = "1x00000000000000000000AA";
 const SPONSOR_TURNSTILE_COOKIE = "sponsor_turnstile_verified";
 
 export default function SponsorPage() {
@@ -55,9 +54,8 @@ export default function SponsorPage() {
   const formTurnstileRef = useRef<TurnstileWidgetHandle>(null);
   const qrTurnstileRef = useRef<TurnstileWidgetHandle>(null);
 
-  const turnstileSiteKey =
-    process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ??
-    (process.env.NODE_ENV === "development" ? TURNSTILE_DEV_SITE_KEY : "");
+  const isProduction = process.env.NODE_ENV === "production";
+  const turnstileSiteKey = isProduction ? (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "") : "";
   const requiresTurnstile = Boolean(turnstileSiteKey) && !isTurnstileSessionVerified;
 
   useEffect(() => {
