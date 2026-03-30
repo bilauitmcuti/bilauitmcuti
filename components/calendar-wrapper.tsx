@@ -44,6 +44,7 @@ export async function CalendarWrapper({ viewMode, programFromRoute }: CalendarWr
   const initialCalendar = await loadInitialCalendarSnapshot({
     programFromRoute,
     cookieValue: cookieString,
+    currentDateStr: initialCurrentDate,
   });
 
   return (
