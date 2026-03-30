@@ -36,6 +36,8 @@ export default function ContactPage() {
   const turnstileRef = useRef<TurnstileWidgetHandle>(null);
 
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
+  const turnstileExecution =
+    process.env.NEXT_PUBLIC_TURNSTILE_EXECUTION === "execute" ? "execute" : "render";
 
   useEffect(() => {
     setStartedAt(Date.now());
@@ -219,6 +221,7 @@ export default function ContactPage() {
                     ref={turnstileRef}
                     siteKey={turnstileSiteKey}
                     action="contact_form"
+                    execution={turnstileExecution}
                     onToken={setTurnstileToken}
                   />
                 </div>

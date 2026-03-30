@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { toast } from "sonner";
@@ -15,7 +15,10 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Toaster } from "@/components/ui/sonner";
-import { TurnstileWidget } from "@/components/turnstile-widget";
+import {
+  TurnstileWidget,
+  type TurnstileWidgetHandle,
+} from "@/components/turnstile-widget";
 import {
   SPONSOR_MAX_MESSAGE_LENGTH,
   SPONSOR_SOCIAL_OPTIONS,
@@ -40,8 +43,12 @@ export default function SponsorPage() {
   const [website, setWebsite] = useState("");
   const [startedAt, setStartedAt] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const qrTurnstileRef = useRef<TurnstileWidgetHandle>(null);
+  const formTurnstileRef = useRef<TurnstileWidgetHandle>(null);
 
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
+  const turnstileExecution =
+    process.env.NEXT_PUBLIC_TURNSTILE_EXECUTION === "execute" ? "execute" : "render";
 
   useEffect(() => {
     setStartedAt(Date.now());
@@ -99,11 +106,12 @@ export default function SponsorPage() {
       setSocialHandle("");
       setProofFile(null);
       setAnonymous(false);
-      setTurnstileToken("");
       setWebsite("");
       setShowQr(false);
       setQrTurnstileToken("");
       setShowQrChallenge(false);
+      formTurnstileRef.current?.reset();
+      qrTurnstileRef.current?.reset();
       setStartedAt(Date.now());
     } catch {
       toast.error("Network issue detected. Please try again.");
@@ -122,8 +130,9 @@ export default function SponsorPage() {
     setSocialHandle("");
     setMessage("");
     setProofFile(null);
-    setTurnstileToken("");
     setWebsite("");
+    formTurnstileRef.current?.reset();
+    qrTurnstileRef.current?.reset();
     setStartedAt(Date.now());
   }
 
@@ -182,8 +191,10 @@ export default function SponsorPage() {
                   {showQrChallenge && !qrTurnstileToken.trim() ? (
                     <div className="space-y-1">
                       <TurnstileWidget
+                        ref={qrTurnstileRef}
                         siteKey={turnstileSiteKey}
                         action="sponsor_qr_view"
+                        execution={turnstileExecution}
                         onToken={(token) => {
                           setQrTurnstileToken(token);
                           if (token.trim()) setShowQr(true);
@@ -323,8 +334,10 @@ export default function SponsorPage() {
 
                 <div className="space-y-2">
                   <TurnstileWidget
+                    ref={formTurnstileRef}
                     siteKey={turnstileSiteKey}
                     action={SPONSOR_TURNSTILE_ACTION}
+                    execution={turnstileExecution}
                     onToken={setTurnstileToken}
                   />
                 </div>

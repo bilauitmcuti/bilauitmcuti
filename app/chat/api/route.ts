@@ -28,7 +28,11 @@ import {
   type SessionId,
 } from "@/lib/data";
 import { UITM_GENERAL_INFO } from "@/lib/uitm-info";
-import { verifyTurnstileToken } from "@/lib/turnstile";
+import {
+  getClientIpForTurnstile,
+  getTurnstileExpectedHostname,
+  verifyTurnstileToken,
+} from "@/lib/turnstile";
 
 // --- Request size & validation limits ---
 const MAX_BODY_SIZE_BYTES = 50 * 1024; // 50KB
@@ -922,12 +926,11 @@ export async function POST(request: NextRequest) {
     const { message, program, selectedSessions: rawSelectedSessions, history, turnstileToken } = parseResult.data;
 
     const hostname = request.headers.get("host") ?? "";
-    const expectedHostname = "bilauitmcuti.com";
-    const hostNormalized = hostname.replace(/^www\./, "").split(":")[0];
     const turnstileResult = await verifyTurnstileToken({
       token: turnstileToken,
       expectedAction: "chat_message",
-      expectedHostname: hostNormalized === expectedHostname ? expectedHostname : undefined,
+      expectedHostname: getTurnstileExpectedHostname(hostname),
+      remoteip: getClientIpForTurnstile(request),
     });
     if (!turnstileResult.success) {
       return jsonError("Access was blocked. Please refresh and try again.", 403);

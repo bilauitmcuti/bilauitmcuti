@@ -9,7 +9,11 @@ import {
   SPONSOR_SOCIAL_OPTIONS,
   SPONSOR_TURNSTILE_ACTION,
 } from "@/lib/sponsor";
-import { verifyTurnstileToken } from "@/lib/turnstile";
+import {
+  getClientIpForTurnstile,
+  getTurnstileExpectedHostname,
+  verifyTurnstileToken,
+} from "@/lib/turnstile";
 
 export const runtime = "edge";
 
@@ -216,12 +220,11 @@ export async function POST(request: NextRequest) {
     }
 
     const hostname = request.headers.get("host") ?? "";
-    const expectedHostname = "bilauitmcuti.com";
-    const hostNormalized = hostname.replace(/^www\./, "").split(":")[0];
     const turnstileResult = await verifyTurnstileToken({
       token: data.turnstileToken,
       expectedAction: SPONSOR_TURNSTILE_ACTION,
-      expectedHostname: hostNormalized === expectedHostname ? expectedHostname : undefined,
+      expectedHostname: getTurnstileExpectedHostname(hostname),
+      remoteip: getClientIpForTurnstile(request),
     });
     if (!turnstileResult.success) {
       return jsonError("Access was blocked. Please complete the challenge and try again.", 403);

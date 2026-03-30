@@ -9,9 +9,13 @@ interface LenisProviderProps {
 
 export function LenisProvider({ children }: LenisProviderProps) {
   const pathname = usePathname();
-  const isChatRoute = pathname?.startsWith('/chat');
+  /** Nested `overflow-y-auto` + full-height layouts need native touch scroll; Lenis root fights nested scrollers on mobile. */
+  const useNativeScroll =
+    pathname?.startsWith('/chat') ||
+    pathname === '/contact' ||
+    pathname === '/sponsor';
 
-  if (isChatRoute) return <>{children}</>;
+  if (useNativeScroll) return <>{children}</>;
 
   return (
     <ReactLenis

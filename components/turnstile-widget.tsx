@@ -8,18 +8,31 @@ import {
   useRef,
 } from "react";
 
+/**
+ * Cloudflare Turnstile explicit render (see client-side rendering docs).
+ * Invisible widgets are configured in the dashboard; use execution "render" so the
+ * challenge runs after render (background), or "execute" + execute() for deferred runs.
+ */
 declare global {
   interface Window {
     turnstile?: {
-      render: (container: HTMLElement, params: Record<string, unknown>) => number;
+      ready?: (callback: () => void) => void;
+      render: (
+        container: HTMLElement | string,
+        params: Record<string, unknown>
+      ) => number;
       remove: (widgetId: number) => void;
       reset: (widgetId?: number) => void;
+      execute: (containerOrWidgetId: string | HTMLElement | number) => void;
+      getResponse?: (widgetId: number) => string;
     };
   }
 }
 
 export interface TurnstileWidgetHandle {
   reset: () => void;
+  /** Runs challenge when widget uses execution: "execute" (see Cloudflare docs). */
+  execute: () => void;
 }
 
 export interface TurnstileWidgetProps {
@@ -27,6 +40,13 @@ export interface TurnstileWidgetProps {
   action?: string;
   onToken: (token: string) => void;
   className?: string;
+  /**
+   * `render` (default): challenge runs after render — token usually arrives quickly (recommended for forms).
+   * `execute`: challenge runs only after `turnstile.execute()` — call `execute()` on ref or rely on post-render execute below.
+   */
+  execution?: "render" | "execute";
+  /** When execution is `execute`, automatically call `turnstile.execute` after mount (typical for invisible widgets). */
+  autoExecute?: boolean;
 }
 
 const TURNSTILE_SCRIPT_SRC =
@@ -35,7 +55,17 @@ const TURNSTILE_SCRIPT_SRC =
 export const TurnstileWidget = forwardRef<
   TurnstileWidgetHandle,
   TurnstileWidgetProps
->(function TurnstileWidget({ siteKey, action, onToken, className }, ref) {
+>(function TurnstileWidget(
+  {
+    siteKey,
+    action,
+    onToken,
+    className,
+    execution = "render",
+    autoExecute = true,
+  },
+  ref
+) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const widgetIdRef = useRef<number | null>(null);
   const onTokenRef = useRef(onToken);
@@ -56,6 +86,12 @@ export const TurnstileWidget = forwardRef<
         onTokenRef.current("");
         if (ts && id != null) ts.reset(id);
       },
+      execute: () => {
+        if (typeof window === "undefined") return;
+        const ts = window.turnstile;
+        const id = widgetIdRef.current;
+        if (ts && id != null) ts.execute(id);
+      },
     }),
     []
   );
@@ -64,7 +100,6 @@ export const TurnstileWidget = forwardRef<
     if (typeof window === "undefined") return;
     if (!safeSiteKey) return;
 
-    // Load Turnstile script once (explicit rendering).
     const existing = document.querySelector(
       'script[data-turnstile-script="explicit"]'
     ) as HTMLScriptElement | null;
@@ -78,25 +113,44 @@ export const TurnstileWidget = forwardRef<
     }
 
     let cancelled = false;
-    const start = Date.now();
 
-    const poll = () => {
+    const renderWidget = () => {
       if (cancelled) return;
       const el = containerRef.current;
       if (!el) return;
       const ts = window.turnstile;
-      if (ts && !widgetIdRef.current) {
-        widgetIdRef.current = ts.render(el, {
-          sitekey: safeSiteKey,
-          action: action ?? undefined,
-          callback: (token: string) => onTokenRef.current(token),
-          "expired-callback": () => onTokenRef.current(""),
-          "error-callback": () => onTokenRef.current(""),
-        });
+      if (!ts || widgetIdRef.current != null) return;
+
+      widgetIdRef.current = ts.render(el, {
+        sitekey: safeSiteKey,
+        action: action ?? undefined,
+        theme: "auto",
+        execution,
+        callback: (token: string) => onTokenRef.current(token),
+        "expired-callback": () => onTokenRef.current(""),
+        "error-callback": () => onTokenRef.current(""),
+      });
+
+      if (execution === "execute" && autoExecute && widgetIdRef.current != null) {
+        ts.execute(widgetIdRef.current);
+      }
+    };
+
+    const start = Date.now();
+    const poll = () => {
+      if (cancelled) return;
+      const ts = window.turnstile;
+      if (!ts) {
+        if (Date.now() - start < 8000) setTimeout(poll, 200);
         return;
       }
-      if (Date.now() - start < 8000) {
-        setTimeout(poll, 200);
+      if (ts.ready) {
+        ts.ready(() => {
+          if (cancelled) return;
+          renderWidget();
+        });
+      } else {
+        renderWidget();
       }
     };
 
@@ -108,10 +162,16 @@ export const TurnstileWidget = forwardRef<
       if (ts && widgetIdRef.current != null) ts.remove(widgetIdRef.current);
       widgetIdRef.current = null;
     };
-  }, [safeSiteKey, action]);
+  }, [safeSiteKey, action, execution, autoExecute]);
 
   if (!safeSiteKey) return null;
 
-  return <div ref={containerRef} className={className} aria-hidden={false} />;
+  return (
+    <div
+      ref={containerRef}
+      className={className}
+      aria-hidden={false}
+      data-turnstile-execution={execution}
+    />
+  );
 });
-

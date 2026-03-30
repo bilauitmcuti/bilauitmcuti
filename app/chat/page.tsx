@@ -603,6 +603,8 @@ export default function ChatPage() {
   const [suggestions, setSuggestions] = useState<string[]>([]);
 
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
+  const turnstileExecution =
+    process.env.NEXT_PUBLIC_TURNSTILE_EXECUTION === "execute" ? "execute" : "render";
 
   const hydrateChatFromHomepageSources = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -1208,6 +1210,7 @@ export default function ChatPage() {
                 ref={turnstileRef}
                 siteKey={turnstileSiteKey}
                 action="chat_message"
+                execution={turnstileExecution}
                 onToken={setTurnstileToken}
               />
             </div>
