@@ -187,27 +187,123 @@ function getSessionDateRange(sessionId: SessionId): { start: string; end: string
   return { start, end };
 }
 
-/** Get session for group that contains the given date (YYYY-MM-DD). Falls back to nearest future or last session. */
-export function getSessionForCurrentDate(group: ProgramGroup, dateStr: string): SessionId {
-  const opts = getSessionOptionsForGroup(group);
-  if (opts.length === 0) return getDefaultSessionForGroup(group);
+const SESSION_LABEL_MONTH: Record<string, number> = {
+  jan: 1,
+  feb: 2,
+  mar: 3,
+  apr: 4,
+  may: 5,
+  jun: 6,
+  jul: 7,
+  aug: 8,
+  sep: 9,
+  oct: 10,
+  nov: 11,
+  dec: 12,
+};
+
+function sessionLabelTail(label: string): string {
+  const idx = label.indexOf(":");
+  return (idx >= 0 ? label.slice(idx + 1) : label).trim();
+}
+
+function ymd(year: number, month: number, day: number): string {
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function lastDayOfMonth(year: number, month: number): number {
+  return new Date(year, month, 0).getDate();
+}
+
+function parseMonthToken(token: string): number | null {
+  const key = token.trim().toLowerCase().slice(0, 3);
+  return SESSION_LABEL_MONTH[key] ?? null;
+}
+
+/**
+ * Parse timeline from API session `label` when activities are not loaded yet.
+ * Supports forms like "Dec 2025 - May 2026", "Jun - Oct 2026", "Sep 2026 - Feb 2027".
+ */
+export function parseSessionLabelDateRange(label: string): { start: string; end: string } | null {
+  const text = sessionLabelTail(label);
+  const twoYears = text.match(
+    /(\w+)\s+(\d{4})\s*[-–]\s*(\w+)\s+(\d{4})/i
+  );
+  if (twoYears) {
+    const m1 = parseMonthToken(twoYears[1]!);
+    const y1 = Number(twoYears[2]);
+    const m2 = parseMonthToken(twoYears[3]!);
+    const y2 = Number(twoYears[4]);
+    if (!m1 || !Number.isFinite(y1) || !m2 || !Number.isFinite(y2)) return null;
+    return {
+      start: ymd(y1, m1, 1),
+      end: ymd(y2, m2, lastDayOfMonth(y2, m2)),
+    };
+  }
+  const sameYear = text.match(/(\w+)\s*[-–]\s*(\w+)\s+(\d{4})/i);
+  if (sameYear) {
+    const m1 = parseMonthToken(sameYear[1]!);
+    const m2 = parseMonthToken(sameYear[2]!);
+    const y = Number(sameYear[3]);
+    if (!m1 || !m2 || !Number.isFinite(y)) return null;
+    return {
+      start: ymd(y, m1, 1),
+      end: ymd(y, m2, lastDayOfMonth(y, m2)),
+    };
+  }
+  return null;
+}
+
+export interface SessionOptionLike {
+  id: string;
+  label: string;
+  group: ProgramGroup;
+}
+
+function effectiveSessionRange(
+  sessionId: SessionId,
+  label: string
+): { start: string; end: string } | null {
+  const fromActivities = getSessionDateRange(sessionId);
+  if (fromActivities) return fromActivities;
+  return parseSessionLabelDateRange(label);
+}
+
+/**
+ * Pick the API session id for `group` that contains `dateStr`, using loaded activities when present
+ * and otherwise the session label from meta. Used when cookies/localStorage do not pin a session.
+ */
+export function pickSessionIdForDateFromApiOptions(
+  group: ProgramGroup,
+  dateStr: string,
+  sessionOptions: SessionOptionLike[]
+): SessionId {
+  const opts = sessionOptions.filter((s) => s.group === group);
+  if (opts.length === 0) return group === "A" ? "A-20251" : "B-20263";
   const normalizedDate = normalizeDateString(dateStr);
 
-  // Find session that contains this date
   for (const s of opts) {
-    const range = getSessionDateRange(s.id);
+    const range = effectiveSessionRange(s.id, s.label);
     if (range && normalizedDate >= range.start && normalizedDate <= range.end) return s.id;
   }
 
-  // Find nearest future session
   const future = opts.find((s) => {
-    const range = getSessionDateRange(s.id);
+    const range = effectiveSessionRange(s.id, s.label);
     return range && range.start > normalizedDate;
   });
   if (future) return future.id;
 
-  // Fall back to last (most recent) session
+  const withRange = opts.filter((s) => effectiveSessionRange(s.id, s.label) != null);
+  if (withRange.length > 0) return withRange[withRange.length - 1]!.id;
+
   return opts[opts.length - 1]!.id;
+}
+
+/** Get session for group that contains the given date (YYYY-MM-DD). Falls back to nearest future or last session. */
+export function getSessionForCurrentDate(group: ProgramGroup, dateStr: string): SessionId {
+  const opts = getSessionOptionsForGroup(group);
+  if (opts.length === 0) return getDefaultSessionForGroup(group);
+  return pickSessionIdForDateFromApiOptions(group, dateStr, opts);
 }
 
 /** Get session options for a group. */

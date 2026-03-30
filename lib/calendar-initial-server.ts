@@ -6,6 +6,7 @@ import {
 } from "@/lib/calendar-api";
 import type { CalendarSnapshot } from "@/lib/calendar-store";
 import type { Activity, SessionId } from "@/lib/data";
+import { pickSessionIdForDateFromApiOptions } from "@/lib/data";
 import {
   getProgramFromRoute,
   isProgramValue,
@@ -39,7 +40,8 @@ function resolveProgramForServer(
 function resolveInitialSessionIds(
   program: ProgramValue,
   filters: ReturnType<typeof parseFiltersFromCookie>,
-  meta: Awaited<ReturnType<typeof fetchMetaCached>>
+  meta: Awaited<ReturnType<typeof fetchMetaCached>>,
+  currentDateStr: string
 ): SessionId[] {
   const programGroup = getGroupFromProgram(program);
   const sessionMemoryKey = getSessionMemoryKey(program);
@@ -68,12 +70,16 @@ function resolveInitialSessionIds(
   const inGroup = candidates.filter((id) => id.startsWith(`${programGroup}-`));
   if (inGroup.length > 0) return inGroup;
 
-  const opts = meta.sessionOptions.filter((s) => s.group === programGroup);
-  if (opts.length === 0) {
+  if (meta.sessionOptions.length === 0) {
     return [programGroup === "A" ? "A-20251" : "B-20263"];
   }
-  // Same as getSessionForCurrentDate when every session has no loaded date range: last listed session.
-  return [opts[opts.length - 1]!.id];
+  return [
+    pickSessionIdForDateFromApiOptions(
+      programGroup,
+      currentDateStr,
+      meta.sessionOptions
+    ),
+  ];
 }
 
 const CALENDAR_HYDRATE_VERSION = 1;
@@ -106,12 +112,19 @@ export async function loadInitialCalendarSnapshot(params: {
   programFromRoute: string;
   /** Raw `calendar-filters` cookie value, or null */
   cookieValue: string | null | undefined;
+  /** Malaysia (or app) calendar date YYYY-MM-DD for default session when filters omit sessions */
+  currentDateStr: string;
 }): Promise<InitialCalendarLoadResult> {
   try {
     const meta = await fetchMetaCached({ entire: true });
     const filters = parseFiltersFromCookie(params.cookieValue, meta.defaultSession);
     const program = resolveProgramForServer(params.programFromRoute, filters);
-    const selectedSessions = resolveInitialSessionIds(program, filters, meta);
+    const selectedSessions = resolveInitialSessionIds(
+      program,
+      filters,
+      meta,
+      params.currentDateStr
+    );
     const hydrateKey = buildHydrateKey(program, selectedSessions);
     const group = getGroupFromProgram(program);
     const programQ = calendarProgramQueryForRoute(program);
