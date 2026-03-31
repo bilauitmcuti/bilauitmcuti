@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronDown, ChevronUp, Send, ThumbsUp, ThumbsDown, Copy, 
 import { useCalendarHydrationVersion } from "@/components/calendar-hydration-context";
 import { getSnapshot, subscribe } from "@/lib/calendar-store";
 import {
+  formatSessionLabelWithId,
   getProgramOptions,
   getSessionOptionsForGroup,
   getSessionForCurrentDate,
@@ -788,7 +789,7 @@ export default function ChatPage() {
       .filter((sessionId) => sessionId.startsWith("B-"))
       .map((sessionId) => {
         const session = getSessionOptionsForGroup("B").find((item) => item.id === sessionId);
-        return session?.label.replace(/^Group B:\s*/, "") ?? sessionId;
+        return session ? formatSessionLabelWithId(session) : sessionId;
       });
     if (labels.length === 0) return "Select sessions";
     if (labels.length === 1) return labels[0];
@@ -1325,7 +1326,7 @@ export default function ChatPage() {
                                       className={`pointer-events-none absolute left-2 flex size-3.5 shrink-0 items-center justify-center rounded-full border ${isSelected ? "border-primary bg-primary" : "border-muted-foreground"}`}
                                       aria-hidden
                                     />
-                                    {sess.label.replace(/^Group A:\s*/, "")}
+                                    {formatSessionLabelWithId(sess)}
                                   </DropdownMenuItem>
                                 );
                               })}
@@ -1375,7 +1376,7 @@ export default function ChatPage() {
                                     className={`pointer-events-none absolute left-2 flex size-3.5 shrink-0 items-center justify-center rounded-full border ${isSelected ? "border-primary bg-primary" : "border-muted-foreground"}`}
                                     aria-hidden
                                   />
-                                  {sess.label.replace(/^Group B:\s*/, "")}
+                                  {formatSessionLabelWithId(sess)}
                                 </DropdownMenuItem>
                               );
                             })}

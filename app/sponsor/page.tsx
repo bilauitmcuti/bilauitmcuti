@@ -239,10 +239,6 @@ export default function SponsorPage() {
             </CardHeader>
 
             <CardContent className="px-3 sm:px-6">
-              <p className="mb-4 text-sm text-muted-foreground">
-                By sponsoring this project, your name and social media link will be featured as a token of our
-                appreciation. Contributions help cover hosting, domain, and development tool costs.
-              </p>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Button
@@ -374,7 +370,7 @@ export default function SponsorPage() {
                     maxLength={SPONSOR_MAX_MESSAGE_LENGTH}
                     rows={6}
                     placeholder="Share your message of support"
-                    className="resize-none bg-background dark:bg-[#2A2A2A]"
+                    className="resize-none bg-background text-sm placeholder:text-sm dark:bg-[#2A2A2A]"
                   />
                   <div className="text-xs text-muted-foreground">
                     {messageLength}/{SPONSOR_MAX_MESSAGE_LENGTH} characters
@@ -435,6 +431,10 @@ export default function SponsorPage() {
                   </Button>
                 </div>
               </form>
+              <p className="mt-4 text-sm text-muted-foreground">
+                By sponsoring this project, your name and social media link will be featured as a token of our
+                appreciation. Contributions help cover hosting, domain, and development tool costs.
+              </p>
             </CardContent>
           </Card>
 

@@ -22,7 +22,7 @@ import {
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { getProgramOptions, getActivitiesForSession, getSessionOptionsForGroup } from '@/lib/data';
+import { formatSessionLabelWithId, getProgramOptions, getActivitiesForSession, getSessionOptionsForGroup } from '@/lib/data';
 import { useCalendarHydrationVersion } from '@/components/calendar-hydration-context';
 import { getSnapshot, subscribe } from '@/lib/calendar-store';
 import type { SessionId } from '@/lib/data';
@@ -189,7 +189,7 @@ export function CalendarControls({
       .filter((sessionId) => sessionId.startsWith('B-'))
       .map((sessionId) => {
         const session = getSessionOptionsForGroup('B').find((item) => item.id === sessionId);
-        return session?.label.replace(/^Group B:\s*/, '') ?? sessionId;
+        return session ? formatSessionLabelWithId(session) : sessionId;
       });
     if (labels.length === 0) return 'Select sessions';
     if (labels.length === 1) return labels[0];
@@ -367,7 +367,7 @@ export function CalendarControls({
                                   className={`pointer-events-none absolute left-2 flex size-3.5 shrink-0 items-center justify-center rounded-full border ${isSelected ? 'border-primary bg-primary' : 'border-muted-foreground'}`}
                                   aria-hidden
                                 />
-                                {sess.label.replace(/^Group A:\s*/, '')}
+                                {formatSessionLabelWithId(sess)}
                               </DropdownMenuItem>
                             );
                           })}
@@ -416,7 +416,7 @@ export function CalendarControls({
                                 className={`pointer-events-none absolute left-2 flex size-3.5 shrink-0 items-center justify-center rounded-full border ${isSelected ? 'border-primary bg-primary' : 'border-muted-foreground'}`}
                                 aria-hidden
                               />
-                              {sess.label.replace(/^Group B:\s*/, '')}
+                              {formatSessionLabelWithId(sess)}
                             </DropdownMenuItem>
                           );
                         })}
@@ -498,7 +498,7 @@ export function CalendarControls({
                 </Button>
               </PopoverTrigger>
               <PopoverContent 
-                className="h-auto w-[300px] gap-2 pt-4 pb-4 pl-3 pr-3 z-50 bg-popover dark:bg-[#2A2A2A] transition-none"
+                className="h-auto w-[260px] sm:w-[300px] gap-2 pt-4 pb-4 pl-3 pr-3 z-50 bg-popover dark:bg-[#2A2A2A] transition-none"
                 side="bottom"
                 align="end"
                 sideOffset={4}

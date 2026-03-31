@@ -289,7 +289,7 @@ export default function ContactPage() {
                     maxLength={MAX_MESSAGE_LENGTH}
                     rows={6}
                     placeholder="Write your feedback or contact message..."
-                    className="resize-none bg-background dark:bg-[#2A2A2A]"
+                    className="resize-none bg-background text-sm placeholder:text-sm dark:bg-[#2A2A2A]"
                   />
                   <div className="text-xs text-muted-foreground">
                     {messageLength}/{MAX_MESSAGE_LENGTH} characters

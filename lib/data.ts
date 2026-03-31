@@ -260,6 +260,15 @@ export interface SessionOptionLike {
   group: ProgramGroup;
 }
 
+/**
+ * Normalize session label for UI and always append id, e.g. "Mar - Aug 2026 (B-20263)".
+ */
+export function formatSessionLabelWithId(session: Pick<SessionOptionLike, "id" | "label">): string {
+  const baseLabel = session.label.replace(/^Group [AB]:\s*/, "").trim();
+  if (baseLabel.includes(session.id)) return baseLabel;
+  return `${baseLabel} (${session.id})`;
+}
+
 function effectiveSessionRange(
   sessionId: SessionId,
   label: string
