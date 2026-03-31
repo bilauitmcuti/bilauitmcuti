@@ -35,6 +35,7 @@ interface CalendarControlsProps {
   selectedSessions: SessionId[];
   onProgramSessionChange?: (program: ProgramValue, sessionIds: SessionId[]) => void;
   viewMode: ViewMode;
+  isHomepage?: boolean;
   /** When true, use fixed positioning so controls appear at top from first paint (scroll restore) */
   forceFixed?: boolean;
   /** When provided, view mode switch uses client state instead of router navigation (no appear effect) */
@@ -65,6 +66,7 @@ export function CalendarControls({
   selectedSessions,
   onProgramSessionChange,
   viewMode,
+  isHomepage = false,
   forceFixed = false,
   onViewModeChange,
   showKKT,
@@ -310,7 +312,7 @@ export function CalendarControls({
             <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
-                className={`w-fit max-w-[180px] sm:max-w-[260px] md:max-w-[300px] min-w-0 overflow-hidden !h-[38px] !py-1 border bg-secondary dark:bg-[#2A2A2A] hover:!bg-secondary dark:hover:!bg-[#2A2A2A] active:!bg-secondary dark:active:!bg-[#2A2A2A] border-border focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 ${textClass} flex items-center justify-between gap-2 rounded-lg transition-none`}
+                className={`w-fit max-w-[180px] sm:max-w-[260px] md:max-w-[300px] min-w-0 overflow-hidden !h-[38px] !py-1 border bg-secondary dark:bg-[#2A2A2A] hover:!bg-secondary dark:hover:!bg-[#2A2A2A] active:!bg-secondary dark:active:!bg-[#2A2A2A] border-border focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 ${isHomepage ? '!border !border-border dark:!border-zinc-600 !shadow-none' : ''} ${textClass} flex items-center justify-between gap-2 rounded-lg transition-none`}
                 suppressHydrationWarning
               >
                 <span className="block min-w-0 flex-1 truncate text-left font-medium text-sm">
@@ -654,7 +656,7 @@ export function CalendarControls({
 
                     <label className="flex items-center justify-between cursor-pointer py-0.5 transition-none">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-foreground">Show countdown</span>
+                        <span className="text-sm font-medium text-foreground">Show Countdown</span>
                       </div>
                       <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-none ${showCountdown ? 'bg-primary' : 'bg-muted'}`}
                         style={{ transition: 'none' }}

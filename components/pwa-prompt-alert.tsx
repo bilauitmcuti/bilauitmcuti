@@ -1,16 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Alert,
-  AlertAction,
   AlertDescription,
   AlertTitle,
 } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 
 const PWA_DISMISS_KEY = 'pwa-prompt-dismissed';
+
+function isCalendarRoute(pathname: string): boolean {
+  if (pathname === '/' || pathname === '/list') return true;
+  if (/^\/[^/]+$/.test(pathname)) return true;
+  if (/^\/[^/]+\/list$/.test(pathname)) return true;
+  return false;
+}
 
 function isPwaMode(): boolean {
   if (typeof window === 'undefined') return true;
@@ -22,27 +28,33 @@ function isPwaMode(): boolean {
 export function PwaPromptAlert() {
   const pathname = usePathname();
   const router = useRouter();
-  const [show, setShow] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const [isDismissed, setIsDismissed] = useState<boolean | null>(null);
+  const [isStandaloneMode, setIsStandaloneMode] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
+    setIsMounted(true);
   }, []);
 
   useEffect(() => {
-    if (!mounted || typeof window === 'undefined') return;
-    if (pathname !== '/') return;
-    if (isPwaMode()) return;
+    if (!isMounted || typeof window === 'undefined') return;
 
     try {
       const dismissed = localStorage.getItem(PWA_DISMISS_KEY);
-      if (dismissed) return;
+      setIsDismissed(Boolean(dismissed));
     } catch {
-      return;
+      setIsDismissed(true);
     }
 
-    setShow(true);
-  }, [mounted, pathname]);
+    setIsStandaloneMode(isPwaMode());
+  }, [isMounted]);
+
+  const shouldShow = useMemo(() => {
+    if (!isMounted) return false;
+    if (isDismissed !== false) return false;
+    if (isStandaloneMode) return false;
+    return isCalendarRoute(pathname);
+  }, [isMounted, isDismissed, isStandaloneMode, pathname]);
 
   function handleDismiss() {
     try {
@@ -50,7 +62,7 @@ export function PwaPromptAlert() {
     } catch {
       // ignore
     }
-    setShow(false);
+    setIsDismissed(true);
   }
 
   function handleLearn() {
@@ -58,24 +70,24 @@ export function PwaPromptAlert() {
     router.push('/pwa');
   }
 
-  if (!show) return null;
+  if (!shouldShow) return null;
 
   return (
-    <div className="fixed bottom-8 left-1/2 z-50 w-full max-w-md -translate-x-1/2 px-4">
-      <Alert className="w-full shadow-lg">
+    <div className="fixed inset-x-0 bottom-0 z-50 px-4 pb-[max(env(safe-area-inset-bottom),1rem)]">
+      <Alert className="mx-auto w-full max-w-md shadow-lg">
         <AlertTitle>Add to Home Screen for faster access.</AlertTitle>
         <AlertDescription>
           Install this web app as a Progressive Web App (PWA) for faster access
           and improved usability.
         </AlertDescription>
-        <AlertAction className="flex justify-between gap-2">
+        <div className="mt-3 flex items-center justify-between gap-2">
           <Button size="sm" variant="ghost" onClick={handleDismiss}>
             Dismiss
           </Button>
           <Button size="sm" variant="default" onClick={handleLearn}>
             Learn
           </Button>
-        </AlertAction>
+        </div>
       </Alert>
     </div>
   );

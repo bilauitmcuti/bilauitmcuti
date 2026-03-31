@@ -684,8 +684,8 @@ export const GridView = memo(function GridView({
     const SCROLL_SETTLE_MS = 160;
 
     const onScrollActivity = (event: Event) => {
-      const target = event.target as HTMLElement | null;
-      if (target?.closest('[data-mini-calendar-tooltip]')) return;
+      const target = event.target;
+      if (target instanceof Element && target.closest('[data-mini-calendar-tooltip]')) return;
       const wasSuppressed = suppressHoverDuringScrollRef.current;
       suppressHoverDuringScrollRef.current = true;
       if (!wasSuppressed) {
