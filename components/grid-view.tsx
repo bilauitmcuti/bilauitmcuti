@@ -31,13 +31,13 @@ function TooltipActivityList({
   currentDateStr,
   showKKT,
 }: TooltipActivityListProps) {
-  const PAGE_SIZE = 8;
+  const PAGE_SIZE = 7;
   const [startIndex, setStartIndex] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const mediaQuery = window.matchMedia('(max-width: 640px)');
+    const mediaQuery = window.matchMedia('(max-width: 768px)');
     const sync = () => setIsMobile(mediaQuery.matches);
     sync();
     mediaQuery.addEventListener('change', sync);
@@ -51,7 +51,7 @@ function TooltipActivityList({
   const shouldPaginate = isMobile && activities.length > PAGE_SIZE;
   const hasPrev = startIndex > 0;
   const hasNext = startIndex + PAGE_SIZE < activities.length;
-  const visible = shouldPaginate
+  const visibleActivities = shouldPaginate
     ? activities.slice(startIndex, startIndex + PAGE_SIZE)
     : activities;
 
@@ -71,7 +71,7 @@ function TooltipActivityList({
       ) : null}
 
       <div className="space-y-2">
-        {visible.map((activity, idx) => {
+        {visibleActivities.map((activity, idx) => {
           const dotColor =
             activity.type === 'registration' ? 'bg-[#d1d5db]' :
             activity.type === 'lecture' ? 'bg-[#8b5cf6]' :
@@ -88,8 +88,6 @@ function TooltipActivityList({
             : getProgramBadgesConfig(activity, selectedProgram).length > 0
               ? getProgramBadgesConfig(activity, selectedProgram)
               : getProgramBadgeConfig(activity) ? [getProgramBadgeConfig(activity)!] : [];
-          // Tooltip should show clean activity name + optional countdown only.
-          // We intentionally do NOT concatenate `details` into the name.
           const label = activity.name;
           const displayName = days != null ? `${label} (${formatCountdown(days)})` : label;
 
@@ -427,12 +425,12 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
     if (!isCurrentDateInRange) return '';
     const activities = getDayActivities(day);
     const highest = activities[0];
-    if (!highest) return 'border border-gray-400/50';
-    if (highest.type === 'registration') return 'border border-[#d1d5db]';
-    if (highest.type === 'lecture') return 'border border-[#8b5cf6]';
-    if (highest.type === 'examination') return 'border border-[#dc2626]';
-    if (highest.type === 'break') return 'border border-[#10b981]';
-    return 'border border-gray-400/50';
+    if (!highest) return 'border-[1.5px] border-gray-400/50';
+    if (highest.type === 'registration') return 'border-[1.5px] border-[#d1d5db]';
+    if (highest.type === 'lecture') return 'border-[1.5px] border-[#8b5cf6]';
+    if (highest.type === 'examination') return 'border-[1.5px] border-[#dc2626]';
+    if (highest.type === 'break') return 'border-[1.5px] border-[#10b981]';
+    return 'border-[1.5px] border-gray-400/50';
   };
 
   // Check if date is current date
@@ -614,7 +612,7 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
                       a.endDate ?? '',
                       a.type,
                       a.programType ?? '',
-                      a.semua ? '1' : '0',
+                      a.allStudents ? '1' : '0',
                     ].join('|');
                     if (seenKey.has(key)) return false;
                     seenKey.add(key);
@@ -626,7 +624,7 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
                     <TooltipContent suppressHydrationWarning
                       data-mini-calendar-tooltip={dateStr}
                       side="top"
-                      className="w-auto max-w-[300px] sm:max-w-[330px] px-3 py-1 mx-2 rounded-lg shadow-lg border border-border bg-popover text-popover-foreground [&[data-side='top']]:before:content-none transition-none"
+                      className="w-auto max-w-[300px] overflow-hidden sm:max-w-[330px] px-3 py-1 mx-2 rounded-lg shadow-lg border border-border bg-popover text-popover-foreground [&[data-side='top']]:before:content-none"
                       sideOffset={8}
                       collisionPadding={12}
                       style={{ pointerEvents: 'auto' } as React.CSSProperties & { '--radix-tooltip-content-transform-origin'?: string }}
@@ -685,7 +683,9 @@ export const GridView = memo(function GridView({
 
     const SCROLL_SETTLE_MS = 160;
 
-    const onScrollActivity = () => {
+    const onScrollActivity = (event: Event) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('[data-mini-calendar-tooltip]')) return;
       const wasSuppressed = suppressHoverDuringScrollRef.current;
       suppressHoverDuringScrollRef.current = true;
       if (!wasSuppressed) {

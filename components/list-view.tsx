@@ -101,7 +101,7 @@ export const ListView = memo(function ListView({
     // Filter out Others Exams (Khas + English Exit Test) if toggle is off
     if (type === 'examination' && (activity?.name?.includes('Khas') || activity?.name?.includes('English Exit Test') || activity?.name?.includes('EET Lisan')) && !showOthersExams) return false;
     
-    // Handle "All" option - show all Group B activities (semua and every programType)
+    // Handle "All" option - show all Group B activities (all-student and every programType)
     if (selectedProgram === 'All') {
       return true;
     }
@@ -199,7 +199,7 @@ export const ListView = memo(function ListView({
               activity.duration || '',
               activity.regionalStartDate || '',
               activity.regionalEndDate || '',
-              activity.semua ? '1' : '0',
+              activity.allStudents ? '1' : '0',
               activity.programTypes?.length ? activity.programTypes.join(',') : getNormalizedProgramType(activity.programType),
             ].join('|');
 

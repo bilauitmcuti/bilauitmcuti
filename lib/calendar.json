@@ -821,7 +821,7 @@
           "details": "Secara Online",
           "type": "lecture",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Proses Entrance Survey",
@@ -830,7 +830,7 @@
           "duration": "5 Minggu",
           "type": "other",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Cuti Pertengahan Semester / Cuti Perayaan",
@@ -840,7 +840,7 @@
           "details": "Hari Raya Aidil Adha - 27 Mei, Hari Perayaan Tadau Kaamatan - 30 & 31 Mei, Hari Gawai - 1 & 2 Jun",
           "type": "break",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Lecture 2",
@@ -851,7 +851,7 @@
           "regionalEndDate": "2026-05-23",
           "type": "lecture",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Lecture 3",
@@ -862,7 +862,7 @@
           "regionalEndDate": "2026-07-11",
           "type": "lecture",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Proses Exit Survey",
@@ -871,7 +871,7 @@
           "duration": "5 Minggu",
           "type": "other",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Student Feedback Online (SuFO)",
@@ -880,7 +880,7 @@
           "duration": "5 Minggu",
           "type": "other",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "English Exit Test (EET Speaking)",
@@ -889,7 +889,7 @@
           "duration": "1 Minggu",
           "type": "examination",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Minggu Ulangkaji",
@@ -898,7 +898,7 @@
           "duration": "1 Minggu",
           "type": "break",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Penilaian / Peperiksaan Akhir / EET (Bertulis)",
@@ -907,7 +907,7 @@
           "duration": "3 Minggu",
           "type": "examination",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Short Semester (202633)",
@@ -916,7 +916,7 @@
           "duration": "7 Minggu",
           "type": "lecture",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Intersession Classes (20263)",
@@ -925,7 +925,7 @@
           "duration": "5 Minggu",
           "type": "lecture",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Peperiksaan/Penilaian Khas/Intersesi/Short Semester",
@@ -934,7 +934,7 @@
           "duration": "5 Hari",
           "type": "examination",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Peperiksaan / Penilaian Khas",
@@ -942,7 +942,7 @@
           "endDate": "2026-09-25",
           "type": "examination",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Cuti Semester",
@@ -951,7 +951,7 @@
           "duration": "7 Minggu",
           "type": "break",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Pendaftaran Kursus Pelajar Baharu mod ePJJ / PLK",
@@ -959,7 +959,7 @@
           "endDate": "2026-04-26",
           "type": "registration",
           "group": "B",
-          "semua": true,
+          "allStudents": true,
           "general": true
         },
         {
@@ -994,14 +994,14 @@
           "endDate": "2026-04-26",
           "type": "registration",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Tarikh Akhir Keputusan Permohonan Penangguhan Pembayaran Yuran",
           "startDate": "2026-04-27",
           "type": "registration",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Tempoh Validasi Kursus Berdaftar Semester Semasa",
@@ -1009,7 +1009,7 @@
           "endDate": "2026-05-03",
           "type": "registration",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Permohonan Daftar / Gugur Kursus Lewat / Luar Tempoh",
@@ -1017,21 +1017,21 @@
           "endDate": "2026-05-10",
           "type": "registration",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Tarikh Akhir Pembayaran Yuran",
           "startDate": "2026-05-16",
           "type": "registration",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Gugur Taraf (GT)",
           "startDate": "2026-05-22",
           "type": "registration",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Permohonan Rayuan Pembatalan Gugur Taraf (RPGT)",
@@ -1039,7 +1039,7 @@
           "endDate": "2026-05-29",
           "type": "registration",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Keputusan Rayuan Pembatalan Gugur Taraf (RPGT)",
@@ -1047,42 +1047,42 @@
           "endDate": "2026-06-01",
           "type": "registration",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Pelajar Mula Cetak Slip Menduduki Peperiksaan",
           "startDate": "2026-06-08",
           "type": "examination",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Tarikh Akhir Pembayaran Yuran / Permohonan Penangguhan Bayaran Yuran Bagi Pelajar Yang Diluluskan RPGT",
           "startDate": "2026-06-12",
           "type": "registration",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Gugur Taraf Bagi Pelajar Yang Masih Tidak Mendaftar Kursus dan Tiada Pembayaran Yuran (GT2)",
           "startDate": "2026-06-19",
           "type": "registration",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Tarikh Akhir Pembayaran Yuran Bagi Pelajar Yang Diluluskan Penangguhan Pembayaran Yuran",
           "startDate": "2026-06-26",
           "type": "registration",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Gugur Taraf Muktamad",
           "startDate": "2026-07-01",
           "type": "registration",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Persetujuan Menerima Tawaran UiTM Secara Online",
@@ -1359,7 +1359,7 @@
           "endDate": "2026-11-01",
           "type": "registration",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Tarikh Akhir Kemaskini Rekod Pelajar (spt Nama, IC & MUET) di iStudent Portal",
@@ -1367,7 +1367,7 @@
           "endDate": "2026-12-30",
           "type": "registration",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Program Minggu Destini Siswa (MDS) & Program Minggu Edu 5.0@UiTM",
@@ -1517,7 +1517,7 @@
           "endDate": "2026-10-18",
           "type": "registration",
           "group": "B",
-          "semua": true,
+          "allStudents": true,
           "general": true
         },
         {
@@ -1552,7 +1552,7 @@
           "endDate": "2026-10-18",
           "type": "other",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Tarikh Akhir Keputusan Permohonan Penangguhan Pembayaran Yuran",
@@ -1560,7 +1560,7 @@
           "endDate": "2026-10-19",
           "type": "other",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Tempoh Validasi Kursus Berdaftar Semester Semasa",
@@ -1568,7 +1568,7 @@
           "endDate": "2026-11-01",
           "type": "registration",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Permohonan Daftar / Gugur Kursus Lewat / Luar Tempoh",
@@ -1576,7 +1576,7 @@
           "endDate": "2026-11-08",
           "type": "registration",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Tarikh Akhir Pembayaran Yuran",
@@ -1584,7 +1584,7 @@
           "endDate": "2026-11-18",
           "type": "other",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Gugur Taraf (GT)",
@@ -1592,7 +1592,7 @@
           "endDate": "2026-11-25",
           "type": "other",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Permohonan Rayuan Pembatalan Gugur Taraf (RPGT)",
@@ -1600,7 +1600,7 @@
           "endDate": "2026-12-03",
           "type": "other",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Keputusan Rayuan Pembatalan Gugur Taraf (RPGT)",
@@ -1608,7 +1608,7 @@
           "endDate": "2026-12-04",
           "type": "other",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Pelajar Mula Cetak Slip Menduduki Peperiksaan",
@@ -1616,7 +1616,7 @@
           "endDate": "2026-12-07",
           "type": "examination",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Tarikh Akhir Pembayaran Yuran / Permohonan Penangguhan Bayaran Yuran Bagi Pelajar Yang Diluluskan RPGT",
@@ -1624,7 +1624,7 @@
           "endDate": "2026-12-11",
           "type": "other",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Gugur Taraf Bagi Pelajar Yang Masih Tidak Mendaftar Kursus dan Tiada Pembayaran Yuran (GT2)",
@@ -1632,7 +1632,7 @@
           "endDate": "2026-12-18",
           "type": "other",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Tarikh Akhir Pembayaran Yuran Bagi Pelajar Yang Diluluskan Penangguhan Pembayaran Yuran",
@@ -1640,7 +1640,7 @@
           "endDate": "2026-12-22",
           "type": "other",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Gugur Taraf Muktamad",
@@ -1648,7 +1648,7 @@
           "endDate": "2026-12-31",
           "type": "other",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Lecture 1",
@@ -1657,7 +1657,7 @@
           "duration": "12 Minggu",
           "type": "lecture",
           "group": "B",
-          "semua": true,
+          "allStudents": true,
           "regionalStartDate": "2026-09-27",
           "regionalEndDate": "2026-12-19"
         },
@@ -1668,7 +1668,7 @@
           "duration": "5 Minggu",
           "type": "other",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Cuti Pertengahan Semester / Cuti Perayaan (Krismas)",
@@ -1677,7 +1677,7 @@
           "duration": "1 Minggu",
           "type": "break",
           "group": "B",
-          "semua": true,
+          "allStudents": true,
           "details": "Krismas - 25 Disember"
         },
         {
@@ -1687,7 +1687,7 @@
           "duration": "2 Minggu",
           "type": "lecture",
           "group": "B",
-          "semua": true,
+          "allStudents": true,
           "regionalStartDate": "2026-12-27",
           "regionalEndDate": "2027-01-09"
         },
@@ -1698,7 +1698,7 @@
           "duration": "5 Minggu",
           "type": "other",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Student Feedback Online (SuFO)",
@@ -1707,7 +1707,7 @@
           "duration": "5 Minggu",
           "type": "other",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "English Exit Test (EET Speaking)",
@@ -1716,7 +1716,7 @@
           "duration": "1 Minggu",
           "type": "examination",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Minggu Ulangkaji",
@@ -1725,7 +1725,7 @@
           "duration": "1 Minggu",
           "type": "break",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Penilaian / Peperiksaan Akhir / EET (Bertulis)",
@@ -1734,7 +1734,7 @@
           "duration": "3 Minggu",
           "type": "examination",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Cuti Semester",
@@ -1743,7 +1743,7 @@
           "duration": "4 Minggu",
           "type": "break",
           "group": "B",
-          "semua": true
+          "allStudents": true
         }
       ]
     },
@@ -1795,7 +1795,7 @@
           "endDate": "2027-04-25",
           "type": "registration",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Tarikh Akhir Kemaskini Rekod Pelajar (spt Nama, IC & MUET) di iStudent Portal",
@@ -1803,7 +1803,7 @@
           "endDate": "2027-07-01",
           "type": "registration",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Program Minggu Destini Siswa (MDS) & Program Minggu Edu 5.0@UiTM",
@@ -1928,7 +1928,7 @@
           "endDate": "2027-04-11",
           "type": "registration",
           "group": "B",
-          "semua": true,
+          "allStudents": true,
           "general": true
         },
         {
@@ -1963,7 +1963,7 @@
           "endDate": "2027-04-12",
           "type": "other",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Tarikh Akhir Keputusan Permohonan Penangguhan Pembayaran Yuran",
@@ -1971,7 +1971,7 @@
           "endDate": "2027-04-19",
           "type": "other",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Tempoh Validasi Kursus Berdaftar Semester Semasa",
@@ -1979,7 +1979,7 @@
           "endDate": "2027-04-25",
           "type": "registration",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Permohonan Daftar / Gugur Kursus Lewat / Luar Tempoh",
@@ -1987,7 +1987,7 @@
           "endDate": "2027-05-02",
           "type": "registration",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Tarikh Akhir Pembayaran Yuran",
@@ -1995,7 +1995,7 @@
           "endDate": "2027-05-05",
           "type": "other",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Gugur Taraf (GT)",
@@ -2003,7 +2003,7 @@
           "endDate": "2027-05-12",
           "type": "other",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Permohonan Rayuan Pembatalan Gugur Taraf (RPGT)",
@@ -2011,7 +2011,7 @@
           "endDate": "2027-05-24",
           "type": "other",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Keputusan Rayuan Pembatalan Gugur Taraf (RPGT)",
@@ -2019,7 +2019,7 @@
           "endDate": "2027-05-25",
           "type": "other",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Pelajar Mula Cetak Slip Menduduki Peperiksaan",
@@ -2027,7 +2027,7 @@
           "endDate": "2027-06-03",
           "type": "examination",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Tarikh Akhir Pembayaran Yuran / Permohonan Penangguhan Bayaran Yuran Bagi Pelajar Yang Diluluskan RPGT",
@@ -2035,7 +2035,7 @@
           "endDate": "2027-06-10",
           "type": "other",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Gugur Taraf Bagi Pelajar Yang Masih Tidak Mendaftar Kursus dan Tiada Pembayaran Yuran (GT2)",
@@ -2043,7 +2043,7 @@
           "endDate": "2027-06-17",
           "type": "other",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Tarikh Akhir Pembayaran Yuran Bagi Pelajar Yang Diluluskan Penangguhan Pembayaran Yuran",
@@ -2051,7 +2051,7 @@
           "endDate": "2027-06-24",
           "type": "other",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Gugur Taraf Muktamad",
@@ -2059,7 +2059,7 @@
           "endDate": "2027-07-02",
           "type": "other",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Lecture 1",
@@ -2068,7 +2068,7 @@
           "duration": "9 Minggu",
           "type": "lecture",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Proses Entrance Survey",
@@ -2077,7 +2077,7 @@
           "duration": "5 Minggu",
           "type": "other",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Lecture 2",
@@ -2086,7 +2086,7 @@
           "duration": "2 Minggu",
           "type": "lecture",
           "group": "B",
-          "semua": true,
+          "allStudents": true,
           "details": "Secara Online. Hari Raya Aidil Adha - 17 & 18 Mei"
         },
         {
@@ -2096,7 +2096,7 @@
           "duration": "1 Minggu",
           "type": "break",
           "group": "B",
-          "semua": true,
+          "allStudents": true,
           "details": "Hari Perayaan Tadau Kaamatan - 30 & 31 Mei, Hari Gawai - 1 & 2 Jun"
         },
         {
@@ -2106,7 +2106,7 @@
           "duration": "3 Minggu",
           "type": "lecture",
           "group": "B",
-          "semua": true,
+          "allStudents": true,
           "regionalStartDate": "2027-06-06",
           "regionalEndDate": "2027-06-26"
         },
@@ -2117,7 +2117,7 @@
           "duration": "5 Minggu",
           "type": "other",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Student Feedback Online (SuFO)",
@@ -2126,7 +2126,7 @@
           "duration": "5 Minggu",
           "type": "other",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "English Exit Test (EET Speaking)",
@@ -2135,7 +2135,7 @@
           "duration": "1 Minggu",
           "type": "examination",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Minggu Ulangkaji",
@@ -2144,7 +2144,7 @@
           "duration": "1 Minggu",
           "type": "break",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Penilaian / Peperiksaan Akhir / EET (Bertulis)",
@@ -2153,7 +2153,7 @@
           "duration": "3 Minggu",
           "type": "examination",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Short Semester (202733)",
@@ -2162,7 +2162,7 @@
           "duration": "7 Minggu",
           "type": "lecture",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Intersession Classes (20273)",
@@ -2171,7 +2171,7 @@
           "duration": "5 Minggu",
           "type": "lecture",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Peperiksaan/Penilaian Khas/Intersesi/Short Semester",
@@ -2180,7 +2180,7 @@
           "duration": "1 Minggu",
           "type": "examination",
           "group": "B",
-          "semua": true
+          "allStudents": true
         },
         {
           "name": "Cuti Semester",
@@ -2189,7 +2189,7 @@
           "duration": "8 Minggu",
           "type": "break",
           "group": "B",
-          "semua": true
+          "allStudents": true
         }
       ]
     }

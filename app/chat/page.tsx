@@ -1278,7 +1278,7 @@ export default function ChatPage() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
-                  className="min-w-[260px] overflow-visible pt-4 pb-4 pl-3 pr-3 bg-popover dark:bg-[#2A2A2A] border border-border"
+                  className="min-w-[260px] overflow-visible pt-4 pb-4 pl-3 pr-3 bg-popover dark:bg-[#2A2A2A]"
                   align="start"
                 >
                   <div className="-mx-1 px-1">
@@ -1306,7 +1306,7 @@ export default function ChatPage() {
                             </span>
                           </DropdownMenuSubTrigger>
                           <DropdownMenuPortal>
-                            <DropdownMenuSubContent className="min-w-[200px] bg-popover dark:bg-[#2A2A2A] border border-border">
+                            <DropdownMenuSubContent className="min-w-[200px] bg-popover dark:bg-[#2A2A2A]">
                               {getSessionOptionsForGroup("A").map((sess) => {
                                 const isSelected = selectedSessions.includes(sess.id);
                                 return (
@@ -1356,7 +1356,7 @@ export default function ChatPage() {
                           </div>
                         </DropdownMenuSubTrigger>
                         <DropdownMenuPortal>
-                          <DropdownMenuSubContent className="min-w-[220px] bg-popover dark:bg-[#2A2A2A] border border-border">
+                          <DropdownMenuSubContent className="min-w-[220px] bg-popover dark:bg-[#2A2A2A]">
                             {getSessionOptionsForGroup("B").map((sess) => {
                               const isSelected = selectedSessions.includes(sess.id);
                               return (

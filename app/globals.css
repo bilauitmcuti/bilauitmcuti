@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
+@import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -133,16 +134,14 @@ input[type="checkbox"],
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.623 0.214 259.815);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
+  --primary: oklch(0.488 0.243 264.376);
+  --primary-foreground: oklch(0.97 0.014 254.604);
+  --secondary: oklch(0.967 0.001 286.375);
+  --secondary-foreground: oklch(0.21 0.006 285.885);
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
   --accent: oklch(0.97 0 0);
@@ -151,20 +150,22 @@ input[type="checkbox"],
   --destructive-foreground: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.623 0.214 259.815);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.546 0.245 262.881);
+  --sidebar-primary-foreground: oklch(0.97 0.014 254.604);
   --sidebar-accent: oklch(0.97 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
 }
 
 .dark {
@@ -174,9 +175,9 @@ input[type="checkbox"],
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.623 0.214 259.815);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.269 0 0);
+  --primary: oklch(0.62 0.19 260);
+  --primary-foreground: oklch(0.97 0.014 254.604);
+  --secondary: oklch(0.274 0.006 286.033);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
@@ -186,16 +187,16 @@ input[type="checkbox"],
   --destructive-foreground: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.623 0.214 259.815);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.623 0.214 259.815);
+  --sidebar-primary-foreground: oklch(0.97 0.014 254.604);
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
@@ -203,7 +204,7 @@ input[type="checkbox"],
 }
 
 @theme inline {
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -241,11 +242,15 @@ input[type="checkbox"],
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  
+
   /* Custom colors for Cuti UiTM */
   --color-public-holiday: oklch(0.62 0.24 35);
   --color-school-holiday: oklch(0.70 0.17 220);
   --color-weekend: oklch(0.25 0.03 45);
+  --font-heading: var(--font-sans);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 @layer base {
@@ -255,7 +260,7 @@ input[type="checkbox"],
   body {
     @apply bg-background text-foreground;
   }
-  
+
   /* Remove focus outline from calendar date cells permanently - COMPREHENSIVE FIX */
   /* Remove ALL focus-related styles including ring, shadow, and outline */
   .calendar-date-cell,
@@ -277,7 +282,7 @@ input[type="checkbox"],
     -moz-user-select: none !important;
     -ms-user-select: none !important;
   }
-  
+
   /* Remove focus outline from Radix TooltipTrigger wrapper */
   [data-slot="tooltip-trigger"],
   [data-slot="tooltip-trigger"]:focus,
@@ -291,20 +296,20 @@ input[type="checkbox"],
     -webkit-tap-highlight-color: transparent !important;
     tap-highlight-color: transparent !important;
   }
-  
+
   /* Override the global outline-ring/50 for calendar cells - only for focus */
   .calendar-date-cell:focus,
   .calendar-date-cell:focus-visible,
   .calendar-date-cell:active {
     outline: none !important;
   }
-  
+
   /* Preserve current date border (1px) - border is not affected by focus ring removal */
   /* Border will work normally for current date outline */
   .calendar-date-cell.border {
     /* Border is separate from focus ring, so it won't be affected */
   }
-  
+
   /* Additional mobile-specific fixes */
   @media (hover: none) and (pointer: coarse) {
     /* Mobile devices */
@@ -316,7 +321,7 @@ input[type="checkbox"],
       box-shadow: none !important;
       -webkit-tap-highlight-color: transparent !important;
     }
-    
+
     [data-slot="tooltip-trigger"]:focus,
     [data-slot="tooltip-trigger"]:focus-visible,
     [data-slot="tooltip-trigger"]:active {
@@ -345,7 +350,7 @@ input[type="checkbox"],
       color: var(--foreground) !important;
     }
   }
-  
+
   /* Chat input area - smooth gradient fade above the input (all devices) */
   .chat-input-area::before {
     content: "";
@@ -396,7 +401,7 @@ input[type="checkbox"],
   .chat-header {
     transition: transform 300ms ease, translate 300ms ease !important;
   }
-  
+
   /* Suggestion swipe carousel with edge fades */
   .suggestions-carousel {
     position: relative;
@@ -438,7 +443,7 @@ input[type="checkbox"],
   .chat-input::-webkit-resizer {
     display: none;
   }
-  
+
   /* Disclaimer text fade animation */
   .disclaimer-fade-in {
     animation: disclaimerFadeIn 600ms ease-in-out forwards !important;
@@ -474,5 +479,8 @@ input[type="checkbox"],
       /* Shift by own width so right-side submenu stays inside viewport. */
       translate: calc(-100% + 48px) 0;
     }
+  }
+  html {
+    @apply font-sans;
   }
 }

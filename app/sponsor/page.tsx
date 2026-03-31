@@ -231,7 +231,7 @@ export default function SponsorPage() {
             <CardHeader className="space-y-1 pb-4 px-3 sm:px-6">
               <div>
                 <CardTitle className="text-2xl font-semibold">Sponsor</CardTitle>
-                <CardDescription className="mt-1 text-base text-foreground">
+                <CardDescription className="mt-1 text-sm text-foreground">
                   Thank you for supporting Bila UiTM Cuti. Use the payment QR below, then submit your details and proof
                   of payment.
                 </CardDescription>
@@ -262,7 +262,7 @@ export default function SponsorPage() {
                       setShowQr(true);
                     }}
                   >
-                    {showQr ? "Hide payment QR" : "Show payment QR"}
+                    {showQr ? "Hide payment QR" : "Show QR Payment"}
                   </Button>
                   {showQr ? (
                     <div className="pt-1">
@@ -328,7 +328,12 @@ export default function SponsorPage() {
                     >
                       <SelectValue placeholder={anonymous ? "Not applicable" : "Select platform"} />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent
+                      position="popper"
+                      sideOffset={6}
+                      align="start"
+                      className="w-[var(--radix-select-trigger-width)]"
+                    >
                       {SPONSOR_SOCIAL_OPTIONS.map((option) => (
                         <SelectItem key={option} value={option}>
                           {option}

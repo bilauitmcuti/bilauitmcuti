@@ -89,7 +89,7 @@ export function normalizeApiActivity(raw: Record<string, unknown>): Activity {
   if (Array.isArray(raw.programTypes)) {
     activity.programTypes = raw.programTypes.map(String);
   }
-  if (typeof raw.semua === "boolean") activity.semua = raw.semua;
+  if (typeof raw.allStudents === "boolean") activity.allStudents = raw.allStudents;
   if (typeof raw.general === "boolean") activity.general = raw.general;
   if (Array.isArray(raw.states)) activity.states = raw.states.map(String);
   if (Array.isArray(raw.programs)) activity.programs = raw.programs.map(String);

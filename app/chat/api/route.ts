@@ -384,7 +384,7 @@ function getActivityDedupeKey(a: Activity): string {
     a.type,
     a.group ?? "",
     a.programTypes?.length ? a.programTypes.join(",") : (a.programType ?? ""),
-    a.semua ? "1" : "0",
+    a.allStudents ? "1" : "0",
     a.details ?? "",
     a.duration ?? "",
     a.regionalStartDate ?? "",
@@ -407,7 +407,7 @@ function dedupeActivities(activities: Activity[]): Activity[] {
  */
 function filterActivityByProgram(activity: Activity, program: string): boolean {
   if (program === "All" || program === "Foundation/Professional") return true;
-  if (activity.semua) return true;
+  if (activity.allStudents) return true;
   if (activity.general) return true;
   if (activity.programTypes?.length)
     return activity.programTypes.includes(program);
@@ -847,7 +847,7 @@ function cleanAiReply(rawReply: string): string {
     "group",
     "details",
     "duration",
-    "semua",
+    "allStudents",
     "regionalStartDate",
     "regionalEndDate",
   ].join("|");

@@ -197,7 +197,7 @@ export default function ContactPage() {
             <CardHeader className="space-y-1 pb-4 px-3 sm:px-6">
               <div>
                 <CardTitle className="text-2xl font-semibold">Contact Form</CardTitle>
-                <CardDescription className="mt-1 text-base text-foreground">
+                <CardDescription className="mt-1 text-sm text-foreground">
                   We&apos;d love to hear what you think. Help us improve by sharing your feedback, or send an email to{" "}
                   <a
                     href="mailto:hello@bilauitmcuti.com"
@@ -219,7 +219,12 @@ export default function ContactPage() {
                     <SelectTrigger id="who" className="h-11 w-full justify-between bg-background">
                       <SelectValue placeholder="Select your role" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent
+                      position="popper"
+                      sideOffset={6}
+                      align="start"
+                      className="w-[var(--radix-select-trigger-width)]"
+                    >
                       {CONTACT_WHO_OPTIONS.map((option) => (
                         <SelectItem key={option} value={option}>
                           {option}
@@ -258,7 +263,12 @@ export default function ContactPage() {
                     <SelectTrigger id="category" className="h-11 w-full justify-between bg-background">
                       <SelectValue placeholder="Select a category" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent
+                      position="popper"
+                      sideOffset={6}
+                      align="start"
+                      className="w-[var(--radix-select-trigger-width)]"
+                    >
                       {CONTACT_CATEGORY_OPTIONS.map((option) => (
                         <SelectItem key={option} value={option}>
                           {option}
@@ -331,7 +341,7 @@ export default function ContactPage() {
           <Card className="mt-4 gap-0 rounded-[10px] shadow-none">
             <CardHeader className="space-y-1 pb-4 px-3 sm:px-6">
               <CardTitle className="text-xl font-semibold">Become Our Sponsors</CardTitle>
-              <CardDescription className="mt-1 text-base text-foreground">
+              <CardDescription className="mt-1 text-sm text-foreground">
                 Support the project and help keep the calendar free for everyone.
               </CardDescription>
             </CardHeader>

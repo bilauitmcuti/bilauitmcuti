@@ -65,7 +65,7 @@ Layari bilauitmcuti.com, pilih program anda (Foundation, Diploma, Bachelor, dll)
 Cuti semester UiTM berbeza mengikut kumpulan program dan sesi. Semak tarikh cuti semester lengkap di bilauitmcuti.com dengan memilih program anda.
 
 ## Data Structure
-Activities are defined by: month/year, program group (A or B), activity type (registration, lecture, examination, break, other), start and end dates, optional KKT state variants. Types include Short Semester and Intersession Classes where applicable. Each activity may have a programType (PreDiploma, Diploma, DiplomaPartTime, Bachelor, BachelorPartTime, Master, PhD) or semua flag for all students.
+Activities are defined by: month/year, program group (A or B), activity type (registration, lecture, examination, break, other), start and end dates, optional KKT state variants. Types include Short Semester and Intersession Classes where applicable. Each activity may have a programType (PreDiploma, Diploma, DiplomaPartTime, Bachelor, BachelorPartTime, Master, PhD) or allStudents flag for all students.
 
 ## Structured Data (JSON-LD)
 The site uses the following Schema.org types:

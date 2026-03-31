@@ -323,7 +323,7 @@ export function CalendarControls({
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="min-w-[260px] overflow-visible pt-4 pb-4 pl-3 pr-3 bg-popover dark:bg-[#2A2A2A] border border-border" align="start">
+            <DropdownMenuContent className="min-w-[260px] overflow-visible pt-4 pb-4 pl-3 pr-3 bg-popover dark:bg-[#2A2A2A]" align="start">
               <div className="-mx-1 px-1">
                 {/* Group A */}
                 <div className="mb-2">
@@ -350,7 +350,7 @@ export function CalendarControls({
                         </span>
                       </DropdownMenuSubTrigger>
                       <DropdownMenuPortal>
-                        <DropdownMenuSubContent className="min-w-[200px] bg-popover dark:bg-[#2A2A2A] border border-border">
+                        <DropdownMenuSubContent className="min-w-[200px] bg-popover dark:bg-[#2A2A2A]">
                           {getSessionOptionsForGroup('A').map((sess) => {
                             const isSelected = selectedSessions.includes(sess.id);
                             return (
@@ -399,7 +399,7 @@ export function CalendarControls({
                       </div>
                     </DropdownMenuSubTrigger>
                     <DropdownMenuPortal>
-                      <DropdownMenuSubContent className="min-w-[220px] bg-popover dark:bg-[#2A2A2A] border border-border">
+                      <DropdownMenuSubContent className="min-w-[220px] bg-popover dark:bg-[#2A2A2A]">
                         {getSessionOptionsForGroup('B').map((sess) => {
                           const isSelected = selectedSessions.includes(sess.id);
                           return (
@@ -498,15 +498,15 @@ export function CalendarControls({
                 </Button>
               </PopoverTrigger>
               <PopoverContent 
-                className="h-auto w-[300px] pt-4 pb-4 pl-4 z-50 border border-border bg-popover dark:bg-[#2A2A2A] pr-4 transition-none"
+                className="h-auto w-[300px] gap-2 pt-4 pb-4 pl-3 pr-3 z-50 bg-popover dark:bg-[#2A2A2A] transition-none"
                 side="bottom"
                 align="end"
                 sideOffset={4}
                 alignOffset={-5}
               >
-                <div className="space-y-3 transition-none">
+                <div className="space-y-2 transition-none">
                   {/* Activity Type Toggles */}
-                  <div className="space-y-2 transition-none">
+                  <div className="space-y-1 transition-none">
                     <label className="flex items-center justify-between cursor-pointer py-0.5 transition-none">
                       <span className="text-sm font-medium text-foreground">Registration</span>
                       <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-none ${showRegistration ? 'bg-primary' : 'bg-muted'}`}
