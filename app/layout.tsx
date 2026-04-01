@@ -19,6 +19,9 @@ export const metadata: Metadata = {
     template: '%s',
   },
   applicationName: 'Bila UiTM Cuti',
+  other: {
+    'site_name': 'Bila UiTM Cuti',
+  },
   description: 'Kalendar akademik UiTM interaktif. Lihat jadual pendaftaran, kuliah, peperiksaan, dan cuti semester. Interactive UiTM academic calendar with registration dates, lecture schedules, examination periods, and breaks. Includes regional variations for Kedah, Kelantan, and Terengganu.',
   keywords: ['UiTM', 'academic calendar', 'registration', 'examination', 'lectures', 'holidays', 'Malaysia', 'Universiti Teknologi MARA', 'UiTM student app', 'Bila UiTM Cuti', 'Cuti UiTM', 'Jadual UiTM', 'Kalendar UiTM', 'Kalendar Akademik UiTM', 'Academic Calendar UiTM', 'jadual akademik UiTM', 'cuti semester UiTM', 'tarikh peperiksaan UiTM', 'tarikh pendaftaran UiTM', 'kuliah UiTM'],
   generator: 'Next.js',
@@ -120,140 +123,64 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               '@context': 'https://schema.org',
-              '@type': 'WebSite',
-              name: 'Bila UiTM Cuti',
-              url: 'https://bilauitmcuti.com',
-              inLanguage: ['ms', 'en'],
-              hasPart: [
+              '@graph': [
                 {
-                  '@type': 'SiteNavigationElement',
-                  name: 'Calendar',
+                  '@type': 'Organization',
+                  '@id': 'https://bilauitmcuti.com/#organization',
+                  name: 'Bila UiTM Cuti',
                   url: 'https://bilauitmcuti.com',
-                },
-                {
-                  '@type': 'SiteNavigationElement',
-                  name: 'List View',
-                  url: 'https://bilauitmcuti.com/list',
-                },
-                {
-                  '@type': 'SiteNavigationElement',
-                  name: 'Install App',
-                  url: 'https://bilauitmcuti.com/pwa',
-                },
-              ],
-            }),
-          }}
-        />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@graph": [
-                {
-                  "@type": "Organization",
-                  "name": "Bila UiTM Cuti",
-                  "url": "https://bilauitmcuti.com",
-                  "logo": "https://bilauitmcuti.com/android-chrome-512x512.png",
-                  "description": "Kalendar akademik UiTM interaktif oleh Shahrul Estar.",
-                },
-                {
-                  "@type": "WebSite",
-                  "name": "Bila UiTM Cuti",
-                  "alternateName": ["Bila UiTM Cuti", "Cuti UiTM", "Kalendar Akademik UiTM"],
-                  "url": "https://bilauitmcuti.com",
-                  "description": "Kalendar akademik UiTM interaktif. Jadual pendaftaran, kuliah, peperiksaan, dan cuti semester. Interactive UiTM academic calendar with registration dates, lecture schedules, examination periods, and breaks.",
-                  "inLanguage": ["ms", "en"],
-                  "publisher": { "@type": "Organization", "name": "Bila UiTM Cuti" },
-                },
-                {
-                  "@type": "WebApplication",
-                  "name": "Bila UiTM Cuti",
-                  "url": "https://bilauitmcuti.com",
-                  "applicationCategory": "EducationalApplication",
-                  "operatingSystem": "All",
-                  "browserRequirements": "Requires JavaScript. Requires HTML5.",
-                  "offers": {
-                    "@type": "Offer",
-                    "price": "0",
-                    "priceCurrency": "MYR",
+                  logo: {
+                    '@type': 'ImageObject',
+                    url: 'https://bilauitmcuti.com/android-chrome-512x512.png',
                   },
                 },
                 {
-                  "@type": "BreadcrumbList",
-                  "itemListElement": [
+                  '@type': 'WebSite',
+                  '@id': 'https://bilauitmcuti.com/#website',
+                  url: 'https://bilauitmcuti.com',
+                  name: 'Bila UiTM Cuti',
+                  alternateName: ['Bila UiTM Cuti', 'Cuti UiTM', 'Kalendar Akademik UiTM'],
+                  publisher: {
+                    '@id': 'https://bilauitmcuti.com/#organization',
+                  },
+                  inLanguage: ['ms-MY', 'en'],
+                  hasPart: [
                     {
-                      "@type": "ListItem",
-                      "position": 1,
-                      "name": "Home",
-                      "item": "https://bilauitmcuti.com",
+                      '@type': 'SiteNavigationElement',
+                      name: 'Foundation/Professional',
+                      url: 'https://bilauitmcuti.com/foundation-professional',
+                    },
+                    {
+                      '@type': 'SiteNavigationElement',
+                      name: 'Pre-Diploma',
+                      url: 'https://bilauitmcuti.com/pre-diploma',
+                    },
+                    {
+                      '@type': 'SiteNavigationElement',
+                      name: 'Diploma',
+                      url: 'https://bilauitmcuti.com/diploma',
+                    },
+                    {
+                      '@type': 'SiteNavigationElement',
+                      name: 'Master',
+                      url: 'https://bilauitmcuti.com/master',
+                    },
+                    {
+                      '@type': 'SiteNavigationElement',
+                      name: 'PhD',
+                      url: 'https://bilauitmcuti.com/phd',
+                    },
+                    {
+                      '@type': 'SiteNavigationElement',
+                      name: 'Calendar',
+                      url: 'https://bilauitmcuti.com',
+                    },
+                    {
+                      '@type': 'SiteNavigationElement',
+                      name: 'List View',
+                      url: 'https://bilauitmcuti.com/list',
                     },
                   ],
-                },
-                {
-                  "@type": "FAQPage",
-                  "mainEntity": [
-                    {
-                      "@type": "Question",
-                      "name": "Bila UiTM buka semester?",
-                      "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": "Tarikh pembukaan semester UiTM berbeza mengikut program. Layari bilauitmcuti.com untuk melihat jadual lengkap pendaftaran dan kuliah bagi Foundation, Pre-Diploma, Diploma, Bachelor, Master dan PhD.",
-                      },
-                    },
-                    {
-                      "@type": "Question",
-                      "name": "Bila peperiksaan UiTM?",
-                      "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": "Tarikh peperiksaan UiTM bergantung kepada program dan semester. Lihat kalendar akademik interaktif di bilauitmcuti.com untuk tarikh peperiksaan tepat termasuk peperiksaan khas dan EET.",
-                      },
-                    },
-                    {
-                      "@type": "Question",
-                      "name": "Apa itu Semester Pendek UiTM?",
-                      "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": "Semester Pendek adalah sesi pengajian singkat yang diadakan antara semester biasa. Ia membolehkan pelajar mengambil kursus tambahan. Jadual Semester Pendek boleh dilihat di bilauitmcuti.com.",
-                      },
-                    },
-                    {
-                      "@type": "Question",
-                      "name": "Macam mana nak guna Bila UiTM Cuti",
-                      "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": "Layari bilauitmcuti.com, pilih program anda (Foundation, Diploma, Bachelor, dll), dan lihat kalendar dalam paparan grid atau senarai. Anda juga boleh install sebagai PWA untuk akses lebih pantas.",
-                      },
-                    },
-                    {
-                      "@type": "Question",
-                      "name": "Bila cuti semester UiTM?",
-                      "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": "Cuti semester UiTM berbeza mengikut kumpulan program. Semak tarikh cuti semester lengkap di bilauitmcuti.com dengan memilih program anda.",
-                      },
-                    },
-                  ],
-                },
-                {
-                  "@type": "SiteNavigationElement",
-                  "name": "Calendar",
-                  "url": "https://bilauitmcuti.com",
-                },
-                {
-                  "@type": "SiteNavigationElement",
-                  "name": "List View",
-                  "url": "https://bilauitmcuti.com/list",
-                },
-                {
-                  "@type": "SiteNavigationElement",
-                  "name": "Chat Assistant",
-                  "url": "https://bilauitmcuti.com/chat",
-                },
-                {
-                  "@type": "SiteNavigationElement",
-                  "name": "Install App",
-                  "url": "https://bilauitmcuti.com/pwa",
                 },
               ],
             }),

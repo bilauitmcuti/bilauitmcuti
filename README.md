@@ -15,6 +15,14 @@ Academic calendar web app for Universiti Teknologi MARA (UiTM) — Malaysia's la
 - Countdown to next activity
 - Calendar catalogue and session data load via **same-origin** API routes (see below); the upstream origin is not exposed to the browser bundle
 
+### Public Holiday
+- Dedicated public holiday routes for **All**, **Federal**, and per-state views in grid/list modes
+- `All` explicitly merges API data from `federal + state` scopes into one dataset
+- Public holiday controls now mirror the academic homepage control style (dropdown, view toggles, settings popover)
+- Responsive dropdown behavior: desktop without inner scroll; touch scroll on tablet/mobile
+- Optional countdown display in grid tooltip and list rows
+- Weekend mode setting (`Sun` / `Mon`) via shadcn tabs in Settings
+
 ### AI Chat Assistant
 - Ask about academic dates, breaks, and exams in English or Malay
 - General UiTM info: campuses, faculties, programs, admission
@@ -154,6 +162,14 @@ app/
     v1/meta/route.ts       # Calendar meta (proxied)
     v1/calendar/route.ts   # Calendar sessions (proxied)
     calendar-proxy/[...path]/route.ts  # Legacy proxy path
+  public-holiday/page.tsx
+  public-holiday/list/page.tsx
+  public-holiday-federal/page.tsx
+  public-holiday-federal/list/page.tsx
+  public-holiday-state/page.tsx
+  public-holiday-state/list/page.tsx
+  public-holiday-[state]/page.tsx      # e.g. /public-holiday-johor
+  public-holiday-[state]/list/page.tsx
 components/
   ui/                      # shadcn/ui components
   shared-calendar-layout.tsx
@@ -161,12 +177,21 @@ components/
   calendar-header.tsx
   grid-view.tsx            # Grid calendar (scroll-aware hover/tooltips)
   list-view.tsx
+  public-holiday-wrapper.tsx
+  public-holiday-layout.tsx
+  public-holiday-controls.tsx
+  public-holiday-grid-view.tsx
+  public-holiday-list-view.tsx
   theme-toggle.tsx
 lib/
   ai.ts                    # Groq AI integration
   data.ts                  # Academic calendar logic (activities, dates)
   calendar-api.ts          # Client fetch helpers (same-origin)
   calendar-store.ts        # Client calendar session store
+  public-holiday-api.ts
+  public-holiday-merge.ts
+  public-holiday-route-utils.ts
+  public-holiday-types.ts
   env.ts                   # Centralized env validation
   rate-limit.ts            # Rate limiting (KV or in-memory fallback)
   logger.ts

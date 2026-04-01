@@ -215,7 +215,6 @@ export function SharedCalendarLayout({
   const pathname = usePathname();
   const router = useRouter();
   const isHomepage = pathname === '/' || pathname === '/list';
-  const [isPwaMode, setIsPwaMode] = useState(false);
 
   const routeSelectedProgram = useMemo((): ProgramValue => {
     return resolveProgramFromPathAndProps(pathname, programFromRoute);
@@ -235,13 +234,6 @@ export function SharedCalendarLayout({
     if ('scrollRestoration' in history) {
       history.scrollRestoration = 'manual';
     }
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-    const isMinimalUI = (window.navigator as { standalone?: boolean }).standalone === true;
-    setIsPwaMode(isStandalone || isMinimalUI);
   }, []);
 
   // Scroll to top when mounting or returning from chat/PWA (consistent with grid/list view switch)
@@ -643,21 +635,6 @@ export function SharedCalendarLayout({
           />
         </div>
 
-        {!isPwaMode && (
-          <section className="pt-6 pb-2 text-center">
-            <h2 className="text-xl font-semibold">Our Sponsors</h2>
-            <h3 className="mt-2 text-lg font-medium">
-              <a
-                href="https://www.threads.com/@arezmie"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline-offset-4 hover:underline"
-              >
-                @arezmie
-              </a>
-            </h3>
-          </section>
-        )}
       </div>
     </div>
     </CalendarDataGate>
