@@ -1,7 +1,6 @@
 // Export types for use in other components
 export type ViewMode = 'list' | 'grid';
 
-export const runtime = 'edge';
 
 import { CalendarWrapper } from '@/components/calendar-wrapper';
 import Link from 'next/link';

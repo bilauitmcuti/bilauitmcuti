@@ -293,8 +293,8 @@ export default function SponsorPage() {
                   </label>
                 </div>
 
-                <div className="space-y-2">
-                  <label htmlFor="nickname" className="text-sm font-semibold">
+                <div>
+                  <label htmlFor="nickname" className="mb-3 block text-sm font-semibold">
                     Nickname
                   </label>
                   <input
@@ -309,8 +309,8 @@ export default function SponsorPage() {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label htmlFor="socialPlatform" className="text-sm font-semibold">
+                <div>
+                  <label htmlFor="socialPlatform" className="mb-3 block text-sm font-semibold">
                     Social media
                   </label>
                   <Select
@@ -340,8 +340,8 @@ export default function SponsorPage() {
                 </div>
 
                 {!anonymous && socialPlatform ? (
-                  <div className="space-y-2">
-                    <label htmlFor="socialHandle" className="text-sm font-semibold">
+                  <div>
+                    <label htmlFor="socialHandle" className="mb-3 block text-sm font-semibold">
                       URL or username
                     </label>
                     <input
@@ -359,8 +359,8 @@ export default function SponsorPage() {
                   </div>
                 ) : null}
 
-                <div className="space-y-2">
-                  <label htmlFor="message" className="text-sm font-semibold">
+                <div>
+                  <label htmlFor="message" className="mb-3 block text-sm font-semibold">
                     Message
                   </label>
                   <Textarea
@@ -372,13 +372,13 @@ export default function SponsorPage() {
                     placeholder="Share your message of support"
                     className="resize-none bg-background text-sm placeholder:text-sm dark:bg-[#2A2A2A]"
                   />
-                  <div className="text-xs text-muted-foreground">
+                  <div className="mt-2 text-xs text-muted-foreground">
                     {messageLength}/{SPONSOR_MAX_MESSAGE_LENGTH} characters
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label htmlFor="proof" className="text-sm font-semibold">
+                <div>
+                  <label htmlFor="proof" className="mb-3 block text-sm font-semibold">
                     Proof of payment
                   </label>
                   <input
@@ -389,7 +389,7 @@ export default function SponsorPage() {
                     onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
                     className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border file:border-border file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-foreground"
                   />
-                  <div className="text-xs text-muted-foreground">Image or PDF, max 10 MB.</div>
+                  <div className="mt-2 text-xs text-muted-foreground">Image or PDF, max 10 MB.</div>
                 </div>
 
                 {requiresTurnstile ? (

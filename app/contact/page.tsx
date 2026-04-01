@@ -211,8 +211,8 @@ export default function ContactPage() {
 
             <CardContent className="px-3 sm:px-6">
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <label htmlFor="who" className="text-sm font-semibold">
+                <div>
+                  <label htmlFor="who" className="mb-3 block text-sm font-semibold">
                     Who are you
                   </label>
                   <Select value={who} onValueChange={setWho}>
@@ -234,8 +234,8 @@ export default function ContactPage() {
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <label htmlFor="email" className="text-sm font-semibold">
+                <div>
+                  <label htmlFor="email" className="mb-3 block text-sm font-semibold">
                     Email address{" "}
                     <span className="font-normal text-muted-foreground">(optional)</span>
                   </label>
@@ -249,14 +249,14 @@ export default function ContactPage() {
                     autoComplete="email"
                     className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none transition-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#2A2A2A]"
                   />
-                  <div className="text-xs text-muted-foreground">
+                  <div className="mt-2 text-xs text-muted-foreground">
                     Your email will only be used to follow up on your feedback. Leave it empty if you&apos;d prefer
                     not to receive a reply.
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label htmlFor="category" className="text-sm font-semibold">
+                <div>
+                  <label htmlFor="category" className="mb-3 block text-sm font-semibold">
                     Category
                   </label>
                   <Select value={category} onValueChange={setCategory}>
@@ -278,8 +278,8 @@ export default function ContactPage() {
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <label htmlFor="message" className="text-sm font-semibold">
+                <div>
+                  <label htmlFor="message" className="mb-3 block text-sm font-semibold">
                     Message
                   </label>
                   <Textarea
@@ -291,7 +291,7 @@ export default function ContactPage() {
                     placeholder="Write your feedback or contact message..."
                     className="resize-none bg-background text-sm placeholder:text-sm dark:bg-[#2A2A2A]"
                   />
-                  <div className="text-xs text-muted-foreground">
+                  <div className="mt-2 text-xs text-muted-foreground">
                     {messageLength}/{MAX_MESSAGE_LENGTH} characters
                   </div>
                 </div>
