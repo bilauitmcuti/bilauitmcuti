@@ -3,7 +3,7 @@
 > Last updated: rolling updates
 
 ## Overview
-Bila UiTM Cuti? is an interactive UiTM calendar web app covering both academic calendar schedules and Malaysia public holiday views. It is not an official UiTM product; it is built by Shahrul Estar for students and staff who need quick access to registration dates, lecture schedules, examination periods, breaks, and public holidays.
+Bila UiTM Cuti? is an interactive UiTM calendar web app for academic calendar schedules. It is not an official UiTM product; it is built by Shahrul Estar for students and staff who need quick access to registration dates, lecture schedules, examination periods, and breaks.
 
 Base URL: https://bilauitmcuti.com
 
@@ -46,22 +46,6 @@ Each program has grid and list views:
 - **/master/list** — Master list view.
 - **/phd** — PhD calendar (Group B).
 - **/phd/list** — PhD list view.
-
-### Public Holiday Pages
-- **/public-holiday** — Public holiday grid view (All = federal + all states merged).
-- **/public-holiday/list** — Public holiday list view.
-- **/public-holiday-federal** — Federal-only public holidays (grid).
-- **/public-holiday-federal/list** — Federal-only public holidays (list).
-- **/public-holiday-state** — All state holidays aggregate (grid).
-- **/public-holiday-state/list** — All state holidays aggregate (list).
-- **/public-holiday-{state}** — Specific state public holiday grid (e.g. johor, kedah).
-- **/public-holiday-{state}/list** — Specific state public holiday list.
-
-Public holiday UI updates:
-- Dropdown and controls follow academic homepage control style.
-- Dropdown behavior is responsive: no inner scroll on desktop; touch scroll on tablet/mobile.
-- Settings include **Show Countdown** and **Weekend Mode (Sun/Mon tabs)**.
-- Countdown appears in public holiday grid tooltip and list rows when enabled.
 
 ## FAQ
 

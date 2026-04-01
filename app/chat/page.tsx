@@ -426,7 +426,7 @@ const SUGGESTIONS_GENERAL = [
   "Tell me about UiTM Shah Alam",
   "Apa itu e-PJJ UiTM?",
   "Senarai fakulti UiTM",
-  "When is the next public holiday?",
+  "When does Semester 1 start for Group B?",
   "When is Hari Raya break?",
   "Bila pendaftaran kursus dibuka?",
   "What programs are in Group A?",

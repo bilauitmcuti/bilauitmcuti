@@ -244,7 +244,6 @@ input[type="checkbox"],
   --color-sidebar-ring: var(--sidebar-ring);
 
   /* Custom colors for Cuti UiTM */
-  --color-public-holiday: oklch(0.62 0.24 35);
   --color-school-holiday: oklch(0.70 0.17 220);
   --color-weekend: oklch(0.25 0.03 45);
   --font-heading: var(--font-sans);
