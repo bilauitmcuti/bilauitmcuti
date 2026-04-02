@@ -731,18 +731,6 @@ export function CalendarControls({
                         </Button>
                       </Link>
 
-                      {!isPWAInstalled && (
-                        <Link href="/sponsor" className="w-full">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="w-full justify-center text-center border-border bg-transparent text-foreground hover:bg-accent hover:text-accent-foreground transition-none"
-                          >
-                            Become Sponsor
-                          </Button>
-                        </Link>
-                      )}
-
                       {/* Download PWA Button - Only show if not already installed */}
                       {!isPWAInstalled && (
                         <Button
