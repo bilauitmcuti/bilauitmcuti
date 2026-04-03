@@ -270,6 +270,29 @@ export function formatSessionLabelWithId(session: Pick<SessionOptionLike, "id" |
 }
 
 /**
+ * Body text and id for responsive session rows: mobile stacks body + id; desktop uses singleLine (same as formatSessionLabelWithId).
+ */
+export function getSessionLabelAndIdParts(session: Pick<SessionOptionLike, "id" | "label">): {
+  body: string;
+  id: string;
+  singleLine: string;
+  canSplit: boolean;
+} {
+  const id = session.id;
+  const singleLine = formatSessionLabelWithId(session);
+  const lastOpen = singleLine.lastIndexOf("(");
+  const lastClose = singleLine.lastIndexOf(")");
+  if (lastOpen >= 0 && lastClose > lastOpen) {
+    const inside = singleLine.slice(lastOpen + 1, lastClose).trim();
+    if (inside === id) {
+      const body = singleLine.slice(0, lastOpen).trim();
+      if (body.length > 0) return { body, id, singleLine, canSplit: true };
+    }
+  }
+  return { body: singleLine, id, singleLine, canSplit: false };
+}
+
+/**
  * Label for a Group A program submenu row: session text with id(s) when that program is selected; otherwise empty.
  */
 export function formatGroupASessionTriggerLabel(

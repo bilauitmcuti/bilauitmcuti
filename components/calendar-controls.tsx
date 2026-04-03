@@ -36,6 +36,7 @@ import { getLabelForProgramValue, getRoutePath } from '@/lib/route-utils';
 import type { ViewMode } from '@/app/page';
 import type { ProgramValue } from '@/lib/route-utils';
 import { sessionSubmenuItemClass } from '@/lib/session-submenu-item-class';
+import { SessionSubmenuItemLabel } from '@/components/session-submenu-item-label';
 
 interface CalendarControlsProps {
   selectedProgram: string;
@@ -372,7 +373,10 @@ export function CalendarControls({
                         </div>
                       </DropdownMenuSubTrigger>
                       <DropdownMenuPortal>
-                        <DropdownMenuSubContent className="min-w-[200px] bg-popover dark:bg-[#2A2A2A]">
+                        <DropdownMenuSubContent
+                          collisionPadding={{ top: 8, right: 28, bottom: 8, left: 8 }}
+                          className="min-w-[200px] bg-popover dark:bg-[#2A2A2A]"
+                        >
                           {getSessionOptionsForGroup('A').map((sess) => {
                             const isSelected = selectedSessions.includes(sess.id);
                             return (
@@ -389,9 +393,7 @@ export function CalendarControls({
                                   className={`pointer-events-none absolute left-2 top-1.5 flex size-3.5 shrink-0 items-center justify-center rounded-full border ${isSelected ? 'border-primary bg-primary' : 'border-muted-foreground'}`}
                                   aria-hidden
                                 />
-                                <span className="min-w-0 flex-1 text-balance leading-snug">
-                                  {formatSessionLabelWithId(sess)}
-                                </span>
+                                <SessionSubmenuItemLabel session={sess} />
                               </DropdownMenuItem>
                             );
                           })}
@@ -426,7 +428,10 @@ export function CalendarControls({
                       </div>
                     </DropdownMenuSubTrigger>
                     <DropdownMenuPortal>
-                      <DropdownMenuSubContent className="min-w-[220px] bg-popover dark:bg-[#2A2A2A]">
+                      <DropdownMenuSubContent
+                        collisionPadding={{ top: 8, right: 28, bottom: 8, left: 8 }}
+                        className="min-w-[220px] bg-popover dark:bg-[#2A2A2A]"
+                      >
                         {getSessionOptionsForGroup('B').map((sess) => {
                           const isSelected = selectedSessions.includes(sess.id);
                           return (
@@ -443,9 +448,7 @@ export function CalendarControls({
                                 className={`pointer-events-none absolute left-2 top-1.5 flex size-3.5 shrink-0 items-center justify-center rounded-full border ${isSelected ? 'border-primary bg-primary' : 'border-muted-foreground'}`}
                                 aria-hidden
                               />
-                              <span className="min-w-0 flex-1 text-balance leading-snug">
-                                {formatSessionLabelWithId(sess)}
-                              </span>
+                              <SessionSubmenuItemLabel session={sess} />
                             </DropdownMenuItem>
                           );
                         })}

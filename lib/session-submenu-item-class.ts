@@ -5,7 +5,8 @@ export function sessionSubmenuItemClass(isSelected: boolean) {
   return cn(
     'relative cursor-pointer items-start pl-8 bg-transparent',
     'focus:bg-transparent focus-visible:bg-transparent data-[highlighted]:bg-transparent',
-    'focus:[&_*]:!text-inherit data-[highlighted]:[&_*]:!text-inherit',
+    /* Inherit row color except .session-submenu-session-id (keeps muted id on hover/touch) */
+    'focus:[&_*:not(.session-submenu-session-id)]:!text-inherit data-[highlighted]:[&_*:not(.session-submenu-session-id)]:!text-inherit',
     isSelected
       ? 'text-primary focus:text-primary data-[highlighted]:text-primary'
       : 'text-foreground focus:text-foreground data-[highlighted]:text-foreground'
