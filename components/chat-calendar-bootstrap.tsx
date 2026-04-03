@@ -22,7 +22,7 @@ function metaFromCalendarJson(): MetaResponse {
 
 /**
  * Keeps program/session dropdowns aligned with the homepage: same source as SSR and
- * CalendarDataGate — `/api/v1/meta?entire=true` (see `fetchMetaCached({ entire: true })`).
+ * CalendarDataGate — `/api/v1/meta?all=true` (see `fetchMetaCached({ entire: true })`).
  * Refetches on every /chat visit so the catalogue matches even after navigating from other routes.
  */
 export function ChatCalendarBootstrap() {

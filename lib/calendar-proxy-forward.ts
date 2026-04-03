@@ -8,7 +8,7 @@ export type CalendarProxyApiSuffix = "v1/meta" | "v1/calendar";
 const ALLOWED_PATHS = new Set<string>(["v1/meta", "v1/calendar"]);
 
 /** Meta: only these are forwarded; other keys (e.g. Next.js `_rsc`) are ignored. */
-const META_QUERY_KEYS = ["group", "entire"] as const;
+const META_QUERY_KEYS = ["group", "all"] as const;
 
 /** Calendar: whitelist matches public API OpenAPI. */
 const CALENDAR_QUERY_KEYS = [
@@ -16,7 +16,6 @@ const CALENDAR_QUERY_KEYS = [
   "group",
   "program",
   "allSessions",
-  "entire",
   "type",
 ] as const;
 
@@ -30,7 +29,7 @@ function upstreamOrigin(): string {
   return u;
 }
 
-function normalizeAllSessionsValue(raw: string): string | null {
+function normalizeBooleanQuery(raw: string): string | null {
   const v = raw.trim().toLowerCase();
   if (v === "true" || v === "1" || v === "yes") return "true";
   if (v === "false" || v === "0" || v === "no") return "false";
@@ -48,7 +47,13 @@ function buildForwardedSearch(
     for (const key of META_QUERY_KEYS) {
       const v = inParams.get(key);
       if (v === null || v === "") continue;
-      out.set(key, v);
+      if (key === "all") {
+        const norm = normalizeBooleanQuery(v);
+        if (norm === null) return "__invalid__";
+        out.set(key, norm);
+      } else {
+        out.set(key, v);
+      }
     }
     const group = out.get("group");
     if (group !== null && group !== "A" && group !== "B") {
@@ -63,7 +68,7 @@ function buildForwardedSearch(
     const v = inParams.get(key);
     if (v === null || v === "") continue;
     if (key === "allSessions") {
-      const norm = normalizeAllSessionsValue(v);
+      const norm = normalizeBooleanQuery(v);
       if (norm === null) return "__invalid__";
       out.set(key, norm);
     } else {

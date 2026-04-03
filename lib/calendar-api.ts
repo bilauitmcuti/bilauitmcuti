@@ -142,7 +142,7 @@ function asMetaPayload(data: unknown): MetaResponse {
 }
 
 export interface FetchMetaOptions {
-  /** When true, requests `/api/v1/meta?entire=true` (browser) or upstream equivalent. */
+  /** When true, requests `/api/v1/meta?all=true` (browser) or upstream equivalent. */
   entire?: boolean;
 }
 
@@ -163,7 +163,7 @@ export async function fetchMeta(options?: FetchMetaOptions): Promise<MetaRespons
   if (existing) return existing;
 
   const url = options?.entire
-    ? buildCalendarRequestUrl("v1/meta", new URLSearchParams({ entire: "true" }))
+    ? buildCalendarRequestUrl("v1/meta", new URLSearchParams({ all: "true" }))
     : buildCalendarRequestUrl("v1/meta");
 
   const promise = (async () => {
@@ -185,7 +185,7 @@ const metaCache = new Map<
 >();
 const META_CACHE_TTL_MS = 5 * 60 * 1000;
 
-/** Short-lived cache for Edge chat / RSC (reduces duplicate meta calls). Separate entries for `entire`. */
+/** Short-lived cache for Edge chat / RSC (reduces duplicate meta calls). Separate entries for full-catalog `entire` option. */
 export async function fetchMetaCached(
   options?: FetchMetaOptions
 ): Promise<MetaResponse> {
@@ -315,7 +315,8 @@ export async function fetchCalendarSession(
 
 /**
  * All sessions in a group (merge into store).
- * GET /api/v1/calendar?group=&allSessions=true&program=
+ * Group A: GET /api/v1/calendar?group=A&allSessions=true
+ * Group B: GET /api/v1/calendar?group=B&allSessions=true&program=All (or specific program).
  */
 export async function fetchCalendarAllSessions(params: {
   group: "A" | "B";
