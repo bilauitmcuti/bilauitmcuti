@@ -35,6 +35,7 @@ import type { SessionId } from '@/lib/data';
 import { getLabelForProgramValue, getRoutePath } from '@/lib/route-utils';
 import type { ViewMode } from '@/app/page';
 import type { ProgramValue } from '@/lib/route-utils';
+import { sessionSubmenuItemClass } from '@/lib/session-submenu-item-class';
 
 interface CalendarControlsProps {
   selectedProgram: string;
@@ -377,7 +378,7 @@ export function CalendarControls({
                             return (
                               <DropdownMenuItem
                                 key={sess.id}
-                                className={`relative cursor-pointer items-start pl-8 bg-transparent data-[highlighted]:bg-transparent ${isSelected ? 'text-primary data-[highlighted]:text-primary' : 'data-[highlighted]:text-foreground'}`}
+                                className={sessionSubmenuItemClass(isSelected)}
                                 onSelect={(event) => {
                                   keepDropdownOpenRef.current = true;
                                   event.preventDefault();
@@ -431,7 +432,7 @@ export function CalendarControls({
                           return (
                             <DropdownMenuItem
                               key={sess.id}
-                              className={`relative cursor-pointer items-start pl-8 bg-transparent data-[highlighted]:bg-transparent ${isSelected ? 'text-primary data-[highlighted]:text-primary' : 'data-[highlighted]:text-foreground'}`}
+                              className={sessionSubmenuItemClass(isSelected)}
                               onSelect={(event) => {
                                 keepDropdownOpenRef.current = true;
                                 event.preventDefault();

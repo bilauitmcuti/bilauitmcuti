@@ -473,11 +473,6 @@ input[type="checkbox"],
       );
     }
 
-    /* Keep default submenu behavior, but nudge right-side submenu left slightly on mobile. */
-    [data-slot="dropdown-menu-sub-content"][data-side="right"] {
-      /* Shift by own width so right-side submenu stays inside viewport. */
-      translate: calc(-100% + 48px) 0;
-    }
   }
   html {
     @apply font-sans;

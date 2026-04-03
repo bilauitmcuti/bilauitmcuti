@@ -16,6 +16,7 @@ import {
 import type { SessionId } from "@/lib/data";
 import { getFiltersFromCookie, type FilterStates } from "@/lib/cookie-utils";
 import { getRoutePath, isProgramValue, type ProgramValue } from "@/lib/route-utils";
+import { sessionSubmenuItemClass } from "@/lib/session-submenu-item-class";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1327,7 +1328,7 @@ export default function ChatPage() {
                                 return (
                                   <DropdownMenuItem
                                     key={sess.id}
-                                    className={`relative cursor-pointer items-start pl-8 bg-transparent data-[highlighted]:bg-transparent ${isSelected ? "text-primary data-[highlighted]:text-primary" : "data-[highlighted]:text-foreground"}`}
+                                    className={sessionSubmenuItemClass(isSelected)}
                                     onSelect={(event) => {
                                       keepDropdownOpenRef.current = true;
                                       event.preventDefault();
@@ -1382,7 +1383,7 @@ export default function ChatPage() {
                               return (
                                 <DropdownMenuItem
                                   key={sess.id}
-                                  className={`relative cursor-pointer items-start pl-8 bg-transparent data-[highlighted]:bg-transparent ${isSelected ? "text-primary data-[highlighted]:text-primary" : "data-[highlighted]:text-foreground"}`}
+                                  className={sessionSubmenuItemClass(isSelected)}
                                   onSelect={(event) => {
                                     keepDropdownOpenRef.current = true;
                                     event.preventDefault();
