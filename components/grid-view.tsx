@@ -503,6 +503,13 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
     return label;
   };
 
+  const getNormalizedProgramType = (programType?: string): string => {
+    if (!programType) return '';
+    if (selectedProgram !== 'All') return programType;
+    if (programType === 'DiplomaPartTime' || programType === 'BachelorPartTime') return 'PartTime';
+    return programType;
+  };
+
   return (
     <div className="group relative w-full h-full transition-none" suppressHydrationWarning style={{ transition: 'none' }}>
       {/* Month header - same styling as list view */}
@@ -611,7 +618,9 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
                       a.startDate,
                       a.endDate ?? '',
                       a.type,
-                      a.programType ?? '',
+                      a.programTypes?.length
+                        ? a.programTypes.join(',')
+                        : getNormalizedProgramType(a.programType),
                       a.allStudents ? '1' : '0',
                     ].join('|');
                     if (seenKey.has(key)) return false;

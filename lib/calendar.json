@@ -1150,13 +1150,6 @@
           "programType": "Diploma"
         },
         {
-          "name": "Pendaftaran Pelajar Baharu",
-          "startDate": "2026-03-07",
-          "type": "registration",
-          "group": "B",
-          "programType": "DiplomaPartTime"
-        },
-        {
           "name": "Proses Serahan Dokumen Pelajar Baharu",
           "startDate": "2026-03-07",
           "type": "registration",
@@ -1237,13 +1230,6 @@
           "type": "registration",
           "group": "B",
           "programType": "Bachelor"
-        },
-        {
-          "name": "Pendaftaran Pelajar Baharu",
-          "startDate": "2026-03-07",
-          "type": "registration",
-          "group": "B",
-          "programType": "BachelorPartTime"
         },
         {
           "name": "Proses Serahan Dokumen Pelajar Baharu",
