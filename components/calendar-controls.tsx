@@ -762,7 +762,7 @@ export function CalendarControls({
                           variant="default"
                           onMouseEnter={() => router.prefetch('/pwa')}
                           onClick={() => router.push('/pwa')}
-                          className="w-full !h-[38px] justify-center text-center transition-none"
+                          className="w-full !h-[38px] justify-center border-border text-center transition-none"
                         >
                           Download as PWA
                         </Button>
@@ -771,9 +771,9 @@ export function CalendarControls({
                       {/* Submit Feedback Button - Secondary */}
                       <Link href="/contact" className="w-full">
                         <Button
-                          size="sm"
-                          variant="secondary"
-                          className="w-full !h-[38px] justify-center text-center transition-none"
+                          size="default"
+                          variant="outline"
+                          className="w-full h-[38px] justify-center border-border bg-background text-black shadow-xs transition-all hover:bg-muted hover:text-foreground dark:border-input dark:bg-input/30 dark:text-foreground dark:hover:bg-input/50"
                         >
                           Send Feedback
                         </Button>

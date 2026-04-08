@@ -305,7 +305,7 @@ export default function SponsorPage() {
                     disabled={anonymous}
                     autoComplete="nickname"
                     placeholder="How we should refer to you"
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none transition-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#2A2A2A]"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm shadow-none outline-none transition-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#2A2A2A]"
                   />
                 </div>
 
@@ -320,7 +320,7 @@ export default function SponsorPage() {
                   >
                     <SelectTrigger
                       id="socialPlatform"
-                      className="h-11 w-full justify-between bg-background disabled:cursor-not-allowed disabled:opacity-50"
+                      className="h-11 w-full justify-between bg-background shadow-none disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <SelectValue placeholder={anonymous ? "Not applicable" : "Select platform"} />
                     </SelectTrigger>
@@ -354,7 +354,7 @@ export default function SponsorPage() {
                           ? "https://..."
                           : "@username or profile link"
                       }
-                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none transition-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring dark:bg-[#2A2A2A]"
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm shadow-none outline-none transition-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring dark:bg-[#2A2A2A]"
                     />
                   </div>
                 ) : null}
@@ -370,7 +370,7 @@ export default function SponsorPage() {
                     maxLength={SPONSOR_MAX_MESSAGE_LENGTH}
                     rows={6}
                     placeholder="Share your message of support"
-                    className="resize-none bg-background text-sm placeholder:text-sm dark:bg-[#2A2A2A]"
+                    className="resize-none bg-background text-sm shadow-none placeholder:text-sm dark:bg-[#2A2A2A]"
                   />
                   <div className="mt-2 text-xs text-muted-foreground">
                     {messageLength}/{SPONSOR_MAX_MESSAGE_LENGTH} characters

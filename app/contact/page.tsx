@@ -216,7 +216,7 @@ export default function ContactPage() {
                     Who are you
                   </label>
                   <Select value={who} onValueChange={setWho}>
-                    <SelectTrigger id="who" className="h-11 w-full justify-between bg-background">
+                    <SelectTrigger id="who" className="h-11 w-full justify-between bg-background shadow-none">
                       <SelectValue placeholder="Select your role" />
                     </SelectTrigger>
                     <SelectContent
@@ -247,7 +247,7 @@ export default function ContactPage() {
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     autoComplete="email"
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none transition-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#2A2A2A]"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm shadow-none outline-none transition-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#2A2A2A]"
                   />
                   <div className="mt-2 text-xs text-muted-foreground">
                     Your email will only be used to follow up on your feedback. Leave it empty if you&apos;d prefer
@@ -260,7 +260,7 @@ export default function ContactPage() {
                     Category
                   </label>
                   <Select value={category} onValueChange={setCategory}>
-                    <SelectTrigger id="category" className="h-11 w-full justify-between bg-background">
+                    <SelectTrigger id="category" className="h-11 w-full justify-between bg-background shadow-none">
                       <SelectValue placeholder="Select a category" />
                     </SelectTrigger>
                     <SelectContent
@@ -289,7 +289,7 @@ export default function ContactPage() {
                     maxLength={MAX_MESSAGE_LENGTH}
                     rows={6}
                     placeholder="Write your feedback or contact message..."
-                    className="resize-none bg-background text-sm placeholder:text-sm dark:bg-[#2A2A2A]"
+                    className="resize-none bg-background text-sm shadow-none placeholder:text-sm dark:bg-[#2A2A2A]"
                   />
                   <div className="mt-2 text-xs text-muted-foreground">
                     {messageLength}/{MAX_MESSAGE_LENGTH} characters

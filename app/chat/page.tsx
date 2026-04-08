@@ -1450,15 +1450,15 @@ export default function ChatPage() {
                     <DrawerTitle>Mention Session Calendar</DrawerTitle>
                     <DrawerDescription>Select a session to insert into your message.</DrawerDescription>
                   </DrawerHeader>
-                  <div className="max-h-[55vh] overflow-auto px-2 pb-3">
+                  <div className="max-h-[55vh] overflow-auto space-y-2 px-2 pb-3">
                     {mentionItems.length > 0 ? (
                       mentionItems.map((item, index) => (
                         <button
                           key={item.id}
                           type="button"
                           onClick={() => handleMentionSelect(item)}
-                          className={`flex w-full flex-col items-start rounded-sm px-2 py-2 text-left text-sm focus-visible:outline-none focus-visible:ring-0 ${
-                            index === activeMentionIndex ? "bg-accent text-accent-foreground" : "text-popover-foreground"
+                          className={`flex w-full flex-col items-start rounded-md border border-border px-2 py-2 text-left text-sm text-secondary-foreground transition-colors focus-visible:outline-none focus-visible:ring-0 ${
+                            index === activeMentionIndex ? "bg-secondary/80" : "bg-secondary md:hover:bg-secondary/80"
                           }`}
                         >
                           <span className="font-medium">{item.label}</span>
@@ -1478,15 +1478,15 @@ export default function ChatPage() {
                     <DialogTitle>Mention Session Calendar</DialogTitle>
                     <DialogDescription>Select a session to insert into your message.</DialogDescription>
                   </DialogHeader>
-                  <div className="max-h-[320px] overflow-auto">
+                  <div className="max-h-[320px] overflow-auto space-y-2">
                     {mentionItems.length > 0 ? (
                       mentionItems.map((item, index) => (
                         <button
                           key={item.id}
                           type="button"
                           onClick={() => handleMentionSelect(item)}
-                          className={`flex w-full flex-col items-start rounded-sm px-2 py-2 text-left text-sm focus-visible:outline-none focus-visible:ring-0 ${
-                            index === activeMentionIndex ? "bg-accent text-accent-foreground" : "text-popover-foreground"
+                          className={`flex w-full flex-col items-start rounded-md border border-border px-2 py-2 text-left text-sm text-secondary-foreground transition-colors focus-visible:outline-none focus-visible:ring-0 ${
+                            index === activeMentionIndex ? "bg-secondary/80" : "bg-secondary md:hover:bg-secondary/80"
                           }`}
                         >
                           <span className="font-medium">{item.label}</span>
