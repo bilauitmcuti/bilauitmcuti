@@ -351,7 +351,7 @@ export function CalendarControls({
                       onOpenChange={(open) => setActiveSubmenu(open ? option.value : null)}
                     >
                       <DropdownMenuSubTrigger
-                        className="cursor-pointer items-start"
+                        className={`cursor-pointer items-start rounded-md ${option.value === selectedProgram ? 'bg-muted' : ''}`}
                         onSelect={(event) => {
                           keepDropdownOpenRef.current = true;
                           event.preventDefault();
@@ -460,7 +460,7 @@ export function CalendarControls({
                   {groupBOptions.map((option) => (
                     <DropdownMenuItem
                       key={option.value}
-                      className={`cursor-pointer font-medium bg-transparent data-[highlighted]:bg-transparent ${option.value === selectedProgram ? 'text-primary data-[highlighted]:text-primary' : 'data-[highlighted]:text-foreground'}`}
+                      className={`cursor-pointer font-medium text-sm data-[highlighted]:bg-muted ${option.value === selectedProgram ? 'bg-muted text-primary data-[highlighted]:text-primary' : 'bg-transparent data-[highlighted]:text-foreground'}`}
                       onClick={() => {
                         setActiveSubmenu(null);
                         setDropdownOpen(false);
@@ -750,29 +750,29 @@ export function CalendarControls({
                   <div className="text-left text-xs pt-0.5 space-y-3 text-muted-foreground transition-none">
                     {/* Buttons Container */}
                     <div className="flex flex-col gap-2 w-full transition-none">
-                      {/* Submit Feedback Button */}
-                      <Link href="/contact" className="w-full">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="w-full justify-center text-center border-border bg-transparent text-foreground hover:bg-accent hover:text-accent-foreground transition-none"
-                        >
-                          Send Feedback
-                        </Button>
-                      </Link>
-
-                      {/* Download PWA Button - Only show if not already installed */}
+                      {/* Download PWA Button - Primary, only show if not already installed */}
                       {!isPWAInstalled && (
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="default"
                           onMouseEnter={() => router.prefetch('/pwa')}
                           onClick={() => router.push('/pwa')}
-                          className="w-full justify-center text-center border-border bg-transparent text-foreground hover:bg-accent hover:text-accent-foreground transition-none"
+                          className="w-full !h-7 justify-center text-center transition-none"
                         >
                           Download as PWA
                         </Button>
                       )}
+
+                      {/* Submit Feedback Button - Secondary */}
+                      <Link href="/contact" className="w-full">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="w-full !h-7 justify-center text-center transition-none"
+                        >
+                          Send Feedback
+                        </Button>
+                      </Link>
                     </div>
 
                     <div className="pt-2 transition-none relative h-5">
