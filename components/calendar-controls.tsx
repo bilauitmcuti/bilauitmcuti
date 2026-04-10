@@ -216,6 +216,9 @@ export function CalendarControls({
   
   // Theme-aware classes
   const bgClass = 'bg-background';
+  /** Shared chrome for program selector + icon toolbar — single source of truth (matches right button group). */
+  const calendarControlClusterSurface =
+    'rounded-lg border border-border bg-secondary dark:bg-[#2A2A2A] shadow-none transition-none';
   const textClass = 'text-foreground';
   const iconInactiveClass = 'text-muted-foreground [&_svg]:text-muted-foreground';
   const iconActiveClass = 'text-foreground [&_svg]:text-foreground';
@@ -318,20 +321,20 @@ export function CalendarControls({
             }}
           >
             <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                className={`w-fit max-w-[180px] sm:max-w-[260px] md:max-w-[300px] min-w-0 overflow-hidden !h-[38px] !py-1 border bg-secondary dark:bg-[#2A2A2A] hover:!bg-secondary dark:hover:!bg-[#2A2A2A] active:!bg-secondary dark:active:!bg-[#2A2A2A] !border !border-border dark:!border-zinc-600 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 !shadow-none ${textClass} flex items-center justify-between gap-2 rounded-lg transition-none`}
+              <button
+                type="button"
+                className={`inline-flex shrink-0 cursor-pointer items-center justify-between gap-1.5 px-2.5 text-sm font-medium whitespace-nowrap outline-none select-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${calendarControlClusterSurface} h-[38px] w-fit min-w-0 max-w-[180px] overflow-hidden sm:max-w-[260px] md:max-w-[300px] ${textClass}`}
                 suppressHydrationWarning
               >
                 <span className="block min-w-0 flex-1 truncate text-left font-medium text-sm">
                   {currentProgramLabel}
                 </span>
                 {dropdownOpen ? (
-                  <ChevronUp className="h-6 w-6 flex-shrink-0" strokeWidth={2} />
+                  <ChevronUp className="size-4 shrink-0" strokeWidth={2} aria-hidden />
                 ) : (
-                  <ChevronDown className="h-6 w-6 flex-shrink-0" strokeWidth={2} />
+                  <ChevronDown className="size-4 shrink-0" strokeWidth={2} aria-hidden />
                 )}
-              </Button>
+              </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="min-w-[260px] overflow-visible pt-4 pb-4 pl-3 pr-3 bg-popover dark:bg-[#2A2A2A]" align="start">
               <div className="-mx-1 px-1">
@@ -483,7 +486,7 @@ export function CalendarControls({
         {/* View controls and Settings combined - Right */}
         <div className="px-0 flex items-center justify-center">
           <div 
-            className={`flex items-center justify-center gap-0 rounded-lg p-1 w-fit border border-border bg-secondary dark:bg-[#2A2A2A] transition-none h-[38px]`}
+            className={`flex items-center justify-center gap-0 p-1 w-fit h-[38px] ${calendarControlClusterSurface}`}
             suppressHydrationWarning
             style={{ transition: 'none' }}
           >
