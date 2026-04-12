@@ -12,6 +12,17 @@ import {
   type ChatMessage,
 } from "@/lib/ai";
 import systemRules from "@/lib/system-rules.json";
+
+interface SystemRulesJson {
+  schemaVersion: number;
+  calendarPromptCompact: string | string[];
+  calendarPromptTemplate: string | string[];
+  researchPrompt: string | string[];
+}
+
+function compilePrompt(sections: string | readonly string[]): string {
+  return typeof sections === "string" ? sections : sections.join("\n\n");
+}
 import {
   ensureSessionsInStore,
   loadActivitiesIntoStoreForChat,
@@ -553,9 +564,9 @@ function toReadableDate(dateStr: string): string {
 }
 
 function formatActivitiesAsContext(activities: Activity[]): string {
-  // Sort chronologically by startDate for clearer AI reasoning
+  // Newest first so model output aligns with descending-date instructions
   const sorted = [...activities].sort(
-    (a, b) => toComparableDateValue(a.startDate) - toComparableDateValue(b.startDate)
+    (a, b) => toComparableDateValue(b.startDate) - toComparableDateValue(a.startDate)
   );
 
   return sorted
@@ -817,8 +828,8 @@ function buildCalendarSystemPrompt(
       ? secondaryContext.slice(0, MAX_SECONDARY_CONTEXT_CHARS) + "\n...[truncated]"
       : secondaryContext;
 
-  const rules = systemRules as { calendarPromptCompact: string; calendarPromptTemplate: string };
-  const template = rules.calendarPromptCompact;
+  const rules = systemRules as SystemRulesJson;
+  const template = compilePrompt(rules.calendarPromptCompact);
   let result = template
     .replace(/\{\{programLabel\}\}/g, programLabel)
     .replace(/\{\{primaryGroup\}\}/g, primaryGroup)
@@ -864,13 +875,13 @@ function buildCalendarSystemPrompt(
 const MAX_UITM_INFO_CHARS = 5_000;
 
 function buildResearchSystemPrompt(todayFormatted: string): string {
-  const rules = systemRules as { researchPrompt: string };
+  const rules = systemRules as SystemRulesJson;
   const truncatedInfo =
     UITM_GENERAL_INFO.length > MAX_UITM_INFO_CHARS
       ? UITM_GENERAL_INFO.slice(0, MAX_UITM_INFO_CHARS) + "\n...[truncated]"
       : UITM_GENERAL_INFO;
 
-  return rules.researchPrompt
+  return compilePrompt(rules.researchPrompt)
     .replace(/\{\{uitmInfo\}\}/g, truncatedInfo)
     .replace(/\{\{today\}\}/g, todayFormatted);
 }

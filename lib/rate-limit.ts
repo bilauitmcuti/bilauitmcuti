@@ -1,10 +1,5 @@
 import type { NextRequest } from "next/server";
 
-const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-/** Known IP (e.g. cf-connecting-ip): requests per rolling minute. */
-const RATE_LIMIT_MAX_PER_MIN = 30;
-/** Unknown IP: fingerprinted via UA + Accept-Language; stricter per-minute cap. */
-const RATE_LIMIT_MAX_UNKNOWN_PER_MIN = 15;
 const RATE_LIMIT_DAILY_MS = 24 * 60 * 60 * 1000;
 const RATE_LIMIT_MAX_PER_DAY = 120;
 const RATE_LIMIT_MAX_UNKNOWN_PER_DAY = 60;
@@ -63,12 +58,6 @@ export function checkRateLimitMemory(ip: string, request: NextRequest): RateLimi
     return { limited: true, message: "Daily limit reached. Please try again tomorrow." };
   }
 
-  const minuteValid = dailyValid.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
-  const maxPerMin = isUnknown ? RATE_LIMIT_MAX_UNKNOWN_PER_MIN : RATE_LIMIT_MAX_PER_MIN;
-  if (minuteValid.length >= maxPerMin) {
-    return { limited: true, message: "Too many requests. Please wait a moment before trying again." };
-  }
-
   dailyValid.push(now);
   rateLimitMap.set(key, dailyValid);
   globalDailyTimestamps = [...globalValid, now];
@@ -112,12 +101,6 @@ export async function checkRateLimitKV(
   const maxDaily = isUnknown ? RATE_LIMIT_MAX_UNKNOWN_PER_DAY : RATE_LIMIT_MAX_PER_DAY;
   if (dailyValid.length >= maxDaily) {
     return { limited: true, message: "Daily limit reached. Please try again tomorrow." };
-  }
-
-  const minuteValid = dailyValid.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
-  const maxPerMin = isUnknown ? RATE_LIMIT_MAX_UNKNOWN_PER_MIN : RATE_LIMIT_MAX_PER_MIN;
-  if (minuteValid.length >= maxPerMin) {
-    return { limited: true, message: "Too many requests. Please wait a moment before trying again." };
   }
 
   const updated = [...dailyValid, now];

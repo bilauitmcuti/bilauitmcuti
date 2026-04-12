@@ -20,7 +20,7 @@ Academic calendar web app for Universiti Teknologi MARA (UiTM) — Malaysia's la
 - General UiTM info: campuses, faculties, programs, admission
 - Context-aware answers based on selected program
 - Powered by Groq (Llama 3.1 8B)
-- Rate limited: 10/min, 30/day per IP, 500/day global
+- Rate limited: per IP per day and a global daily cap (see Rate Limits below)
 
 ### Progressive Web App
 - Installable on mobile and desktop
@@ -185,13 +185,13 @@ GitHub Actions (`.github/workflows/ci.yml`) on push/PR: `pnpm install --frozen-l
 
 ## Rate Limits
 
-The AI chat feature has three layers of protection:
+Protected routes (including AI chat, contact, and sponsor) use a rolling 24-hour window per IP and a combined global daily cap:
 
 | Layer | Limit | Reset |
 |---|---|---|
-| Per IP / minute | 10 requests | Rolling 60-second window |
-| Per IP / day | 30 requests | Rolling 24-hour window |
-| Global / day | 500 requests | Rolling 24-hour window |
+| Per IP / day (known IP) | 120 requests | Rolling 24-hour window |
+| Per IP / day (unknown IP) | 60 requests | Rolling 24-hour window |
+| Global / day | 5000 requests | Rolling 24-hour window |
 
 ## License
 

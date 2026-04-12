@@ -1,16 +1,24 @@
 import React from "react"
 import type { Metadata, Viewport } from 'next'
-import { GeistSans } from 'geist/font/sans'
-import { GeistMono } from 'geist/font/mono'
 import { ThemeProvider } from '@/components/theme-provider'
 import { LenisProvider } from '@/components/providers/lenis-provider'
 import { ThemeShortcut } from '@/components/theme-shortcut'
 import { VersionBanner } from '@/components/version-banner'
 import './globals.css'
-import { Geist, Inter } from "next/font/google";
-import { cn } from "@/lib/utils";
+import { Geist, Geist_Mono, Inter } from "next/font/google"
+import { cn } from "@/lib/utils"
 
-const inter = Inter({subsets:['latin'],variable:'--font-sans'});
+const geistSans = Geist({
+  subsets: ["latin"],
+  variable: "--font-geist-sans",
+})
+
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
+  variable: "--font-geist-mono",
+})
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://bilauitmcuti.com'),
@@ -109,7 +117,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={cn(GeistSans.variable, GeistMono.variable, "font-sans", inter.variable)} suppressHydrationWarning>
+    <html lang="en" className={cn(geistSans.variable, geistMono.variable, "font-sans", inter.variable)} suppressHydrationWarning>
       <head>
         <meta name="theme-color" content="#ffffff" />
         <meta name="application-name" content="Bila UiTM Cuti" />
@@ -302,7 +310,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${GeistSans.className} antialiased`} suppressHydrationWarning>
+      <body className={`${geistSans.className} antialiased`} suppressHydrationWarning>
         <VersionBanner />
         <ThemeProvider
           attribute="class"
