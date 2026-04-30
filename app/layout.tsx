@@ -1,5 +1,6 @@
 import React from "react"
 import type { Metadata, Viewport } from 'next'
+import Script from 'next/script'
 import { ThemeProvider } from '@/components/theme-provider'
 import { LenisProvider } from '@/components/providers/lenis-provider'
 import { ThemeShortcut } from '@/components/theme-shortcut'
@@ -19,6 +20,8 @@ const geistMono = Geist_Mono({
 })
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
+
+const GA_MEASUREMENT_ID = 'G-D94Q17TQ22'
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://bilauitmcuti.com'),
@@ -324,6 +327,18 @@ export default function RootLayout({
             {children}
           </LenisProvider>
         </ThemeProvider>
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${GA_MEASUREMENT_ID}');
+          `}
+        </Script>
         <script
           dangerouslySetInnerHTML={{
             __html: `
