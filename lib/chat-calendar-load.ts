@@ -1,9 +1,8 @@
 import {
   fetchMetaCached,
-  normalizeApiActivity,
+  fetchCalendarSession,
   type MetaResponse,
 } from "./calendar-api";
-import calendarJson from "./calendar.json";
 import {
   getSnapshot,
   mergeSessions,
@@ -12,64 +11,20 @@ import {
 } from "./calendar-store";
 import { getDefaultSessionForGroup, type Activity, type SessionId } from "./data";
 
-interface LocalCalendarFile {
-  defaultSession: string;
-  sessionOptions: MetaResponse["sessionOptions"];
-  programOptions: MetaResponse["programOptions"];
-  sessions: Record<string, { activities: Record<string, unknown>[] }>;
-}
-
-function readLocalCalendar(): LocalCalendarFile {
-  const d = calendarJson as unknown;
-  if (!d || typeof d !== "object") {
-    return {
-      defaultSession: "A-20251",
-      sessionOptions: [],
-      programOptions: [],
-      sessions: {},
-    };
-  }
-  const o = d as Record<string, unknown>;
-  const sessionOptions = Array.isArray(o.sessionOptions)
-    ? (o.sessionOptions as MetaResponse["sessionOptions"])
-    : [];
-  const programOptions = Array.isArray(o.programOptions)
-    ? (o.programOptions as MetaResponse["programOptions"])
-    : [];
-  const defaultSession =
-    typeof o.defaultSession === "string" ? o.defaultSession : "A-20251";
-  const rawSessions =
-    o.sessions && typeof o.sessions === "object" && !Array.isArray(o.sessions)
-      ? (o.sessions as Record<string, unknown>)
-      : {};
-  const sessions: LocalCalendarFile["sessions"] = {};
-  for (const [k, v] of Object.entries(rawSessions)) {
-    if (!v || typeof v !== "object") continue;
-    const bucket = v as { activities?: unknown };
-    const acts = Array.isArray(bucket.activities)
-      ? (bucket.activities as Record<string, unknown>[])
-      : [];
-    sessions[k] = { activities: acts };
-  }
-  return { defaultSession, sessionOptions, programOptions, sessions };
-}
-
-const localCalendar = readLocalCalendar();
+const FALLBACK_META: MetaResponse = {
+  defaultSession: "B-20263",
+  sessionOptions: [],
+  programOptions: [],
+};
 
 export async function loadMetaIntoStore(): Promise<MetaResponse> {
-  const fallback: MetaResponse = {
-    defaultSession: localCalendar.defaultSession,
-    sessionOptions: localCalendar.sessionOptions,
-    programOptions: localCalendar.programOptions,
-  };
-
   let meta: MetaResponse;
   try {
     meta = await fetchMetaCached({ entire: true });
-    if (meta.sessionOptions.length === 0) meta = fallback;
+    if (meta.sessionOptions.length === 0) meta = FALLBACK_META;
     setMeta(meta);
   } catch {
-    meta = fallback;
+    meta = FALLBACK_META;
     setMeta(meta);
   }
 
@@ -87,18 +42,28 @@ export function validSetsFromMeta(meta: MetaResponse): {
   };
 }
 
-function activitiesForSession(sessionId: SessionId): Activity[] {
-  const raw = localCalendar.sessions[sessionId]?.activities ?? [];
-  return raw.map((row) =>
-    normalizeApiActivity(typeof row === "object" && row ? row : {})
-  );
+async function fetchAndCacheSession(
+  sid: SessionId,
+  group: "A" | "B",
+  program: string
+): Promise<{ activities: Activity[] }> {
+  try {
+    const activities = await fetchCalendarSession({
+      sessionId: sid,
+      group,
+      program: group === "B" ? program : undefined,
+    });
+    return { activities };
+  } catch {
+    return { activities: [] };
+  }
 }
 
 /**
- * Load activities for chat context from `lib/calendar.json` (no calendar HTTP API).
+ * Load activities for chat context via the live calendar API (no static bundle).
  */
 export async function loadActivitiesIntoStoreForChat(
-  _selectedProgram: string,
+  selectedProgram: string,
   primaryGroup: "A" | "B",
   effectiveSessionIds: SessionId[]
 ): Promise<void> {
@@ -109,17 +74,24 @@ export async function loadActivitiesIntoStoreForChat(
   for (const sid of effectiveSessionIds) needed.add(sid);
   needed.add(secondaryDefault);
 
+  const results = await Promise.all(
+    Array.from(needed).map((sid) => {
+      const g = sid.startsWith("A-") ? "A" : "B";
+      return fetchAndCacheSession(sid, g, selectedProgram).then(
+        (r) => [sid, r] as const
+      );
+    })
+  );
+
   const merges: Record<string, { activities: Activity[] }> = {};
-  for (const sid of needed) {
-    merges[sid] = { activities: activitiesForSession(sid) };
-  }
+  for (const [sid, r] of results) merges[sid] = r;
   mergeSessions(merges);
 }
 
-/** Ensure session ids are present in the store (from local JSON). */
+/** Ensure session ids are present in the store (from live API). */
 export async function ensureSessionsInStore(
   sessionIds: SessionId[],
-  _selectedProgram: string
+  selectedProgram: string
 ): Promise<void> {
   const snap = getSnapshot();
   const toFetch = sessionIds.filter((sid) => {
@@ -128,9 +100,16 @@ export async function ensureSessionsInStore(
   });
   if (toFetch.length === 0) return;
 
+  const results = await Promise.all(
+    toFetch.map((sid) => {
+      const g = sid.startsWith("A-") ? "A" : "B";
+      return fetchAndCacheSession(sid, g, selectedProgram).then(
+        (r) => [sid, r] as const
+      );
+    })
+  );
+
   const merges: Record<string, { activities: Activity[] }> = {};
-  for (const sid of toFetch) {
-    merges[sid] = { activities: activitiesForSession(sid) };
-  }
+  for (const [sid, r] of results) merges[sid] = r;
   mergeSessions(merges);
 }

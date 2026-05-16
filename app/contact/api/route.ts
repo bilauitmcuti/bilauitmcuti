@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import { CONTACT_CATEGORY_OPTIONS, CONTACT_WHO_OPTIONS } from "@/lib/contact";
 import { getTelegramEnv } from "@/lib/env";
 import { logger } from "@/lib/logger";
@@ -17,15 +16,36 @@ const MIN_SUBMIT_TIME_MS = 3000;
 const CONTACT_TURNSTILE_COOKIE = "contact_turnstile_verified";
 const CONTACT_TURNSTILE_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 12;
 
-const contactRequestSchema = z.object({
-  who: z.enum(CONTACT_WHO_OPTIONS),
-  category: z.enum(CONTACT_CATEGORY_OPTIONS),
-  message: z.string().min(1).max(400),
-  startedAt: z.number().int().positive(),
-  website: z.string().optional(),
-  email: z.string().email().optional(),
-  turnstileToken: z.string().min(1).optional(),
-});
+interface ContactRequest {
+  who: string;
+  category: string;
+  message: string;
+  startedAt: number;
+  website?: string;
+  email?: string;
+  turnstileToken?: string;
+}
+
+const WHO_SET = new Set<string>(CONTACT_WHO_OPTIONS);
+const CATEGORY_SET = new Set<string>(CONTACT_CATEGORY_OPTIONS);
+
+function parseContactRequest(raw: unknown): { success: true; data: ContactRequest } | { success: false } {
+  if (!raw || typeof raw !== "object") return { success: false };
+  const o = raw as Record<string, unknown>;
+  const who = String(o.who ?? "");
+  const category = String(o.category ?? "");
+  const message = String(o.message ?? "");
+  const startedAt = Number(o.startedAt);
+  if (!WHO_SET.has(who)) return { success: false };
+  if (!CATEGORY_SET.has(category)) return { success: false };
+  if (message.length < 1 || message.length > 400) return { success: false };
+  if (!Number.isFinite(startedAt) || startedAt <= 0) return { success: false };
+  const website = o.website != null ? String(o.website) : undefined;
+  const email = o.email != null ? String(o.email) : undefined;
+  const turnstileToken = o.turnstileToken != null && String(o.turnstileToken).trim().length > 0
+    ? String(o.turnstileToken) : undefined;
+  return { success: true, data: { who, category, message, startedAt, website, email, turnstileToken } };
+}
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
@@ -121,7 +141,7 @@ export async function POST(request: NextRequest) {
       return jsonError("Request body too large", 413);
     }
 
-    const parsed = contactRequestSchema.safeParse(rawBody);
+    const parsed = parseContactRequest(rawBody);
     if (!parsed.success) return jsonError("Invalid form values.", 400);
 
     const { who, category, message, startedAt, website, email } = parsed.data;

@@ -3,22 +3,13 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { fetchMetaCached, type MetaResponse } from "@/lib/calendar-api";
-import calendarData from "@/lib/calendar.json";
 import { getSnapshot, setMeta } from "@/lib/calendar-store";
 
-function metaFromCalendarJson(): MetaResponse {
-  const o = calendarData as Record<string, unknown>;
-  return {
-    defaultSession:
-      typeof o.defaultSession === "string" ? o.defaultSession : "A-20251",
-    sessionOptions: Array.isArray(o.sessionOptions)
-      ? (o.sessionOptions as MetaResponse["sessionOptions"])
-      : [],
-    programOptions: Array.isArray(o.programOptions)
-      ? (o.programOptions as MetaResponse["programOptions"])
-      : [],
-  };
-}
+const FALLBACK_META: MetaResponse = {
+  defaultSession: "B-20263",
+  sessionOptions: [],
+  programOptions: [],
+};
 
 /**
  * Keeps program/session dropdowns aligned with the homepage: same source as SSR and
@@ -42,13 +33,13 @@ export function ChatCalendarBootstrap() {
           if (meta.sessionOptions.length > 0) {
             setMeta(meta);
           } else if (getSnapshot().sessionOptions.length === 0) {
-            setMeta(metaFromCalendarJson());
+            setMeta(FALLBACK_META);
           }
         }
       } catch {
         if (cancelled) return;
         if (getSnapshot().sessionOptions.length === 0) {
-          setMeta(metaFromCalendarJson());
+          setMeta(FALLBACK_META);
         }
       }
 

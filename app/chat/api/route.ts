@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = 'edge';
-import { z } from "zod";
 import {
   askGroq,
   isGroqRateLimitError,
@@ -11,13 +10,29 @@ import {
   MODEL_LLAMA_RATE_LIMIT_ESCAPE,
   type ChatMessage,
 } from "@/lib/ai";
-import systemRules from "@/lib/system-rules.json";
 
 interface SystemRulesJson {
   schemaVersion: number;
   calendarPromptCompact: string | string[];
   calendarPromptTemplate: string | string[];
   researchPrompt: string | string[];
+}
+
+let _systemRules: SystemRulesJson | null = null;
+
+async function getSystemRules(origin: string): Promise<SystemRulesJson> {
+  if (_systemRules) return _systemRules;
+  try {
+    const res = await fetch(`${origin}/system-rules.json`);
+    if (res.ok) {
+      _systemRules = (await res.json()) as SystemRulesJson;
+      return _systemRules;
+    }
+  } catch {
+    // fall through to embedded fallback
+  }
+  _systemRules = { schemaVersion: 1, calendarPromptCompact: "", calendarPromptTemplate: "", researchPrompt: "" };
+  return _systemRules;
 }
 
 function compilePrompt(sections: string | readonly string[]): string {
@@ -55,24 +70,61 @@ const MAX_SELECTED_SESSIONS = 6;
 const CHAT_TURNSTILE_COOKIE = "chat_turnstile_verified";
 const CHAT_TURNSTILE_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 12;
 
-const chatRequestSchema = z.object({
-  message: z.string().min(1, "Message is required").max(MAX_MESSAGE_LENGTH),
-  program: z.string().optional(),
-  selectedSessions: z
-    .array(z.string())
-    .max(MAX_SELECTED_SESSIONS)
-    .optional(),
-  history: z
-    .array(
-      z.object({
-        role: z.enum(["user", "assistant"]),
-        content: z.string().max(MAX_HISTORY_CONTENT_LENGTH),
-      })
-    )
-    .max(MAX_HISTORY_ARRAY_LENGTH)
-    .optional(),
-  turnstileToken: z.string().min(1).optional(),
-});
+interface ChatRequest {
+  message: string;
+  program?: string;
+  selectedSessions?: string[];
+  history?: { role: "user" | "assistant"; content: string }[];
+  turnstileToken?: string;
+}
+
+function parseChatRequest(raw: unknown): { success: true; data: ChatRequest } | { success: false; error: string } {
+  if (!raw || typeof raw !== "object") return { success: false, error: "Invalid request" };
+  const o = raw as Record<string, unknown>;
+
+  const message = o.message;
+  if (typeof message !== "string" || message.length === 0)
+    return { success: false, error: "Message is required" };
+  if (message.length > MAX_MESSAGE_LENGTH)
+    return { success: false, error: "Message is too long. Please shorten your message." };
+
+  const program = o.program != null ? String(o.program) : undefined;
+
+  let selectedSessions: string[] | undefined;
+  if (o.selectedSessions != null) {
+    if (!Array.isArray(o.selectedSessions))
+      return { success: false, error: "Invalid request. Please try again." };
+    if (o.selectedSessions.length > MAX_SELECTED_SESSIONS)
+      return { success: false, error: "Invalid request. Please try again." };
+    selectedSessions = o.selectedSessions.map(String);
+  }
+
+  let history: { role: "user" | "assistant"; content: string }[] | undefined;
+  if (o.history != null) {
+    if (!Array.isArray(o.history))
+      return { success: false, error: "Invalid request. Please try again." };
+    if (o.history.length > MAX_HISTORY_ARRAY_LENGTH)
+      return { success: false, error: "Chat history too long. Please start a new conversation." };
+    const parsed: { role: "user" | "assistant"; content: string }[] = [];
+    for (const h of o.history) {
+      if (!h || typeof h !== "object") return { success: false, error: "Invalid request. Please try again." };
+      const item = h as Record<string, unknown>;
+      if (item.role !== "user" && item.role !== "assistant")
+        return { success: false, error: "Invalid request. Please try again." };
+      const content = String(item.content ?? "");
+      if (content.length > MAX_HISTORY_CONTENT_LENGTH)
+        return { success: false, error: "Chat history too long. Please start a new conversation." };
+      parsed.push({ role: item.role, content });
+    }
+    history = parsed;
+  }
+
+  const turnstileToken = o.turnstileToken != null && String(o.turnstileToken).trim().length > 0
+    ? String(o.turnstileToken)
+    : undefined;
+
+  return { success: true, data: { message, program, selectedSessions, history, turnstileToken } };
+}
 
 // --- Rate Limiter (KV when on Cloudflare, in-memory fallback) ---
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -862,7 +914,7 @@ function buildCalendarSystemPrompt(
       ? secondaryContext.slice(0, MAX_SECONDARY_CONTEXT_CHARS) + "\n...[truncated]"
       : secondaryContext;
 
-  const rules = systemRules as SystemRulesJson;
+  const rules = _systemRules ?? { schemaVersion: 1, calendarPromptCompact: "", calendarPromptTemplate: "", researchPrompt: "" };
   const template = compilePrompt(rules.calendarPromptCompact);
   let result = template
     .replace(/\{\{programLabel\}\}/g, programLabel)
@@ -909,7 +961,7 @@ function buildCalendarSystemPrompt(
 const MAX_UITM_INFO_CHARS = 5_000;
 
 function buildResearchSystemPrompt(todayFormatted: string): string {
-  const rules = systemRules as SystemRulesJson;
+  const rules = _systemRules ?? { schemaVersion: 1, calendarPromptCompact: "", calendarPromptTemplate: "", researchPrompt: "" };
   const truncatedInfo =
     UITM_GENERAL_INFO.length > MAX_UITM_INFO_CHARS
       ? UITM_GENERAL_INFO.slice(0, MAX_UITM_INFO_CHARS) + "\n...[truncated]"
@@ -1010,20 +1062,9 @@ export async function POST(request: NextRequest) {
       return jsonError("Request body too large", 413);
     }
 
-    const parseResult = chatRequestSchema.safeParse(rawBody);
+    const parseResult = parseChatRequest(rawBody);
     if (!parseResult.success) {
-      const firstError = parseResult.error.errors[0];
-      const path = firstError?.path?.join(".") ?? "";
-      const message = firstError?.message ?? "";
-      let userMsg: string;
-      if (path.startsWith("history") || (message.includes("at most") && message.includes("element"))) {
-        userMsg = "Chat history too long. Please start a new conversation.";
-      } else if (path === "message" && message.includes("at most")) {
-        userMsg = "Message is too long. Please shorten your message.";
-      } else {
-        userMsg = "Invalid request. Please try again.";
-      }
-      return jsonError(userMsg, 400);
+      return jsonError(parseResult.error, 400);
     }
 
     const { message, program, selectedSessions: rawSelectedSessions, history, turnstileToken } = parseResult.data;
@@ -1134,6 +1175,9 @@ export async function POST(request: NextRequest) {
         content:
           msg.role === "user" ? sanitizeMessage(msg.content) : msg.content,
       }));
+
+    const origin = new URL(request.url).origin;
+    await getSystemRules(origin);
 
     const useCalendarPrompt = isCalendarQuestion(sanitizedMessage);
     const isCompareRequested =

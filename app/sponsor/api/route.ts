@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import { getTelegramEnv } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -31,43 +30,41 @@ const ALLOWED_PROOF_TYPES = new Set([
 
 const SOCIAL_SET = new Set<string>(SPONSOR_SOCIAL_OPTIONS);
 
-const sponsorFieldsSchema = z
-  .object({
-    anonymous: z.enum(["true", "false"]),
-    nickname: z.string().max(120).optional(),
-    socialPlatform: z.string(),
-    socialHandle: z.string().max(500),
-    message: z.string().min(1).max(SPONSOR_MAX_MESSAGE_LENGTH),
-    turnstileToken: z.string().min(1).optional(),
-    startedAt: z.coerce.number().int().positive(),
-    website: z.string().optional(),
-  })
-  .superRefine((data, ctx) => {
-    if (data.anonymous === "false") {
-      const n = data.nickname?.trim() ?? "";
-      if (n.length === 0) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Nickname is required unless anonymous.",
-          path: ["nickname"],
-        });
-      }
-      if (!SOCIAL_SET.has(data.socialPlatform)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Select a social platform.",
-          path: ["socialPlatform"],
-        });
-      }
-      if (data.socialHandle.trim().length === 0) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "URL or username is required.",
-          path: ["socialHandle"],
-        });
-      }
-    }
-  });
+interface SponsorFields {
+  anonymous: "true" | "false";
+  nickname?: string;
+  socialPlatform: string;
+  socialHandle: string;
+  message: string;
+  turnstileToken?: string;
+  startedAt: number;
+  website?: string;
+}
+
+function parseSponsorFields(raw: Record<string, unknown>): { success: true; data: SponsorFields } | { success: false; error: string } {
+  const anonymous = raw.anonymous;
+  if (anonymous !== "true" && anonymous !== "false") return { success: false, error: "Invalid form values." };
+  const message = String(raw.message ?? "");
+  if (message.length < 1 || message.length > SPONSOR_MAX_MESSAGE_LENGTH) return { success: false, error: "Invalid form values." };
+  const socialHandle = String(raw.socialHandle ?? "");
+  if (socialHandle.length > 500) return { success: false, error: "Invalid form values." };
+  const startedAt = Number(raw.startedAt);
+  if (!Number.isFinite(startedAt) || !Number.isInteger(startedAt) || startedAt <= 0) return { success: false, error: "Invalid form values." };
+
+  const nickname = raw.nickname != null ? String(raw.nickname) : undefined;
+  const socialPlatform = String(raw.socialPlatform ?? "");
+  const turnstileToken = raw.turnstileToken != null && String(raw.turnstileToken).trim().length > 0
+    ? String(raw.turnstileToken) : undefined;
+  const website = raw.website != null ? String(raw.website) : undefined;
+
+  if (anonymous === "false") {
+    if ((nickname?.trim() ?? "").length === 0) return { success: false, error: "Nickname is required unless anonymous." };
+    if (!SOCIAL_SET.has(socialPlatform)) return { success: false, error: "Select a social platform." };
+    if (socialHandle.trim().length === 0) return { success: false, error: "URL or username is required." };
+  }
+
+  return { success: true, data: { anonymous, nickname, socialPlatform, socialHandle, message, turnstileToken, startedAt, website } };
+}
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
@@ -214,15 +211,9 @@ export async function POST(request: NextRequest) {
       website: formData.get("website") != null ? String(formData.get("website")) : undefined,
     };
 
-    const parsed = sponsorFieldsSchema.safeParse({
-      ...raw,
-      startedAt:
-        typeof raw.startedAt === "string" || typeof raw.startedAt === "number"
-          ? raw.startedAt
-          : Number.NaN,
-    });
+    const parsed = parseSponsorFields(raw);
     if (!parsed.success) {
-      return jsonError("Invalid form values.", 400);
+      return jsonError(parsed.error, 400);
     }
 
     const data = parsed.data;
@@ -239,7 +230,7 @@ export async function POST(request: NextRequest) {
     const hasVerifiedCookie =
       request.cookies.get(SPONSOR_TURNSTILE_COOKIE)?.value === "1";
     if (isTurnstileRequired && !hasVerifiedCookie) {
-      const token = data.turnstileToken?.trim() ?? "";
+      const token = (data.turnstileToken ?? "").trim();
       if (!token) {
         return jsonError("Please complete verification first.", 403);
       }
