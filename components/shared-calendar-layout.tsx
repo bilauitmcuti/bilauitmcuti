@@ -611,8 +611,6 @@ export function SharedCalendarLayout({
           onShowOthersExamsChange={setShowOthersExams}
           showBreak={showBreak}
           onShowBreakChange={setShowBreak}
-          showCountdown={showCountdown}
-          onShowCountdownChange={setShowCountdown}
           currentMonth={currentMonth}
         />
 

@@ -2,10 +2,10 @@ import type { NextRequest } from "next/server";
 
 const DEFAULT_UPSTREAM = "https://api.bilauitmcuti.com";
 
-export type CalendarProxyApiSuffix = "v1/meta" | "v1/calendar";
+export type CalendarProxyApiSuffix = "v1/meta" | "v1/calendar" | "v1/lecture-weeks";
 
 /** Allowed upstream API suffixes only — not an open proxy. */
-const ALLOWED_PATHS = new Set<string>(["v1/meta", "v1/calendar"]);
+const ALLOWED_PATHS = new Set<string>(["v1/meta", "v1/calendar", "v1/lecture-weeks"]);
 
 /** Meta: only these are forwarded; other keys (e.g. Next.js `_rsc`) are ignored. */
 const META_QUERY_KEYS = ["group", "all"] as const;
@@ -63,25 +63,33 @@ function buildForwardedSearch(
     return qs ? `?${qs}` : "";
   }
 
-  const out = new URLSearchParams();
+  if (apiSuffix === "v1/lecture-weeks") {
+    const out = new URLSearchParams();
+    const session = inParams.get("session");
+    if (session) out.set("session", session);
+    const qs = out.toString();
+    return qs ? `?${qs}` : "";
+  }
+
+  const calendarOut = new URLSearchParams();
   for (const key of CALENDAR_QUERY_KEYS) {
     const v = inParams.get(key);
     if (v === null || v === "") continue;
     if (key === "allSessions") {
       const norm = normalizeBooleanQuery(v);
       if (norm === null) return "__invalid__";
-      out.set(key, norm);
+      calendarOut.set(key, norm);
     } else {
-      out.set(key, v);
+      calendarOut.set(key, v);
     }
   }
 
-  const group = out.get("group");
+  const group = calendarOut.get("group");
   if (group !== null && group !== "A" && group !== "B") {
     return "__invalid__";
   }
 
-  const qs = out.toString();
+  const qs = calendarOut.toString();
   return qs ? `?${qs}` : "";
 }
 

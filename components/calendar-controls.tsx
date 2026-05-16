@@ -60,8 +60,6 @@ interface CalendarControlsProps {
   onShowOthersExamsChange: (show: boolean) => void;
   showBreak: boolean;
   onShowBreakChange: (show: boolean) => void;
-  showCountdown: boolean;
-  onShowCountdownChange: (show: boolean) => void;
   showSemesterPendek: boolean;
   onShowSemesterPendekChange: (show: boolean) => void;
   showKuliahIntersesi: boolean;
@@ -89,8 +87,6 @@ export function CalendarControls({
   onShowOthersExamsChange,
   showBreak,
   onShowBreakChange,
-  showCountdown,
-  onShowCountdownChange,
   showSemesterPendek,
   onShowSemesterPendekChange,
   showKuliahIntersesi,
@@ -286,7 +282,7 @@ export function CalendarControls({
     setCurrentFooterText(0);
 
     const interval = setInterval(() => {
-      setCurrentFooterText((prev) => (prev + 1) % 4);
+      setCurrentFooterText((prev) => (prev + 1) % 2);
     }, 3000);
     return () => clearInterval(interval);
   }, [isOpen]);
@@ -691,27 +687,6 @@ export function CalendarControls({
                         />
                       </div>
                     </label>
-
-                    <label className="flex items-center justify-between cursor-pointer py-0.5 transition-none">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-foreground">Show Countdown</span>
-                      </div>
-                      <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-none ${showCountdown ? 'bg-primary' : 'bg-muted'}`}
-                        style={{ transition: 'none' }}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full transition-none shadow-sm ${showCountdown ? 'bg-background' : 'bg-background dark:bg-foreground'}`}
-                          style={{ transform: showCountdown ? 'translateX(20px)' : 'translateX(2px)', transition: 'none' }}
-                        />
-                        <input
-                          type="checkbox"
-                          checked={showCountdown}
-                          onChange={(e) => onShowCountdownChange(e.target.checked)}
-                          className="sr-only"
-                          aria-label="Toggle countdown for lecture, examination, and break events"
-                        />
-                      </div>
-                    </label>
                   </div>
 
                   {hasRegionalDateRange && (
@@ -818,42 +793,6 @@ export function CalendarControls({
                           style={{color: '#2563eb'}}
                         >
                           @shahrulestar
-                        </a>
-                      </div>
-                      <div 
-                        className="absolute inset-0 transition-opacity duration-500"
-                        style={{
-                          opacity: currentFooterText === 2 ? 1 : 0,
-                          pointerEvents: currentFooterText === 2 ? 'auto' : 'none',
-                        }}
-                      >
-                        Source from{' '}
-                        <a
-                          href="https://hea.uitm.edu.my/index.php/calendars/academic-calendar"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-medium hover:underline relative z-10"
-                          style={{color: '#2563eb'}}
-                        >
-                          HEA UiTM
-                        </a>
-                      </div>
-                      <div 
-                        className="absolute inset-0 transition-opacity duration-500"
-                        style={{
-                          opacity: currentFooterText === 3 ? 1 : 0,
-                          pointerEvents: currentFooterText === 3 ? 'auto' : 'none',
-                        }}
-                      >
-                        Inspired by{' '}
-                        <a
-                          href="https://bilacuti.my"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-medium hover:underline relative z-10"
-                          style={{color: '#2563eb'}}
-                        >
-                          bilacuti.my
                         </a>
                       </div>
                     </div>

@@ -13,6 +13,8 @@ import {
 import { useCalendarHydrationVersion } from '@/components/calendar-hydration-context';
 import { getSnapshot, subscribe } from '@/lib/calendar-store';
 import { getActivitiesForDateMultiSessions, getMonthsForSessions, getDaysUntilStart, formatCountdown, getProgramBadgeConfig, getProgramBadgesConfig, type Activity, type ActivityType, type SessionId } from '@/lib/data';
+import { fetchLectureWeeks } from '@/lib/calendar-api';
+import { buildDateToWeekNumberMap } from '@/lib/lecture-weeks-resolve';
 
 interface TooltipActivityListProps {
   dateKey: string;
@@ -98,7 +100,7 @@ function TooltipActivityList({
                 {badgeConfigs.length > 0 ? (
                   <div className="mb-1 flex flex-wrap gap-1">
                     {badgeConfigs.map((cfg) => (
-                      <div key={cfg.label} className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${cfg.bgClass} ${cfg.textClass}`}>
+                      <div key={cfg.label} className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium lg:text-xs ${cfg.bgClass} ${cfg.textClass}`}>
                         {cfg.label}
                       </div>
                     ))}
@@ -144,7 +146,7 @@ interface GridViewProps {
   initialCurrentDate?: string;
 }
 
-function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT, onDateClick, selectedDate, showRegistration, showLecture, showSemesterPendek, showKuliahIntersesi, showExamination, showOthersExams, showBreak, showCountdown, selectedStates = [], initialCurrentDate, tooltipOpenKey, hoveredDateStr, setTooltipOpenKey, setHoveredDateStr, calendarDataVersion, suppressHoverDuringScrollRef }: { month: number; year: number; selectedProgram: string; selectedSessions: SessionId[]; showKKT: boolean; onDateClick: (date: string) => void; selectedDate: string | null; showRegistration: boolean; showLecture: boolean; showSemesterPendek: boolean; showKuliahIntersesi: boolean; showExamination: boolean; showOthersExams: boolean; showBreak: boolean; showCountdown: boolean; selectedStates?: string[]; initialCurrentDate?: string; tooltipOpenKey: string | null; hoveredDateStr: string | null; setTooltipOpenKey: React.Dispatch<React.SetStateAction<string | null>>; setHoveredDateStr: React.Dispatch<React.SetStateAction<string | null>>; calendarDataVersion: number; suppressHoverDuringScrollRef: React.MutableRefObject<boolean> }) {
+function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT, onDateClick, selectedDate, showRegistration, showLecture, showSemesterPendek, showKuliahIntersesi, showExamination, showOthersExams, showBreak, showCountdown, selectedStates = [], initialCurrentDate, tooltipOpenKey, hoveredDateStr, setTooltipOpenKey, setHoveredDateStr, calendarDataVersion, suppressHoverDuringScrollRef, lectureWeekByDate }: { month: number; year: number; selectedProgram: string; selectedSessions: SessionId[]; showKKT: boolean; onDateClick: (date: string) => void; selectedDate: string | null; showRegistration: boolean; showLecture: boolean; showSemesterPendek: boolean; showKuliahIntersesi: boolean; showExamination: boolean; showOthersExams: boolean; showBreak: boolean; showCountdown: boolean; selectedStates?: string[]; initialCurrentDate?: string; tooltipOpenKey: string | null; hoveredDateStr: string | null; setTooltipOpenKey: React.Dispatch<React.SetStateAction<string | null>>; setHoveredDateStr: React.Dispatch<React.SetStateAction<string | null>>; calendarDataVersion: number; suppressHoverDuringScrollRef: React.MutableRefObject<boolean>; lectureWeekByDate: Map<string, number> | null }) {
   const [hasHoverCapability, setHasHoverCapability] = useState(false);
   const [hasTouchInput, setHasTouchInput] = useState(false);
 
@@ -633,19 +635,31 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
                     <TooltipContent suppressHydrationWarning
                       data-mini-calendar-tooltip={dateStr}
                       side="top"
-                      className="w-auto max-w-[300px] overflow-hidden sm:max-w-[330px] px-3 py-1 mx-2 rounded-lg shadow-lg border border-border bg-popover text-popover-foreground [&[data-side='top']]:before:content-none"
+                      className="flex w-auto max-w-[300px] flex-col items-start gap-2 overflow-hidden px-3 py-2 sm:max-w-[330px] mx-2 rounded-lg shadow-lg border border-border bg-popover text-popover-foreground [&[data-side='top']]:before:content-none"
                       sideOffset={8}
                       collisionPadding={12}
                       style={{ pointerEvents: 'auto' } as React.CSSProperties & { '--radix-tooltip-content-transform-origin'?: string }}
                     >
-                      <TooltipActivityList
-                        dateKey={dateStr}
-                        activities={uniqueDayActivities}
-                        selectedProgram={selectedProgram}
-                        showCountdown={showCountdown}
-                        currentDateStr={currentDateStr}
-                        showKKT={showKKT}
-                      />
+                      {(() => {
+                        const weekNum = lectureWeekByDate?.get(dateStr) ?? null;
+                        return weekNum != null ? (
+                          <div className="w-full shrink-0 text-left">
+                            <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium lg:text-xs bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+                              Week {weekNum}
+                            </span>
+                          </div>
+                        ) : null;
+                      })()}
+                      <div className="w-full min-w-0">
+                        <TooltipActivityList
+                          dateKey={dateStr}
+                          activities={uniqueDayActivities}
+                          selectedProgram={selectedProgram}
+                          showCountdown={showCountdown}
+                          currentDateStr={currentDateStr}
+                          showKKT={showKKT}
+                        />
+                      </div>
                     </TooltipContent>
                   );
                 })()}
@@ -683,9 +697,39 @@ export const GridView = memo(function GridView({
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [tooltipOpenKey, setTooltipOpenKey] = useState<string | null>(null);
   const [hoveredDateStr, setHoveredDateStr] = useState<string | null>(null);
+  const [lectureWeekByDate, setLectureWeekByDate] = useState<Map<string, number> | null>(null);
 
   const suppressHoverDuringScrollRef = useRef(false);
   const scrollSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Stable join key so the effect re-runs only when the set of selected ids changes.
+  const sessionIdsKey = useMemo(
+    () => [...selectedSessions].sort().join(','),
+    [selectedSessions]
+  );
+
+  useEffect(() => {
+    if (!sessionIdsKey) {
+      setLectureWeekByDate(null);
+      return;
+    }
+    const ids = sessionIdsKey.split(',') as SessionId[];
+    let cancelled = false;
+    Promise.all(
+      ids.map((id) =>
+        fetchLectureWeeks(id).catch(() => ({ weeks: [] }))
+      )
+    ).then((responses) => {
+      if (cancelled) return;
+      const merged = new Map<string, number>();
+      for (const res of responses) {
+        const m = buildDateToWeekNumberMap(res.weeks);
+        m.forEach((weekNum, date) => merged.set(date, weekNum));
+      }
+      setLectureWeekByDate(merged.size > 0 ? merged : null);
+    });
+    return () => { cancelled = true; };
+  }, [sessionIdsKey]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -781,6 +825,7 @@ export const GridView = memo(function GridView({
               setHoveredDateStr={setHoveredDateStr}
               calendarDataVersion={calendarDataVersion}
               suppressHoverDuringScrollRef={suppressHoverDuringScrollRef}
+              lectureWeekByDate={lectureWeekByDate}
             />
           ))}
         </div>

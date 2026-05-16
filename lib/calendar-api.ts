@@ -47,6 +47,7 @@ function buildCalendarRequestUrl(
   if (typeof window !== "undefined") {
     if (apiPath === "v1/meta") return `/api/v1/meta${search}`;
     if (apiPath === "v1/calendar") return `/api/v1/calendar${search}`;
+    if (apiPath === "v1/lecture-weeks") return `/api/v1/lecture-weeks${search}`;
     return `/api/calendar-proxy/${apiPath}${search}`;
   }
   return `${getCalendarApiBase()}/api/${apiPath}${search}`;
@@ -342,4 +343,93 @@ export function calendarProgramQueryForRoute(selectedProgram: string): string | 
   if (selectedProgram === "Foundation/Professional") return undefined;
   if (selectedProgram === "All") return "All";
   return selectedProgram;
+}
+
+// ── Lecture weeks ─────────────────────────────────────────────────────────────
+
+export interface LectureWeekDay {
+  date: string;
+  weekday: string;
+  label: string;
+}
+
+export interface LectureWeek {
+  weekNumber: number;
+  weekStart: string;
+  weekEnd: string;
+  rangeLabel: string;
+  days: LectureWeekDay[];
+}
+
+export interface LectureWeeksResponse {
+  weeks: LectureWeek[];
+}
+
+const lectureWeeksInflight = new Map<string, Promise<LectureWeeksResponse>>();
+
+interface LectureWeeksCacheEntry {
+  data: LectureWeeksResponse;
+  at: number;
+}
+const lectureWeeksCache = new Map<string, LectureWeeksCacheEntry>();
+const LECTURE_WEEKS_TTL_MS = 5 * 60 * 1000;
+
+function parseLectureWeeksResponse(data: unknown): LectureWeeksResponse {
+  if (!data || typeof data !== "object") return { weeks: [] };
+  const o = data as Record<string, unknown>;
+  if (!Array.isArray(o.weeks)) return { weeks: [] };
+  const weeks: LectureWeek[] = o.weeks.map((w) => {
+    const week = w as Record<string, unknown>;
+    const days: LectureWeekDay[] = Array.isArray(week.days)
+      ? week.days.map((d: unknown) => {
+          const day = d as Record<string, unknown>;
+          return {
+            date: String(day.date ?? ""),
+            weekday: String(day.weekday ?? ""),
+            label: String(day.label ?? ""),
+          };
+        })
+      : [];
+    return {
+      weekNumber: Number(week.weekNumber ?? 0),
+      weekStart: String(week.weekStart ?? ""),
+      weekEnd: String(week.weekEnd ?? ""),
+      rangeLabel: String(week.rangeLabel ?? ""),
+      days,
+    };
+  });
+  return { weeks };
+}
+
+/**
+ * Fetches lecture weeks for a session.
+ * Browser: same-origin proxy `/api/v1/lecture-weeks`. Server: upstream direct.
+ * GET /api/v1/lecture-weeks?session=
+ */
+export async function fetchLectureWeeks(
+  sessionId: string
+): Promise<LectureWeeksResponse> {
+  const q = new URLSearchParams({ session: sessionId });
+  const url = buildCalendarRequestUrl("v1/lecture-weeks", q);
+
+  const now = Date.now();
+  const cached = lectureWeeksCache.get(sessionId);
+  if (cached && now - cached.at < LECTURE_WEEKS_TTL_MS) return cached.data;
+
+  const existing = lectureWeeksInflight.get(sessionId);
+  if (existing) return existing;
+
+  const promise = (async () => {
+    try {
+      const data = await fetchJsonWithRetry(url);
+      const result = parseLectureWeeksResponse(data);
+      lectureWeeksCache.set(sessionId, { data: result, at: Date.now() });
+      return result;
+    } finally {
+      lectureWeeksInflight.delete(sessionId);
+    }
+  })();
+
+  lectureWeeksInflight.set(sessionId, promise);
+  return promise;
 }
