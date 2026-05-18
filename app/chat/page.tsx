@@ -669,6 +669,8 @@ export default function ChatPage() {
   const isProduction = process.env.NODE_ENV === "production";
   const turnstileSiteKey = isProduction ? (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "") : "";
   const requiresTurnstile = Boolean(turnstileSiteKey) && !isTurnstileSessionVerified;
+  /** Hide widget as soon as Turnstile returns a token; keeps "Verifying..." off-screen during fetch. */
+  const showTurnstileChallenge = requiresTurnstile && !turnstileToken.trim();
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -1022,6 +1024,7 @@ export default function ChatPage() {
       });
       let content: string | null = null;
       let maxAttempts = 3;
+      let chatRequestSucceeded = false;
       const isRetryableStatus = (s: number) =>
         s === 429 || s === 500 || s === 502 || s === 503 || s === 504;
 
@@ -1056,6 +1059,7 @@ export default function ChatPage() {
             }
           } else {
             content = data.reply || "Sorry, I could not get a response.";
+            chatRequestSucceeded = true;
             setIsTurnstileSessionVerified(true);
             setTurnstileToken("");
             turnstileRef.current?.reset();
@@ -1073,6 +1077,11 @@ export default function ChatPage() {
           }
           break;
         }
+      }
+
+      if (didAttemptFetch && !chatRequestSucceeded && trimmedToken) {
+        setTurnstileToken("");
+        setTurnstileNonce((n) => n + 1);
       }
 
       const assistantNow = Date.now();
@@ -1269,7 +1278,7 @@ export default function ChatPage() {
                 Use @ to mention a calendar session.
               </p>
             </div>
-            {requiresTurnstile ? (
+            {showTurnstileChallenge ? (
               <div className="w-full max-w-[320px] px-3">
                 <TurnstileWidget
                   ref={turnstileRef}
@@ -1283,7 +1292,7 @@ export default function ChatPage() {
           </div>
         ) : (
           <div className="mx-auto max-w-[600px] space-y-6 pt-14">
-            {requiresTurnstile ? (
+            {showTurnstileChallenge ? (
               <div className="w-full max-w-[320px]">
                 <TurnstileWidget
                   ref={turnstileRef}
