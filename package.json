@@ -7,7 +7,8 @@
     "node": ">=18"
   },
   "scripts": {
-    "build": "next build",
+    "build": "opennextjs-cloudflare build",
+    "build:next": "next build",
     "dev": "next dev",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
@@ -18,6 +19,15 @@
     "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "calendar:import": "node scripts/txt-to-calendar.mjs"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "msw",
+      "sharp",
+      "unrs-resolver",
+      "workerd"
+    ]
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.17.1",

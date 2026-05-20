@@ -117,10 +117,13 @@ pnpm preview   # build + local preview
 pnpm deploy    # build + deploy (requires wrangler login)
 ```
 
-**Cloudflare Dashboard (Pages/Workers):** Connect your repo, then set:
-- **Build command:** `pnpm run deploy`
-- **Environment variables:** `GROQ_API_KEY`, optional Telegram, Turnstile keys (`NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`), and `CALENDAR_API_BASE` as secrets
+**Cloudflare Workers (Git-connected build):** Use a **two-step** pipeline (do not run only `next build` before `wrangler deploy`):
+- **Build command:** `pnpm run build` (runs `opennextjs-cloudflare build` — produces `.open-next/` for Wrangler)
+- **Deploy command:** `npx wrangler deploy` (or `pnpm exec wrangler deploy`)
+- **Environment variables / secrets:** `GROQ_API_KEY`, optional Telegram, Turnstile keys (`NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`), and `CALENDAR_API_BASE`
 - `CLOUDFLARE_API_TOKEN` is auto-injected when connected via Git
+
+For a **single local command** (build + deploy): `pnpm run deploy`.
 
 **Troubleshooting:**
 - If chat fails: ensure `GROQ_API_KEY` is set as a secret in Cloudflare

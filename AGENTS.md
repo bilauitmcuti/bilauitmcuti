@@ -25,7 +25,8 @@ pnpm install
 | `pnpm install` | Install dependencies |
 | `pnpm lint` | Run ESLint |
 | `pnpm typecheck` | Run TypeScript check |
-| `pnpm build` | Production build |
+| `pnpm build` | OpenNext + Next production build (`.open-next/` for Workers) |
+| `pnpm build:next` | Next.js build only (no Worker bundle) |
 | `pnpm dev` | Development server (localhost:3000) |
 | `pnpm preview` | Build + local Cloudflare preview |
 | `pnpm deploy` | Build + deploy to Cloudflare |
