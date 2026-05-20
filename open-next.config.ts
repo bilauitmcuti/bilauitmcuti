@@ -1,9 +1,5 @@
 import { defineCloudflareConfig } from "@opennextjs/cloudflare";
 
-const config = defineCloudflareConfig({
+export default defineCloudflareConfig({
   routePreloadingBehavior: "none",
 });
-
-config.default.minify = true;
-
-export default config;
