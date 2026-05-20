@@ -40,6 +40,6 @@ jobs:
         run: |
           pnpm exec opennextjs-cloudflare build
           echo "=== Main worker ==="
-          pnpm exec wrangler deploy --dry-run 2>&1 | rg "Total Upload" || true
+          pnpm exec wrangler deploy --dry-run 2>&1 | grep "Total Upload" || true
           echo "=== Chat API worker ==="
-          pnpm exec wrangler deploy --config workers/chat-api/wrangler.jsonc --dry-run 2>&1 | rg "Total Upload" || true
+          pnpm exec wrangler deploy --config workers/chat-api/wrangler.jsonc --dry-run 2>&1 | grep "Total Upload" || true
