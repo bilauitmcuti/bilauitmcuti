@@ -1,0 +1,47 @@
+---
+description: Cloudflare Pages deploy via @cloudflare/next-on-pages (edge runtime)
+globs:
+  - "**/*.{ts,tsx,js,mjs}"
+  - "package.json"
+  - "wrangler.jsonc"
+  - "next.config.mjs"
+alwaysApply: false
+---
+
+# Cloudflare Pages (`@cloudflare/next-on-pages`)
+
+This project deploys with **next-on-pages**, not OpenNext.
+
+## Dashboard settings (source of truth)
+
+| Setting | Value |
+|---------|--------|
+| Build command | `npx @cloudflare/next-on-pages@1` or `pnpm run build:pages` |
+| Build output | `.vercel/output/static` |
+| `NODE_VERSION` | ≥ 18 (use `20`) |
+
+Enable **`nodejs_compat`** under Pages → Settings → Functions (production + preview).
+
+## Required on every dynamic route / API
+
+```ts
+export const runtime = 'edge';
+```
+
+If the Pages build lists missing routes, run `node scripts/add-edge-runtime.mjs`.
+
+## Do not
+
+- Remove `runtime = 'edge'` from server routes while using next-on-pages.
+- Set `package.json` `"build"` to `next-on-pages` (causes recursive builds). Use `"build": "next build"` and `build:pages` for CF.
+- Reintroduce OpenNext (`build:cf`, `.open-next/`, `opennextjs-cloudflare`) without an explicit migration.
+
+## Local verify
+
+```bash
+pnpm run build:pages && pnpm run pages:dev
+```
+
+## New server routes
+
+Add `export const runtime = 'edge'` at the top of new `app/**/route.ts` and dynamic `page.tsx` files.

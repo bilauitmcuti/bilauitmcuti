@@ -112,12 +112,12 @@ export async function checkRateLimitKV(
   return { limited: false, message: "" };
 }
 
-/** Uses KV when available (Cloudflare), otherwise in-memory. */
+/** Uses KV when available (Cloudflare Pages), otherwise in-memory. */
 export async function checkRateLimit(ip: string, request: NextRequest): Promise<RateLimitResult> {
   try {
-    const { getCloudflareContext } = await import("@opennextjs/cloudflare");
-    const ctx = getCloudflareContext();
-    const kv = (ctx.env as { RATE_LIMIT_KV?: KVNamespace }).RATE_LIMIT_KV;
+    const { getOptionalRequestContext } = await import("@cloudflare/next-on-pages");
+    const ctx = getOptionalRequestContext();
+    const kv = (ctx?.env as { RATE_LIMIT_KV?: KVNamespace } | undefined)?.RATE_LIMIT_KV;
     if (kv) return await checkRateLimitKV(ip, request, kv);
   } catch {
     // No Cloudflare context (next dev, etc.)

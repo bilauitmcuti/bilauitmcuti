@@ -1,3 +1,4 @@
+export const runtime = 'edge';
 import type { NextRequest } from "next/server";
 import { calendarProxyForwardFromPathSegments } from "@/lib/calendar-proxy-forward";
 

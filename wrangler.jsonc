@@ -1,12 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "bilauitmcuti",
-  "build": {
-    "command": "pnpm run build && pnpm run build:cf"
-  },
-  "main": ".open-next/worker.js",
+  "pages_build_output_dir": ".vercel/output/static",
   "compatibility_date": "2025-11-01",
-  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
-  "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
-  "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "bilauitmcuti" }]
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"]
 }

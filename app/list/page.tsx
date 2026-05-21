@@ -1,3 +1,4 @@
+export const runtime = 'edge';
 
 import { CalendarWrapper } from '@/components/calendar-wrapper';
 

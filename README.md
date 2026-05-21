@@ -39,7 +39,7 @@ Academic calendar web app for Universiti Teknologi MARA (UiTM) — Malaysia's la
 - **AI:** Groq SDK (llama-3.1-8b-instant)
 - **Calendar UI:** react-day-picker, date-fns
 - **Validation:** Zod
-- **Deployment:** Cloudflare Workers (OpenNext)
+- **Deployment:** Cloudflare Pages (`@cloudflare/next-on-pages`)
 
 ## Getting Started
 
@@ -104,32 +104,29 @@ pnpm typecheck   # TypeScript (tsc --noEmit)
 ### Production Build
 
 ```bash
-pnpm build              # Next.js only (Cloudflare preset build step)
-pnpm run build:cf       # OpenNext Worker bundle (after build; also via wrangler deploy)
-pnpm start
+pnpm build:pages   # next build + @cloudflare/next-on-pages → .vercel/output/
+pnpm preview       # build:pages + wrangler pages dev (local Pages runtime)
+pnpm start         # standard Next.js server (not used in production on CF)
 ```
 
-### Cloudflare Deployment
+### Cloudflare Pages deployment
 
-**Local preview:**
+**Dashboard (Git integration):**
 
-```bash
-pnpm preview   # build + local preview
-pnpm deploy    # build + deploy (requires wrangler login)
-```
+| Setting | Value |
+|---------|--------|
+| Framework preset | Next.js |
+| **Build command** | `npx @cloudflare/next-on-pages@1` or `pnpm run build:pages` |
+| **Build output directory** | `.vercel/output/static` |
+| **Environment variable** | `NODE_VERSION` = `20` (or ≥18) |
 
-**Cloudflare Workers — Next.js framework preset (recommended):** Use the dashboard defaults; this repo is aligned with them.
-- **Build command:** `pnpm run build` (or `npm run build`) → `next build`
-- **Deploy command:** `npx wrangler deploy` (or `pnpm run deploy`) → runs `build:cf` from `wrangler.jsonc`, then deploys `.open-next/`
-- Do **not** use `npx @cloudflare/next-on-pages` (Pages-only, deprecated). Do **not** set `package.json` `"build"` to `opennextjs-cloudflare build` (infinite loop).
-- **Environment variables / secrets:** `GROQ_API_KEY`, optional Telegram, Turnstile keys (`NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`), and `CALENDAR_API_BASE`
-- `CLOUDFLARE_API_TOKEN` is auto-injected when connected via Git
+**After first deploy:** Pages **Settings → Functions** → enable **`nodejs_compat`** for production and preview; set compatibility date to at least `2022-11-30`.
 
-For a **single local command** (build + deploy): `pnpm run deploy`.
+**Secrets / env:** `GROQ_API_KEY`, optional Telegram, Turnstile (`NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`), optional `CALENDAR_API_BASE`.
 
 **Troubleshooting:**
-- **Worker exceeded 3 MiB:** Cloudflare limits **gzip** upload size. Run `pnpm build && pnpm run build:cf && pnpm run check:worker` on Linux/macOS (or CI). Do not use `export const runtime = "edge"`. See `.cursor/rules/cloudflare-worker-size.mdc`.
-- **Build loops or times out:** Set framework preset to **Next.js** (Workers, not Pages). Build command must be `pnpm run build` (default). Deploy command must be `npx wrangler deploy` or `pnpm run deploy` — not `npx @cloudflare/next-on-pages@1`.
+- **“routes were not configured to run with the Edge Runtime”:** Run `node scripts/add-edge-runtime.mjs` or add `export const runtime = 'edge'` to every dynamic route/API.
+- **Build loops:** Do **not** set `package.json` `"build"` to `next-on-pages` — keep `"build": "next build"`; use `build:pages` or `npx @cloudflare/next-on-pages@1` as the Cloudflare **build command** only.
 - If chat fails: ensure `GROQ_API_KEY` is set as a secret in Cloudflare
 - Health check: `GET /api/health` returns readiness (503 if GROQ is missing)
 - For distributed rate limiting: run `wrangler kv namespace create RATE_LIMIT_KV`, add the binding to `wrangler.jsonc`
@@ -188,7 +185,7 @@ public/
 
 ## CI
 
-GitHub Actions (`.github/workflows/ci.yml`) on push/PR: `pnpm install --frozen-lockfile` → `pnpm lint` → `pnpm typecheck` → `pnpm build && pnpm run build:cf` (needs `GROQ_API_KEY` in CI or a placeholder).
+GitHub Actions (`.github/workflows/ci.yml`) on push/PR: `pnpm install --frozen-lockfile` → `pnpm lint` → `pnpm typecheck` → `pnpm run build:pages` (needs `GROQ_API_KEY` in CI or a placeholder).
 
 ## Rate Limits
 

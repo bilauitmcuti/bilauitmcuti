@@ -2,7 +2,7 @@ import nextConfig from "eslint-config-next";
 
 export default [
   {
-    ignores: [".open-next/**", ".next/**"],
+    ignores: [".open-next/**", ".vercel/**", ".next/**"],
   },
   ...nextConfig,
   {
