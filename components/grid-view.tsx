@@ -3,7 +3,7 @@
 import React, { memo } from "react"
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react';
 
-import { useState, useEffect, useLayoutEffect, useMemo, useSyncExternalStore, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useSyncExternalStore, useRef, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import {
   Tooltip,
@@ -884,12 +884,12 @@ export const GridView = memo(function GridView({
   const [lectureWeekByDate, setLectureWeekByDate] = useState<Map<string, number> | null>(null);
   const [drawerDateKey, setDrawerDateKey] = useState<string | null>(null);
   const [drawerCurrentDateStr, setDrawerCurrentDateStr] = useState<string | null>(initialCurrentDate ?? null);
-  const drawerSwipeAreaRef = useRef<HTMLDivElement>(null);
   const drawerSwipeGestureRef = useRef<{
     startX: number | null;
     startY: number | null;
     tracking: boolean;
   }>({ startX: null, startY: null, tracking: false });
+  const drawerSwipeCleanupRef = useRef<(() => void) | null>(null);
   const isMobileViewport = useMobileViewport();
   const { recordEngagementAction } = useEngagementPrompt();
 
@@ -1079,10 +1079,12 @@ export const GridView = memo(function GridView({
     navigateDrawerActivityDateRef.current = navigateDrawerActivityDate;
   });
 
-  useEffect(() => {
-    if (!drawerDateKey) return;
-    const el = drawerSwipeAreaRef.current;
-    if (!el) return;
+  const setDrawerSwipeAreaRef = useCallback((node: HTMLDivElement | null) => {
+    if (drawerSwipeCleanupRef.current) {
+      drawerSwipeCleanupRef.current();
+      drawerSwipeCleanupRef.current = null;
+    }
+    if (!node) return;
 
     const SWIPE_COMMIT_PX = 40;
     const SWIPE_HORIZONTAL_RATIO = 1.2;
@@ -1135,19 +1137,26 @@ export const GridView = memo(function GridView({
       else navigateDrawerActivityDateRef.current(1);
     };
 
-    el.addEventListener('touchstart', onTouchStart, { passive: true });
-    el.addEventListener('touchmove', onTouchMove, { passive: false });
-    el.addEventListener('touchend', onTouchEnd, { passive: true });
-    el.addEventListener('touchcancel', resetGesture, { passive: true });
+    node.addEventListener('touchstart', onTouchStart, { passive: true });
+    node.addEventListener('touchmove', onTouchMove, { passive: false });
+    node.addEventListener('touchend', onTouchEnd, { passive: true });
+    node.addEventListener('touchcancel', resetGesture, { passive: true });
 
-    return () => {
-      el.removeEventListener('touchstart', onTouchStart);
-      el.removeEventListener('touchmove', onTouchMove);
-      el.removeEventListener('touchend', onTouchEnd);
-      el.removeEventListener('touchcancel', resetGesture);
+    drawerSwipeCleanupRef.current = () => {
+      node.removeEventListener('touchstart', onTouchStart);
+      node.removeEventListener('touchmove', onTouchMove);
+      node.removeEventListener('touchend', onTouchEnd);
+      node.removeEventListener('touchcancel', resetGesture);
       resetGesture();
     };
-  }, [drawerDateKey]);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      drawerSwipeCleanupRef.current?.();
+      drawerSwipeCleanupRef.current = null;
+    };
+  }, []);
 
   return (
     <TooltipProvider>
@@ -1193,10 +1202,10 @@ export const GridView = memo(function GridView({
         }}
       >
         <DrawerContent className={drawerContentClassName}>
-          <div className={cn(drawerBodyClassName, 'min-h-0 flex-1 gap-0 px-0')}>
+          <div className={cn(drawerBodyClassName, 'min-h-0 flex-1 gap-0 px-0 overflow-y-auto overscroll-contain')}>
             {drawerDateKey ? (
               <div
-                ref={drawerSwipeAreaRef}
+                ref={setDrawerSwipeAreaRef}
                 data-vaul-no-drag=""
                 data-grid-activity-drawer-swipe=""
                 className="w-full min-w-0 overflow-x-hidden"

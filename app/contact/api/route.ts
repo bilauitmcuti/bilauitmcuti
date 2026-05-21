@@ -9,6 +9,7 @@ import {
   getTurnstileExpectedHostname,
   verifyTurnstileToken,
 } from "@/lib/turnstile";
+import { isTurnstileVerificationRequired } from "@/lib/turnstile-config";
 
 
 const MAX_BODY_SIZE_BYTES = 10 * 1024;
@@ -164,7 +165,7 @@ export async function POST(request: NextRequest) {
       return jsonError("Please take a moment before submitting the form.", 429);
     }
 
-    const isTurnstileRequired = process.env.NODE_ENV === "production";
+    const isTurnstileRequired = isTurnstileVerificationRequired();
     const hasVerifiedCookie =
       request.cookies.get(CONTACT_TURNSTILE_COOKIE)?.value === "1";
     if (isTurnstileRequired && !hasVerifiedCookie) {

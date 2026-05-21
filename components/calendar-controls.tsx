@@ -279,14 +279,20 @@ export function CalendarControls({
     recordEngagementAction('program_change');
   }, [onProgramSessionChange, pathname, viewMode, recordEngagementAction]);
 
+  const [isProgramDrawerSectionOpen, setIsProgramDrawerSectionOpen] =
+    usePersistedCollapsibleOpen(PROGRAM_DRAWER_COLLAPSIBLE_KEY, false);
+  const [isCalendarDrawerSectionOpen, setIsCalendarDrawerSectionOpen] =
+    usePersistedCollapsibleOpen(CALENDAR_DRAWER_COLLAPSIBLE_KEY, true);
+
   const keepDrawerOpenProgramSelect = useCallback(
     (program: ProgramValue) => {
       if (typeof window !== 'undefined') {
         sessionStorage.setItem(PWA_PROGRAM_DRAWER_OPEN_KEY, '1');
       }
       handleProgramSelect(program);
+      setIsProgramDrawerSectionOpen(false);
     },
-    [handleProgramSelect]
+    [handleProgramSelect, setIsProgramDrawerSectionOpen]
   );
 
   const keepDrawerOpenSessionToggle = useCallback(
@@ -399,11 +405,6 @@ export function CalendarControls({
     }
     return groupBProgramForSessions as ProgramValue;
   }, [currentGroup, groupAOptions, groupBProgramForSessions, selectedProgram]);
-
-  const [isProgramDrawerSectionOpen, setIsProgramDrawerSectionOpen] =
-    usePersistedCollapsibleOpen(PROGRAM_DRAWER_COLLAPSIBLE_KEY);
-  const [isCalendarDrawerSectionOpen, setIsCalendarDrawerSectionOpen] =
-    usePersistedCollapsibleOpen(CALENDAR_DRAWER_COLLAPSIBLE_KEY);
 
   // Memoize activity type checks from all selected sessions
   const sessionActivities = useMemo(() => {
@@ -1017,7 +1018,7 @@ export function CalendarControls({
       </div>
       <Drawer open={isProgramDrawerOpen} onOpenChange={handleProgramDrawerOpenChange}>
         <DrawerContent className={drawerContentClassName}>
-          <div className={cn(drawerBodyClassName, 'gap-3')}>
+          <div className={cn(drawerBodyClassName, 'min-h-0 flex-1 gap-3 overflow-y-auto overscroll-contain')}>
             <DrawerTitle>Program Selection</DrawerTitle>
             <DrawerDescription className="sr-only">Select group, program, and calendar sessions.</DrawerDescription>
             <div className="space-y-3">
@@ -1133,7 +1134,7 @@ export function CalendarControls({
       </Drawer>
       <Drawer open={isSettingsDrawerOpen} onOpenChange={setIsSettingsDrawerOpen}>
         <DrawerContent className={drawerContentClassName}>
-          <div className={cn(drawerBodyClassName, 'gap-3')}>
+          <div className={cn(drawerBodyClassName, 'min-h-0 flex-1 gap-3 overflow-y-auto overscroll-contain')}>
             <DrawerTitle>Settings</DrawerTitle>
             <DrawerDescription className="sr-only">Configure activity filter settings.</DrawerDescription>
             <div className="space-y-3 transition-none">

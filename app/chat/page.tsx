@@ -35,6 +35,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  responsiveDialogContentClassName,
 } from "@/components/ui/dialog";
 import {
   Drawer,
@@ -42,7 +43,11 @@ import {
   DrawerDescription,
   DrawerTitle,
   drawerBodyClassName,
-  drawerContentClassName,
+  responsiveDrawerContentClassName,
+  responsiveDrawerDescriptionClassName,
+  responsiveDialogDescriptionClassName,
+  responsiveDialogTitleClassName,
+  responsiveDrawerBodyClassName,
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import {
@@ -64,6 +69,7 @@ import {
   TurnstileWidget,
   type TurnstileWidgetHandle,
 } from "@/components/turnstile-widget";
+import { useTurnstileSiteKeyFromContext } from "@/components/turnstile-site-key-provider";
 import { useEngagementPrompt } from "@/components/engagement-prompt-provider";
 
 function getChatErrorMessage(res: Response, fallback: string): string {
@@ -671,9 +677,11 @@ export default function ChatPage() {
   const [mentionMatch, setMentionMatch] = useState<MentionMatch | null>(null);
   const [isMobileMentionPicker, setIsMobileMentionPicker] = useState(false);
 
-  const isProduction = process.env.NODE_ENV === "production";
-  const turnstileSiteKey = isProduction ? (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "") : "";
+  const { siteKey: turnstileSiteKey, isReady: isTurnstileConfigReady } =
+    useTurnstileSiteKeyFromContext();
   const requiresTurnstile = Boolean(turnstileSiteKey) && !isTurnstileSessionVerified;
+  const waitForTurnstileConfig =
+    process.env.NODE_ENV === "production" && !isTurnstileConfigReady;
   /** Hide widget as soon as Turnstile returns a token; keeps "Verifying..." off-screen during fetch. */
   const showTurnstileChallenge = requiresTurnstile && !turnstileToken.trim();
 
@@ -982,7 +990,7 @@ export default function ChatPage() {
   }, [dropdownOpen]);
 
   const sendMessage = useCallback(async (text: string) => {
-    if (!text.trim() || isLoading) return;
+    if (!text.trim() || isLoading || waitForTurnstileConfig) return;
     if (requiresTurnstile && !turnstileToken.trim()) {
       turnstileRef.current?.execute();
       return;
@@ -1122,6 +1130,7 @@ export default function ChatPage() {
     selectedProgram,
     selectedSessions,
     turnstileToken,
+    waitForTurnstileConfig,
   ]);
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -1432,7 +1441,9 @@ export default function ChatPage() {
                       key={suggestion}
                       type="button"
                       disabled={
-                        (requiresTurnstile && !turnstileToken.trim()) || isLoading
+                        waitForTurnstileConfig ||
+                        (requiresTurnstile && !turnstileToken.trim()) ||
+                        isLoading
                       }
                       onClick={() => sendMessage(suggestion)}
                       className="embla__slide flex-none text-xs px-3 py-1.5 rounded-full border border-border bg-secondary/50 hover:bg-secondary dark:bg-[#2A2A2A] dark:hover:bg-[#333] text-foreground transition-colors whitespace-nowrap disabled:opacity-40 disabled:pointer-events-none disabled:cursor-not-allowed"
@@ -1483,10 +1494,10 @@ export default function ChatPage() {
             />
             {isMobileMentionPicker ? (
               <Drawer open={isMentionOpen} onOpenChange={setIsMentionOpen}>
-                <DrawerContent className={drawerContentClassName}>
-                  <div className={cn(drawerBodyClassName, 'gap-3 text-center md:text-left')}>
+                <DrawerContent className={responsiveDrawerContentClassName}>
+                  <div className={cn(drawerBodyClassName, responsiveDrawerBodyClassName)}>
                     <DrawerTitle>Mention Session Calendar</DrawerTitle>
-                    <DrawerDescription className="sr-only border-0 shadow-none">
+                    <DrawerDescription className={responsiveDrawerDescriptionClassName}>
                       Select a session to insert into your message.
                     </DrawerDescription>
                     <div className="w-full space-y-2 text-left">
@@ -1513,10 +1524,14 @@ export default function ChatPage() {
               </Drawer>
             ) : (
               <Dialog open={isMentionOpen} onOpenChange={setIsMentionOpen}>
-                <DialogContent className="max-w-md gap-3 border border-zinc-300 bg-muted p-3 ring-0 dark:border-zinc-700" showCloseButton={false}>
-                  <DialogHeader>
-                    <DialogTitle>Mention Session Calendar</DialogTitle>
-                    <DialogDescription>Select a session to insert into your message.</DialogDescription>
+                <DialogContent className={responsiveDialogContentClassName} showCloseButton={false}>
+                  <DialogHeader className="gap-3 text-center md:text-left">
+                    <DialogTitle className={responsiveDialogTitleClassName}>
+                      Mention Session Calendar
+                    </DialogTitle>
+                    <DialogDescription className={responsiveDialogDescriptionClassName}>
+                      Select a session to insert into your message.
+                    </DialogDescription>
                   </DialogHeader>
                   <div className="max-h-[80vh] overflow-auto space-y-2">
                     {mentionItems.length > 0 ? (
@@ -1729,6 +1744,7 @@ export default function ChatPage() {
                   disabled={
                     !input.trim() ||
                     isLoading ||
+                    waitForTurnstileConfig ||
                     (requiresTurnstile && !turnstileToken.trim())
                   }
                   className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"

@@ -5,6 +5,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { responsiveShellBgClassName } from "@/components/ui/drawer"
 import { XIcon } from "lucide-react"
 
 function Dialog({
@@ -39,7 +40,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 isolate z-50 bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        "fixed inset-0 z-50 bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
         className
       )}
       {...props}
@@ -47,9 +48,11 @@ function DialogOverlay({
   )
 }
 
-/** Border/ring overrides for desktop dialogs that pair with mobile drawers. */
-export const responsiveDialogContentClassName =
-  "border border-zinc-300 ring-0 dark:border-zinc-700"
+/** Desktop shell for responsive drawer/dialog pairs (e.g. mention picker, engagement prompt). */
+export const responsiveDialogContentClassName = cn(
+  "max-w-md gap-3 border border-zinc-300 p-3 ring-0 dark:border-zinc-700",
+  responsiveShellBgClassName
+)
 
 function DialogContent({
   className,

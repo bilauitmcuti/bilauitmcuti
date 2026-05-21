@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { ChatCalendarBootstrap } from "@/components/chat-calendar-bootstrap";
+import { TurnstileSiteKeyProvider } from "@/components/turnstile-site-key-provider";
+import { getTurnstileSiteKey } from "@/lib/turnstile-config";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://bilauitmcuti.com"),
@@ -41,9 +43,9 @@ export default function ChatLayout({
   children: React.ReactNode;
 }) {
   return (
-    <>
+    <TurnstileSiteKeyProvider initialSiteKey={getTurnstileSiteKey()}>
       <ChatCalendarBootstrap />
       {children}
-    </>
+    </TurnstileSiteKeyProvider>
   );
 }

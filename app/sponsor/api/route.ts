@@ -14,6 +14,7 @@ import {
   getTurnstileExpectedHostname,
   verifyTurnstileToken,
 } from "@/lib/turnstile";
+import { isTurnstileVerificationRequired } from "@/lib/turnstile-config";
 
 
 const MIN_SUBMIT_TIME_MS = 3000;
@@ -226,7 +227,7 @@ export async function POST(request: NextRequest) {
       return jsonError("Please take a moment before submitting the form.", 429);
     }
 
-    const isTurnstileRequired = process.env.NODE_ENV === "production";
+    const isTurnstileRequired = isTurnstileVerificationRequired();
     const hasVerifiedCookie =
       request.cookies.get(SPONSOR_TURNSTILE_COOKIE)?.value === "1";
     if (isTurnstileRequired && !hasVerifiedCookie) {

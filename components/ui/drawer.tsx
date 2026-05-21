@@ -7,14 +7,45 @@ import { cn } from "@/lib/utils"
 
 /** Shared shell: sheet grows with content; no nested overflow scroll regions. */
 export const drawerContentClassName =
-  "flex flex-col [&::after]:hidden overflow-x-hidden"
+  "flex min-h-0 flex-col [&::after]:hidden overflow-x-hidden"
+
+/** Bottom inset: safe-area + 28px (1.75rem) for PWA home indicator — use on drawer shell. */
+export const DRAWER_SAFE_BOTTOM_PADDING =
+  "calc(env(safe-area-inset-bottom) + 1.75rem)" as const
+
+export const drawerSafeAreaBottomClassName =
+  "pb-[calc(env(safe-area-inset-bottom)+1.75rem)]"
 
 export const drawerBodyClassName =
-  "flex w-full min-w-0 max-w-full flex-col border-0 bg-popover px-4 pb-6 [padding-bottom:calc(env(safe-area-inset-bottom)+1.5rem)] pt-0 text-left shadow-none outline-none ring-0 ring-offset-0"
+  "flex w-full min-w-0 max-w-full flex-col border-0 bg-popover px-4 pt-0 text-left shadow-none outline-none ring-0 ring-offset-0"
+
+/** Pure white in light theme (see `.responsive-shell-bg` in globals.css). */
+export const responsiveShellBgClassName = "responsive-shell-bg"
+
+/** Drawer shell for mention picker & engagement prompt. */
+export const responsiveDrawerContentClassName = cn(
+  drawerContentClassName,
+  responsiveShellBgClassName
+)
+
+/** Body layout for responsive drawer/dialog pairs (mention picker, engagement prompt). */
+export const responsiveDrawerBodyClassName = cn(
+  "gap-3 text-center md:text-left",
+  responsiveShellBgClassName
+)
 
 /** Shared visible drawer heading — matches Program Selection drawer. */
 export const drawerTitleClassName =
   "w-full border-0 text-center text-lg font-semibold leading-snug tracking-tight text-foreground shadow-none outline-none ring-0 ring-offset-0"
+
+/** Dialog title/description typography aligned with drawer responsive pairs. */
+export const responsiveDialogTitleClassName = drawerTitleClassName
+
+export const responsiveDialogDescriptionClassName =
+  "border-0 text-sm text-muted-foreground shadow-none text-center md:text-left"
+
+export const responsiveDrawerDescriptionClassName =
+  responsiveDialogDescriptionClassName
 
 function Drawer({
   handleOnly = true,
@@ -85,7 +116,13 @@ function DrawerContent({
           aria-hidden
           className="mx-auto mt-4 hidden h-1.5 w-[100px] shrink-0 rounded-full bg-muted group-data-[vaul-drawer-direction=bottom]/drawer-content:block"
         />
-        <div data-vaul-no-drag="" className="min-h-0 w-full flex-1 pt-3">
+        <div
+          data-vaul-no-drag=""
+          className={cn(
+            "flex min-h-0 w-full flex-1 flex-col pt-3",
+            drawerSafeAreaBottomClassName
+          )}
+        >
           {children}
         </div>
       </DrawerPrimitive.Content>

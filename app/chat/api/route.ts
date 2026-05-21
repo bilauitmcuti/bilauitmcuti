@@ -59,6 +59,7 @@ import {
   getTurnstileExpectedHostname,
   verifyTurnstileToken,
 } from "@/lib/turnstile";
+import { isTurnstileVerificationRequired } from "@/lib/turnstile-config";
 
 // --- Request size & validation limits ---
 const MAX_BODY_SIZE_BYTES = 50 * 1024; // 50KB
@@ -1068,7 +1069,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { message, program, selectedSessions: rawSelectedSessions, history, turnstileToken } = parseResult.data;
-    const isTurnstileRequired = process.env.NODE_ENV === "production";
+    const isTurnstileRequired = isTurnstileVerificationRequired();
     const hasVerifiedCookie =
       request.cookies.get(CHAT_TURNSTILE_COOKIE)?.value === "1";
 

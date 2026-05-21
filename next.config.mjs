@@ -18,6 +18,11 @@ const nextConfig = {
   },
   env: {
     NEXT_PUBLIC_BUILD_ID: Date.now().toString(),
+    // Inline at build from either name (Cloudflare build env may use TURNSTILE_SITE_KEY only).
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY:
+      process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() ||
+      process.env.TURNSTILE_SITE_KEY?.trim() ||
+      "",
   },
   turbopack: {
     root: path.resolve(process.cwd()),

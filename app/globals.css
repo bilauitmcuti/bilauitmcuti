@@ -32,6 +32,14 @@ html.light {
   color: #1a1a1a !important;
 }
 
+/* Mention picker & engagement prompt shells — match page white in light theme */
+.responsive-shell-bg {
+  background-color: #ffffff !important;
+}
+html.dark .responsive-shell-bg {
+  background-color: var(--popover) !important;
+}
+
 html.dark {
   background-color: #1a1a1a !important;
   color: #ffffff !important;

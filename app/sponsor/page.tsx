@@ -25,6 +25,7 @@ import {
   SPONSOR_TURNSTILE_ACTION,
 } from "@/lib/sponsor";
 import type { SponsorSocialPlatform } from "@/lib/sponsor";
+import { useTurnstileSiteKey } from "@/hooks/use-turnstile-site-key";
 
 const QR_IMAGE_SRC = "/sponsor-qr.png";
 const SPONSOR_TURNSTILE_COOKIE = "sponsor_turnstile_verified";
@@ -51,9 +52,10 @@ export default function SponsorPage() {
   const lastScrollTop = useRef(0);
   const formTurnstileRef = useRef<TurnstileWidgetHandle>(null);
 
-  const isProduction = process.env.NODE_ENV === "production";
-  const turnstileSiteKey = isProduction ? (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "") : "";
+  const { siteKey: turnstileSiteKey, isReady: isTurnstileConfigReady } = useTurnstileSiteKey();
   const requiresTurnstile = Boolean(turnstileSiteKey) && !isTurnstileSessionVerified;
+  const waitForTurnstileConfig =
+    process.env.NODE_ENV === "production" && !isTurnstileConfigReady;
 
   useEffect(() => {
     setStartedAt(Date.now());
@@ -151,7 +153,7 @@ export default function SponsorPage() {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!isFormValid || isSubmitting) return;
+    if (!isFormValid || isSubmitting || waitForTurnstileConfig) return;
     if (requiresTurnstile && !turnstileToken.trim()) {
       setPendingSubmit(true);
       formTurnstileRef.current?.execute();
@@ -426,7 +428,11 @@ export default function SponsorPage() {
                   >
                     Reset
                   </Button>
-                  <Button type="submit" disabled={!isFormValid || isSubmitting} className="w-full sm:w-auto h-[38px]">
+                  <Button
+                    type="submit"
+                    disabled={!isFormValid || isSubmitting || waitForTurnstileConfig}
+                    className="w-full sm:w-auto h-[38px]"
+                  >
                     {isSubmitting ? "Submitting..." : "Submit"}
                   </Button>
                 </div>
