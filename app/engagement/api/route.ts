@@ -1,6 +1,6 @@
 export const runtime = 'edge';
 import { NextRequest, NextResponse } from "next/server";
-import { getTelegramEnv } from "@/lib/env";
+import { sendDiscordWebhook } from "@/lib/discord-webhook";
 import { logger } from "@/lib/logger";
 import { checkRateLimit } from "@/lib/rate-limit";
 
@@ -31,7 +31,7 @@ function getClientIp(request: NextRequest): string {
   );
 }
 
-function formatTelegramTime(date: Date): string {
+function formatNotificationTime(date: Date): string {
   return date.toLocaleString("en-MY", {
     timeZone: "Asia/Kuala_Lumpur",
     dateStyle: "medium",
@@ -39,33 +39,14 @@ function formatTelegramTime(date: Date): string {
   });
 }
 
-function buildTelegramText(rating: number, ip: string): string {
+function buildEngagementNotificationText(rating: number, ip: string): string {
   return [
     "User Star Rating",
     "",
     `Rating: ${rating} out of 5 stars`,
-    `Time: ${formatTelegramTime(new Date())}`,
+    `Time: ${formatNotificationTime(new Date())}`,
     `IP: ${ip}`,
   ].join("\n");
-}
-
-async function sendToTelegram(text: string) {
-  const { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID } = getTelegramEnv();
-  const endpoint = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: TELEGRAM_CHAT_ID,
-      text,
-      disable_web_page_preview: true,
-    }),
-  });
-
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw new Error(`Telegram API failed (${response.status}): ${detail.slice(0, 200)}`);
-  }
 }
 
 export async function POST(request: NextRequest) {
@@ -93,8 +74,8 @@ export async function POST(request: NextRequest) {
     const parsed = parseRatingRequest(rawBody);
     if (!parsed.success) return jsonError("Invalid rating value.", 400);
 
-    const text = buildTelegramText(parsed.data.rating, ip);
-    await sendToTelegram(text);
+    const text = buildEngagementNotificationText(parsed.data.rating, ip);
+    await sendDiscordWebhook(text);
 
     return NextResponse.json({ message: "Thanks for your rating!" });
   } catch (error) {

@@ -1,7 +1,7 @@
 export const runtime = 'edge';
 import { NextRequest, NextResponse } from "next/server";
 import { CONTACT_CATEGORY_OPTIONS, CONTACT_WHO_OPTIONS } from "@/lib/contact";
-import { getTelegramEnv } from "@/lib/env";
+import { sendDiscordWebhook } from "@/lib/discord-webhook";
 import { logger } from "@/lib/logger";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
@@ -69,7 +69,7 @@ function getClientIp(request: NextRequest): string {
   );
 }
 
-function formatTelegramTime(date: Date): string {
+function formatNotificationTime(date: Date): string {
   return date.toLocaleString("en-MY", {
     timeZone: "Asia/Kuala_Lumpur",
     dateStyle: "medium",
@@ -77,7 +77,7 @@ function formatTelegramTime(date: Date): string {
   });
 }
 
-function buildTelegramText(
+function buildContactNotificationText(
   who: string,
   category: string,
   message: string,
@@ -92,31 +92,12 @@ function buildTelegramText(
     `Who: ${who}`,
     `Category: ${category}`,
     `Rating: ${rating} out of 5 stars`,
-    `Time: ${formatTelegramTime(new Date())}`,
+    `Time: ${formatNotificationTime(new Date())}`,
     `IP: ${ip}`,
   ];
   if (trimmedEmail.length > 0) lines.push(`Email: ${trimmedEmail}`);
   lines.push("", "Message:", message);
   return lines.join("\n");
-}
-
-async function sendToTelegram(text: string) {
-  const { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID } = getTelegramEnv();
-  const endpoint = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: TELEGRAM_CHAT_ID,
-      text,
-      disable_web_page_preview: true,
-    }),
-  });
-
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw new Error(`Telegram API failed (${response.status}): ${detail.slice(0, 200)}`);
-  }
 }
 
 export async function POST(request: NextRequest) {
@@ -191,8 +172,8 @@ export async function POST(request: NextRequest) {
       shouldSetVerifiedCookie = true;
     }
 
-    const text = buildTelegramText(who, category, message.trim(), ip, rating, email);
-    await sendToTelegram(text);
+    const text = buildContactNotificationText(who, category, message.trim(), ip, rating, email);
+    await sendDiscordWebhook(text);
 
     return withVerifiedCookie(NextResponse.json({ message: "Thanks! Your message has been submitted." }));
   } catch (error) {

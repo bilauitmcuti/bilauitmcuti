@@ -15,6 +15,7 @@ pnpm install
 
 ## Optional Environment
 
+- `DISCORD_WEBHOOK_URL` — optional server-only webhook for contact, engagement rating, and sponsor form notifications. Do not use `NEXT_PUBLIC_*` or commit the URL.
 - `CALENDAR_API_BASE` — optional server-only override for the calendar API origin (default `https://api.bilauitmcuti.com`). Do not use `NEXT_PUBLIC_*` for this: the upstream URL must not be embedded in client bundles.
 
 **Browser vs server:** The calendar UI calls **`/api/v1/meta`** and **`/api/v1/calendar`** (same origin); legacy **`/api/calendar-proxy/v1/...`** still works. CSP `connect-src` allows `'self'` only for calendar traffic (not the upstream host). The proxy allowlists those paths and forwards to `CALENDAR_API_BASE`. Chat and other server code call the upstream URL directly.

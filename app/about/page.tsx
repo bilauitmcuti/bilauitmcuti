@@ -1,43 +1,183 @@
-export default function AboutPage() {
+'use client';
+
+import { useCallback, useRef, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { ChevronLeft } from 'lucide-react';
+
+import { Badge } from '@/components/ui/badge';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+
+const programsText =
+  'Foundation/Professional, Pre-Diploma, Diploma, Diploma (Part-Time), Bachelor, Bachelor (Part-Time), Master, and PhD.';
+
+const featuresText =
+  'Grid and list views, activity filters, Group A and Group B sessions, KKT regional dates, countdown to the next activity, light and dark themes, PWA install, and AI chat.';
+
+function AboutBody({ children }: { children: React.ReactNode }) {
+  return <p className="text-sm leading-relaxed text-foreground">{children}</p>;
+}
+
+function TextSection({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          About <span className="text-[#8b5cf6]">Bila UiTM Cuti?</span>
-        </h1>
+    <div className="flex flex-col gap-2">
+      <p className="text-sm font-semibold text-foreground">{label}</p>
+      {children}
+    </div>
+  );
+}
 
-        <div className="mt-6 space-y-6 text-muted-foreground">
-          <section className="space-y-3">
-            <p>
-              Bila UiTM Cuti? is a student-focused web app that helps users track the latest UiTM academic calendar details in one clean and accessible place. The app is designed for quick checking of important timelines such as registration windows, lecture periods, examination phases, and semester breaks.
-            </p>
-            <p>
-              The current web app version includes both grid and list views, regional calendar coverage for Kedah, Kelantan, and Terengganu, and a responsive layout that works smoothly across phone, tablet, and desktop screens. It also supports light and dark themes and can be installed as a Progressive Web App (PWA) for faster home-screen access.
-            </p>
-            <p>
-              To support faster understanding of schedule context, the app also includes an AI chat assistant that helps explain date ranges and related calendar information. Even with this support, users should always verify critical dates with official UiTM announcements when making important academic decisions.
-            </p>
-          </section>
+export default function AboutPage() {
+  const router = useRouter();
+  const [headerVisible, setHeaderVisible] = useState(true);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const lastScrollTop = useRef(0);
 
-          <section className="space-y-3">
-            <h2 className="text-lg font-semibold text-foreground">Terms and Conditions</h2>
-            <p>
-              By using Bila UiTM Cuti?, you agree that all information is provided on a best-effort basis for educational and informational use only. While we try to keep data updated, we do not guarantee completeness, accuracy, or uninterrupted availability at all times.
-            </p>
-            <p>
-              You are responsible for verifying any date, deadline, or academic requirement with official UiTM channels before taking action. The app owner is not liable for direct or indirect loss caused by reliance on unofficial or outdated schedule information.
-            </p>
-            <p>
-              We may update features, content, and terms without prior notice to improve service quality. Continued use of the app after updates indicates acceptance of the revised terms and conditions.
-            </p>
-          </section>
+  const handleScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const currentScrollTop = el.scrollTop;
+    if (currentScrollTop <= 10 || currentScrollTop < lastScrollTop.current) {
+      setHeaderVisible(true);
+    } else if (currentScrollTop > lastScrollTop.current) {
+      setHeaderVisible(false);
+    }
+    lastScrollTop.current = currentScrollTop;
+  }, []);
 
-          <section className="space-y-3 pb-8">
-            <h2 className="text-lg font-semibold text-foreground">Disclaimer</h2>
-            <p>
-              This app is <strong className="font-semibold text-foreground">not affiliated with UiTM</strong> (Universiti Teknologi MARA). It is created for educational and informational purposes only. Calendar data is sourced from publicly available HEA UiTM academic calendar information. Please verify important dates directly with official UiTM sources.
-            </p>
-          </section>
+  return (
+    <div className="relative flex h-dvh flex-col bg-background text-foreground">
+      <div className="chat-top-fade pointer-events-none absolute left-0 right-0 top-0 z-[9]" />
+
+      <div
+        className={`chat-header absolute left-0 right-0 top-0 z-10 px-4 transition-transform md:px-0 ${
+          headerVisible ? 'translate-y-0' : '-translate-y-full'
+        }`}
+      >
+        <header className="mx-auto flex w-full max-w-[600px] items-center gap-3 pb-3 pt-8">
+          <button
+            type="button"
+            onClick={() => router.push('/')}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary transition-colors hover:bg-secondary/80 dark:bg-[#2A2A2A] dark:hover:bg-[#333]"
+            aria-label="Back to home"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        </header>
+      </div>
+
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto px-4 pb-6 pt-24 md:px-0"
+      >
+        <div className="mx-auto w-full max-w-[600px]">
+          <Card className="gap-0 rounded-[10px] shadow-none">
+            <CardHeader className="space-y-1 px-3 pb-4 sm:px-6">
+              <div>
+                <CardTitle asChild className="text-2xl font-semibold">
+                  <h1>About Bila UiTM Cuti</h1>
+                </CardTitle>
+                <CardDescription className="mt-1 text-sm text-foreground">
+                  A student-focused web app for checking UiTM academic calendar timelines — registration, lectures,
+                  examinations, and semester breaks — in one place.
+                </CardDescription>
+              </div>
+            </CardHeader>
+          </Card>
+
+          <Card className="mt-4 gap-0 rounded-[10px] shadow-none">
+            <CardHeader className="space-y-1 px-3 pb-4 sm:px-6">
+              <CardTitle className="text-xl font-semibold">What&apos;s included</CardTitle>
+              <CardDescription className="mt-1 text-sm text-foreground">
+                Built for phones, tablets, and desktop — same experience across grid and list views.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4 px-3 pt-0 sm:px-6">
+              <TextSection label="Programs">
+                <AboutBody>{programsText}</AboutBody>
+              </TextSection>
+              <TextSection label="Features">
+                <AboutBody>{featuresText}</AboutBody>
+              </TextSection>
+              <AboutBody>
+                For feedback, bug reports, or suggestions, send them through the{' '}
+                <Link href="/feedback" className="text-primary underline-offset-4 hover:underline">
+                  feedback page
+                </Link>
+                .
+              </AboutBody>
+            </CardContent>
+          </Card>
+
+          <Card className="mt-4 gap-0 rounded-[10px] shadow-none">
+            <CardHeader className="space-y-1 px-3 pb-4 sm:px-6">
+              <CardTitle className="text-xl font-semibold">AI assistant</CardTitle>
+              <CardDescription className="mt-1 text-sm text-foreground">
+                Ask about dates, breaks, exams, and program context.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4 px-3 pt-0 sm:px-6">
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="secondary">English</Badge>
+                <Badge variant="secondary">Malay</Badge>
+                <Badge variant="outline">Cloudflare Workers AI</Badge>
+              </div>
+              <AboutBody>
+                The chat assistant explains schedule context based on your selected program and can answer general UiTM
+                questions. Answers may be incomplete or outdated.
+              </AboutBody>
+              <AboutBody>
+                Always confirm critical dates and deadlines with official UiTM announcements before making academic
+                decisions.
+              </AboutBody>
+            </CardContent>
+          </Card>
+
+          <Card className="mt-4 gap-0 rounded-[10px] shadow-none">
+            <CardHeader className="space-y-1 px-3 pb-4 sm:px-6">
+              <CardTitle className="text-xl font-semibold">Terms and conditions</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4 px-3 pt-0 sm:px-6">
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline">Best effort</Badge>
+                <Badge variant="outline">Educational use</Badge>
+              </div>
+              <AboutBody>
+                By using Bila UiTM Cuti, you agree that all information is provided on a best-effort basis for
+                educational and informational use only. We do not guarantee completeness, accuracy, or uninterrupted
+                availability at all times.
+              </AboutBody>
+              <AboutBody>
+                You are responsible for verifying any date, deadline, or academic requirement with official UiTM
+                channels before taking action. The app owner is not liable for direct or indirect loss caused by
+                reliance on unofficial or outdated schedule information.
+              </AboutBody>
+              <AboutBody>
+                We may update features, content, and terms without prior notice. Continued use after updates indicates
+                acceptance of the revised terms.
+              </AboutBody>
+            </CardContent>
+          </Card>
+
+          <Card className="mt-4 gap-0 rounded-[10px] shadow-none">
+            <CardHeader className="space-y-1 px-3 pb-4 sm:px-6">
+              <CardTitle className="text-xl font-semibold">Disclaimer</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4 px-3 pt-0 sm:px-6">
+              <Badge variant="destructive">Not affiliated with UiTM</Badge>
+              <AboutBody>
+                This app is not affiliated with Universiti Teknologi MARA (UiTM). It is created for educational and
+                informational purposes only. Please verify important dates directly with official UiTM sources.
+              </AboutBody>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

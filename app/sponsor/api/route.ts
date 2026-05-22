@@ -1,6 +1,6 @@
 export const runtime = 'edge';
 import { NextRequest, NextResponse } from "next/server";
-import { getTelegramEnv } from "@/lib/env";
+import { sendDiscordWebhookWithFile } from "@/lib/discord-webhook";
 import { logger } from "@/lib/logger";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
@@ -80,7 +80,7 @@ function getClientIp(request: NextRequest): string {
   );
 }
 
-function buildSponsorTelegramText(params: {
+function buildSponsorNotificationText(params: {
   anonymous: boolean;
   nickname: string;
   socialPlatform: string;
@@ -110,56 +110,6 @@ function buildSponsorTelegramText(params: {
     "Message:",
     params.message.trim(),
   ].join("\n");
-}
-
-async function sendTelegramMessage(text: string) {
-  const { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID } = getTelegramEnv();
-  const endpoint = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: TELEGRAM_CHAT_ID,
-      text,
-      disable_web_page_preview: true,
-    }),
-  });
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw new Error(`Telegram sendMessage failed (${response.status}): ${detail.slice(0, 200)}`);
-  }
-}
-
-async function sendTelegramProof(params: {
-  file: File;
-  caption: string;
-}) {
-  const { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID } = getTelegramEnv();
-  const isImage = params.file.type.startsWith("image/");
-  const method = isImage ? "sendPhoto" : "sendDocument";
-  const endpoint = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/${method}`;
-
-  const form = new FormData();
-  form.append("chat_id", TELEGRAM_CHAT_ID);
-  const safeCaption =
-    params.caption.length > 1000 ? params.caption.slice(0, 997) + "..." : params.caption;
-  form.append("caption", safeCaption);
-
-  if (isImage) {
-    form.append("photo", params.file, params.file.name || "proof.jpg");
-  } else {
-    form.append("document", params.file, params.file.name || "proof.pdf");
-  }
-
-  const response = await fetch(endpoint, {
-    method: "POST",
-    body: form,
-  });
-
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw new Error(`Telegram ${method} failed (${response.status}): ${detail.slice(0, 200)}`);
-  }
 }
 
 export async function POST(request: NextRequest) {
@@ -252,7 +202,7 @@ export async function POST(request: NextRequest) {
     const nickname = anonymous ? "" : (data.nickname ?? "").trim();
     const userAgent = request.headers.get("user-agent") ?? "unknown";
 
-    const summary = buildSponsorTelegramText({
+    const summary = buildSponsorNotificationText({
       anonymous,
       nickname,
       socialPlatform: data.socialPlatform,
@@ -264,11 +214,7 @@ export async function POST(request: NextRequest) {
       mimeType: proof.type || "unknown",
     });
 
-    await sendTelegramMessage(summary);
-    await sendTelegramProof({
-      file: proof,
-      caption: `Sponsor proof — ${anonymous ? "Anonymous" : nickname || "—"}`,
-    });
+    await sendDiscordWebhookWithFile({ content: summary, file: proof });
 
     return withVerifiedCookie(NextResponse.json({ message: "Thanks! Your sponsorship details were submitted." }));
   } catch (error) {
