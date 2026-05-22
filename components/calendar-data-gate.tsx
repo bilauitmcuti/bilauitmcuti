@@ -152,7 +152,13 @@ export function CalendarDataGate({
         const hydrationProgramOk =
           hydratedSnapshotProgram != null &&
           hydratedSnapshotProgram === selectedProgram;
+        // SSR hydrate key is fixed for the page lifetime; after fetching another Group B
+        // program, cached session rows are for that program — do not skip when switching back to All.
+        const canTrustHydration =
+          lastFetchedProgramRef.current === undefined ||
+          lastFetchedProgramRef.current === selectedProgram;
         if (
+          canTrustHydration &&
           hydrationProgramOk &&
           hydratedLoadKey != null &&
           hydratedLoadKey === loadKey &&
