@@ -86,7 +86,6 @@ function buildSponsorNotificationText(params: {
   socialPlatform: string;
   socialHandle: string;
   message: string;
-  ip: string;
   userAgent: string;
   fileName: string;
   mimeType: string;
@@ -103,7 +102,6 @@ function buildSponsorNotificationText(params: {
     `Time: ${now}`,
     nameLine,
     socialLine,
-    `IP: ${params.ip}`,
     `User Agent: ${params.userAgent || "unknown"}`,
     `Proof file: ${params.fileName} (${params.mimeType})`,
     "",
@@ -208,7 +206,6 @@ export async function POST(request: NextRequest) {
       socialPlatform: data.socialPlatform,
       socialHandle: data.socialHandle,
       message: data.message,
-      ip,
       userAgent,
       fileName: proof.name || "proof",
       mimeType: proof.type || "unknown",

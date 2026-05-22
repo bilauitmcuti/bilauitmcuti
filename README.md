@@ -19,7 +19,7 @@ Academic calendar web app for Universiti Teknologi MARA (UiTM) — Malaysia's la
 - Ask about academic dates, breaks, and exams in English or Malay
 - General UiTM info: campuses, faculties, programs, admission
 - Context-aware answers based on selected program
-- Powered by Cloudflare Workers AI (Llama 3.2 3B Instruct)
+- Powered by Cloudflare Workers AI (Gemma 4 on production; Llama 3.2 3B for dev/preview)
 - Rate limited: per IP per day and a global daily cap (see Rate Limits below)
 
 ### Progressive Web App
@@ -36,7 +36,7 @@ Academic calendar web app for Universiti Teknologi MARA (UiTM) — Malaysia's la
 - **Framework:** Next.js 16 (App Router), React 19, TypeScript
 - **Styling:** Tailwind CSS 4, shadcn/ui, Radix UI
 - **Scrolling:** Lenis (smooth wheel / touch sync on calendar routes; chat route uses native scroll)
-- **AI:** Cloudflare Workers AI (`@cf/meta/llama-3.2-3b-instruct`)
+- **AI:** Cloudflare Workers AI — production: `@cf/google/gemma-4-26b-a4b-it`; dev/preview: `@cf/meta/llama-3.2-3b-instruct`
 - **Calendar UI:** react-day-picker, date-fns
 - **Validation:** Zod
 - **Deployment:** Cloudflare Pages (`@cloudflare/next-on-pages`)

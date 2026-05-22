@@ -81,7 +81,6 @@ function buildContactNotificationText(
   who: string,
   category: string,
   message: string,
-  ip: string,
   rating: number,
   email?: string
 ): string {
@@ -93,7 +92,6 @@ function buildContactNotificationText(
     `Category: ${category}`,
     `Rating: ${rating} out of 5 stars`,
     `Time: ${formatNotificationTime(new Date())}`,
-    `IP: ${ip}`,
   ];
   if (trimmedEmail.length > 0) lines.push(`Email: ${trimmedEmail}`);
   lines.push("", "Message:", message);
@@ -172,7 +170,7 @@ export async function POST(request: NextRequest) {
       shouldSetVerifiedCookie = true;
     }
 
-    const text = buildContactNotificationText(who, category, message.trim(), ip, rating, email);
+    const text = buildContactNotificationText(who, category, message.trim(), rating, email);
     await sendDiscordWebhook(text);
 
     return withVerifiedCookie(NextResponse.json({ message: "Thanks! Your message has been submitted." }));

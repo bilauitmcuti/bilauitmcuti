@@ -10,7 +10,7 @@ pnpm install
 
 ## Required Environment
 
-- **Workers AI binding** — required for chat. In Cloudflare Pages: Settings → Bindings → Add → **Workers AI** → variable name `AI` (production + preview). Local: `pnpm run preview` after `build:pages`. Also declared in [`wrangler.jsonc`](wrangler.jsonc). No API key secret for inference.
+- **Workers AI binding** — required for chat. In Cloudflare Pages: Settings → Bindings → Add → **Workers AI** → variable name `AI` (production + preview). Local: `pnpm run preview` after `build:pages`. Also declared in [`wrangler.jsonc`](wrangler.jsonc). No API key secret for inference. Chat model: **Gemma 4** (`@cf/google/gemma-4-26b-a4b-it`) on production host `bilauitmcuti.com`; **Llama 3.2 3B** for `pnpm dev`, `pnpm preview`, and Pages preview (`*.pages.dev`). See `lib/ai.ts` (`resolveWorkersAiModelId`).
 - `NEXT_PUBLIC_TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY` — required for Turnstile on feedback, sponsor, and chat in production. Set `NEXT_PUBLIC_TURNSTILE_SITE_KEY` in **Pages build environment** (inlined into the client bundle), or `TURNSTILE_SITE_KEY` at runtime (client loads via `GET /api/turnstile/config`).
 
 ## Optional Environment

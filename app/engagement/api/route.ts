@@ -39,13 +39,12 @@ function formatNotificationTime(date: Date): string {
   });
 }
 
-function buildEngagementNotificationText(rating: number, ip: string): string {
+function buildEngagementNotificationText(rating: number): string {
   return [
     "User Star Rating",
     "",
     `Rating: ${rating} out of 5 stars`,
     `Time: ${formatNotificationTime(new Date())}`,
-    `IP: ${ip}`,
   ].join("\n");
 }
 
@@ -74,7 +73,7 @@ export async function POST(request: NextRequest) {
     const parsed = parseRatingRequest(rawBody);
     if (!parsed.success) return jsonError("Invalid rating value.", 400);
 
-    const text = buildEngagementNotificationText(parsed.data.rating, ip);
+    const text = buildEngagementNotificationText(parsed.data.rating);
     await sendDiscordWebhook(text);
 
     return NextResponse.json({ message: "Thanks for your rating!" });

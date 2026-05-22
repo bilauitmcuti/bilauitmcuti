@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import {
   askWorkersAi,
+  getMaxOutputTokensForHost,
   isAiRateLimitError,
-  MAX_OUTPUT_TOKENS,
   type ChatMessage,
 } from "@/lib/ai";
 import { getLanguageTurnDirective } from "@/lib/chat-language";
@@ -194,7 +194,8 @@ async function sleep(ms: number): Promise<void> {
 function getModelResponseBudget(
   message: string,
   useCalendarPrompt: boolean,
-  isCompareRequested: boolean
+  isCompareRequested: boolean,
+  maxOutputTokens: number
 ): { maxTokens: number; temperature: number } {
   const lower = message.toLowerCase();
   const asksDetail =
@@ -212,18 +213,18 @@ function getModelResponseBudget(
     lower.includes("senarai");
 
   if (!useCalendarPrompt) {
-    return { maxTokens: MAX_OUTPUT_TOKENS, temperature: 0.25 };
+    return { maxTokens: maxOutputTokens, temperature: 0.25 };
   }
   if (isCompareRequested) {
-    return { maxTokens: MAX_OUTPUT_TOKENS, temperature: 0.15 };
+    return { maxTokens: maxOutputTokens, temperature: 0.15 };
   }
   if (asksDetail) {
-    return { maxTokens: MAX_OUTPUT_TOKENS, temperature: 0.2 };
+    return { maxTokens: maxOutputTokens, temperature: 0.2 };
   }
   if (isSimpleCalendarQuestion(message)) {
-    return { maxTokens: MAX_OUTPUT_TOKENS, temperature: 0.1 };
+    return { maxTokens: maxOutputTokens, temperature: 0.1 };
   }
-  return { maxTokens: MAX_OUTPUT_TOKENS, temperature: 0.15 };
+  return { maxTokens: maxOutputTokens, temperature: 0.15 };
 }
 
 const RETRY_DELAYS_MS = [350];
@@ -232,7 +233,7 @@ async function askAiWithRetry(
   message: string,
   systemPrompt: string,
   history: ChatMessage[] | undefined,
-  options: { maxTokens: number; temperature: number }
+  options: { maxTokens: number; temperature: number; requestHost?: string | null }
 ): Promise<string> {
   let lastError: unknown = null;
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
@@ -1128,10 +1129,13 @@ export async function POST(request: NextRequest) {
     const cachedReply = getCachedReply(cacheKey);
     if (cachedReply) return withVerifiedCookie(NextResponse.json({ reply: cachedReply }));
 
+    const requestHost = request.headers.get("host");
+    const maxOutputTokens = getMaxOutputTokensForHost(requestHost);
     const modelBudget = getModelResponseBudget(
       sanitizedMessage,
       useCalendarPrompt,
-      wantsTableOutput
+      wantsTableOutput,
+      maxOutputTokens
     );
     const languageDirective = getLanguageTurnDirective(sanitizedMessage, sanitizedHistory);
     const systemPromptWithCompletion =
@@ -1145,7 +1149,7 @@ export async function POST(request: NextRequest) {
       sanitizedMessage,
       systemPromptWithCompletion,
       sanitizedHistory,
-      modelBudget
+      { ...modelBudget, requestHost }
     );
 
     const reply = normalizeAssistantTables(cleanAiReply(rawReply));

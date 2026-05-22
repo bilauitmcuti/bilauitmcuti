@@ -1,19 +1,118 @@
-/** Primary Workers AI model for chat. */
-export const MODEL_WORKERS_AI = "@cf/meta/llama-3.2-3b-instruct" as const;
+/** Dev / preview / localhost chat model (fast, lower cost). */
+export const MODEL_WORKERS_AI_DEV = "@cf/meta/llama-3.2-3b-instruct" as const;
 
-/** Max completion tokens for Workers AI (@cf/meta/llama-3.2-3b-instruct output ceiling). */
-export const MAX_OUTPUT_TOKENS = 2048;
+/** Production chat model (stronger instruction following for rules and scope). */
+export const MODEL_WORKERS_AI_PRODUCTION =
+  "@cf/google/gemma-4-26b-a4b-it" as const;
+
+/** @deprecated Use MODEL_WORKERS_AI_DEV */
+export const MODEL_WORKERS_AI = MODEL_WORKERS_AI_DEV;
+
+const PRODUCTION_SITE_HOST = "bilauitmcuti.com";
+
+export type WorkersAiModelTier = "dev" | "production";
+
+interface WorkersAiTierLimits {
+  maxOutputTokens: number;
+  maxSystemChars: number;
+  maxHistoryMessages: number;
+  maxMessageChars: number;
+  maxUserPromptChars: number;
+}
+
+const TIER_LIMITS: Record<WorkersAiModelTier, WorkersAiTierLimits> = {
+  dev: {
+    maxOutputTokens: 2048,
+    maxSystemChars: 12_000,
+    maxHistoryMessages: 8,
+    maxMessageChars: 2_400,
+    maxUserPromptChars: 2_000,
+  },
+  production: {
+    maxOutputTokens: 4096,
+    maxSystemChars: 24_000,
+    maxHistoryMessages: 10,
+    maxMessageChars: 3_200,
+    maxUserPromptChars: 2_400,
+  },
+};
+
+/** Default max completion tokens (dev tier). */
+export const MAX_OUTPUT_TOKENS = TIER_LIMITS.dev.maxOutputTokens;
 
 /** @deprecated Use MAX_OUTPUT_TOKENS */
 export const MAX_TOKENS_LLAMA = MAX_OUTPUT_TOKENS;
 
 const DEFAULT_TEMPERATURE = 0.2;
 
-/** Request body too large. Tuned for a safer payload budget. */
-const MAX_SYSTEM_CHARS = 12_000;
-const MAX_HISTORY_MESSAGES = 8;
-const MAX_MESSAGE_CHARS = 2_400;
-const MAX_USER_PROMPT_CHARS = 2_000;
+function normalizeHost(host: string): string {
+  return host.replace(/^www\./, "").split(":")[0].toLowerCase();
+}
+
+function isProductionSiteHost(host: string | null | undefined): boolean {
+  if (!host?.trim()) return false;
+  return normalizeHost(host) === PRODUCTION_SITE_HOST;
+}
+
+function isLocalOrPreviewHost(host: string): boolean {
+  const h = normalizeHost(host);
+  return (
+    h === "localhost" ||
+    h.endsWith(".localhost") ||
+    h.endsWith(".pages.dev") ||
+    h === "127.0.0.1"
+  );
+}
+
+function isCloudflarePagesPreviewDeploy(): boolean {
+  const url = process.env.CF_PAGES_URL?.toLowerCase() ?? "";
+  return url.includes(".pages.dev");
+}
+
+/**
+ * Production uses Gemma; dev (`pnpm dev`), `pnpm preview`, and Pages preview use Llama.
+ * Optional overrides: WORKERS_AI_MODEL (any env), WORKERS_AI_USE_DEV_MODEL=1 (force Llama).
+ */
+export function resolveWorkersAiModelTier(requestHost?: string | null): WorkersAiModelTier {
+  const override = process.env.WORKERS_AI_MODEL?.trim();
+  if (override) {
+    return override === MODEL_WORKERS_AI_PRODUCTION ? "production" : "dev";
+  }
+
+  if (process.env.WORKERS_AI_USE_DEV_MODEL === "1" || process.env.WORKERS_AI_USE_DEV_MODEL === "true") {
+    return "dev";
+  }
+
+  if (process.env.NODE_ENV !== "production") return "dev";
+
+  if (requestHost) {
+    if (isProductionSiteHost(requestHost)) return "production";
+    if (isLocalOrPreviewHost(requestHost)) return "dev";
+  }
+
+  if (isCloudflarePagesPreviewDeploy()) return "dev";
+
+  if (process.env.CF_PAGES === "1") {
+    const pagesUrl = process.env.CF_PAGES_URL?.toLowerCase() ?? "";
+    if (pagesUrl && !pagesUrl.includes(".pages.dev")) return "production";
+  }
+
+  return "dev";
+}
+
+export function resolveWorkersAiModelId(requestHost?: string | null): string {
+  const tier = resolveWorkersAiModelTier(requestHost);
+  return tier === "production" ? MODEL_WORKERS_AI_PRODUCTION : MODEL_WORKERS_AI_DEV;
+}
+
+export function getWorkersAiTierLimits(tier: WorkersAiModelTier): WorkersAiTierLimits {
+  return TIER_LIMITS[tier];
+}
+
+export function getMaxOutputTokensForHost(requestHost?: string | null): number {
+  const tier = resolveWorkersAiModelTier(requestHost);
+  return TIER_LIMITS[tier].maxOutputTokens;
+}
 
 interface WorkersAiTextResponse {
   response?: string;
@@ -59,23 +158,33 @@ function truncate(str: string, max: number): string {
 
 function buildMessages(
   prompt: string,
-  systemPrompt?: string,
-  history?: ChatMessage[]
+  systemPrompt: string | undefined,
+  history: ChatMessage[] | undefined,
+  limits: WorkersAiTierLimits
 ): { role: "system" | "user" | "assistant"; content: string }[] {
   const messages: { role: "system" | "user" | "assistant"; content: string }[] = [];
 
   if (systemPrompt) {
-    messages.push({ role: "system", content: truncate(systemPrompt, MAX_SYSTEM_CHARS) });
+    messages.push({
+      role: "system",
+      content: truncate(systemPrompt, limits.maxSystemChars),
+    });
   }
 
   if (history && history.length > 0) {
-    const recentHistory = history.slice(-MAX_HISTORY_MESSAGES);
+    const recentHistory = history.slice(-limits.maxHistoryMessages);
     for (const msg of recentHistory) {
-      messages.push({ role: msg.role, content: truncate(msg.content, MAX_MESSAGE_CHARS) });
+      messages.push({
+        role: msg.role,
+        content: truncate(msg.content, limits.maxMessageChars),
+      });
     }
   }
 
-  messages.push({ role: "user", content: truncate(prompt, MAX_USER_PROMPT_CHARS) });
+  messages.push({
+    role: "user",
+    content: truncate(prompt, limits.maxUserPromptChars),
+  });
   return messages;
 }
 
@@ -93,6 +202,7 @@ function extractWorkersAiContent(result: unknown): string {
 }
 
 async function workersAiChatCompletion(params: {
+  modelId: string;
   messages: { role: "system" | "user" | "assistant"; content: string }[];
   max_tokens: number;
   temperature: number;
@@ -107,7 +217,7 @@ async function workersAiChatCompletion(params: {
   }
 
   try {
-    const result = await ai.run(MODEL_WORKERS_AI, {
+    const result = await ai.run(params.modelId, {
       messages: params.messages,
       max_tokens: params.max_tokens,
       temperature: params.temperature,
@@ -131,12 +241,18 @@ export async function askWorkersAi(
   options?: {
     maxTokens?: number;
     temperature?: number;
+    /** Request Host header — selects production vs dev model on Cloudflare Pages. */
+    requestHost?: string | null;
   }
 ): Promise<string> {
-  const messages = buildMessages(prompt, systemPrompt, history);
+  const tier = resolveWorkersAiModelTier(options?.requestHost);
+  const limits = getWorkersAiTierLimits(tier);
+  const modelId = resolveWorkersAiModelId(options?.requestHost);
+  const messages = buildMessages(prompt, systemPrompt, history, limits);
   return workersAiChatCompletion({
+    modelId,
     messages,
-    max_tokens: options?.maxTokens ?? MAX_OUTPUT_TOKENS,
+    max_tokens: options?.maxTokens ?? limits.maxOutputTokens,
     temperature: options?.temperature ?? DEFAULT_TEMPERATURE,
   });
 }
