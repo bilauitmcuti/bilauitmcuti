@@ -25,7 +25,8 @@ export function VersionBanner() {
       try {
         const res = await fetch("/api/version", { cache: "no-store" });
         if (!res.ok) return;
-        const { buildId } = await res.json();
+        const data = (await res.json()) as { buildId?: string };
+        const buildId = data.buildId;
         if (buildId && buildId !== INITIAL_BUILD_ID) {
           setIsVisible(true);
           clearPoll();
