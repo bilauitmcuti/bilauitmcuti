@@ -4,6 +4,8 @@ import { CalendarWrapper } from '@/components/calendar-wrapper';
 import { buildCalendarPageMetadata } from '@/lib/calendar-seo-metadata';
 import type { Metadata } from 'next';
 
+export const dynamic = 'force-dynamic';
+
 interface ListPageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }

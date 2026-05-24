@@ -11,7 +11,6 @@ import { getSnapshot } from "@/lib/calendar-store";
 import type { SessionId } from "@/lib/data";
 import {
   applySessionIdsToFilters,
-  buildCalendarUrlPath,
   hasSessionQueryParams,
   normalizeSessionIdsForProgram,
   parseSessionIdsFromSearchParams,
@@ -84,7 +83,7 @@ export function SessionQueryConsumer({
     }
 
     onSessionQueryConsumed(program, sessionsToApply);
-    router.replace(buildCalendarUrlPath(pathname, sessionsToApply), { scroll: false });
+    router.replace(pathname, { scroll: false });
   }, [searchParams, pathname, router, onSessionQueryConsumed]);
 
   return null;

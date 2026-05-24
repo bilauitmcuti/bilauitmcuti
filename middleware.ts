@@ -6,11 +6,13 @@ import {
 } from "@/lib/cookie-utils";
 import {
   applySessionIdsToFilters,
+  buildCleanCalendarUrl,
   hasSessionQueryParams,
   isCalendarPath,
   parseSessionIdsFromSearchParams,
   resolveProgramForSessionQuery,
 } from "@/lib/session-query";
+import { isSocialPreviewCrawler } from "@/lib/social-preview-crawler";
 
 /**
  * Bot patterns to block from accessing chat routes.
@@ -98,7 +100,13 @@ function handleSessionQueryRedirect(request: NextRequest): NextResponse | null {
   );
   const merged = applySessionIdsToFilters(existing, sessionIds, program);
 
-  const response = NextResponse.next();
+  const ua = request.headers.get("user-agent") ?? "";
+  const preserveQueryForPreview = isSocialPreviewCrawler(ua);
+
+  const response = preserveQueryForPreview
+    ? NextResponse.next()
+    : NextResponse.redirect(new URL(buildCleanCalendarUrl(pathname), request.url));
+
   response.cookies.set(CALENDAR_FILTERS_COOKIE, JSON.stringify(merged), {
     path: "/",
     maxAge: CALENDAR_FILTERS_MAX_AGE,

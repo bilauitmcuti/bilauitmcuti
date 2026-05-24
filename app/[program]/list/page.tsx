@@ -7,6 +7,8 @@ import { getProgramPageTitle, getProgramSeoDescription, getProgramListCanonicalU
 import { buildCalendarPageMetadata } from '@/lib/calendar-seo-metadata';
 import type { Metadata } from 'next';
 
+export const dynamic = 'force-dynamic';
+
 
 interface ProgramListPageProps {
   params: Promise<{

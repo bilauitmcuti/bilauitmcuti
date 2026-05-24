@@ -46,7 +46,6 @@ export function buildCalendarPageMetadata(options: CalendarSeoOptions): Metadata
   const { pathname, viewMode, programSlug } = options;
   const params = toURLSearchParams(options.searchParams);
   const sessionIds = parseSessionIdsFromSearchParams(params);
-  const ogUrl = buildCalendarAbsoluteUrl(pathname, sessionIds);
   const isList = viewMode === "list";
   const coverImage = isList ? LIST_COVER : GRID_COVER;
 
@@ -71,6 +70,11 @@ export function buildCalendarPageMetadata(options: CalendarSeoOptions): Metadata
       "Kalendar akademik UiTM interaktif. Lihat jadual pendaftaran, kuliah, peperiksaan, dan cuti semester.";
     canonical = SITE_ORIGIN;
   }
+
+  const ogUrl =
+    sessionIds.length > 0
+      ? buildCalendarAbsoluteUrl(pathname, sessionIds)
+      : canonical;
 
   const metadata: Metadata = {
     title,

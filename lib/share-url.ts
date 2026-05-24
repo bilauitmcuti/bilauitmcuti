@@ -1,5 +1,4 @@
-import type { SessionId } from "@/lib/data";
-import { buildCalendarUrlPath } from "@/lib/session-query";
+import { hasSessionQueryParams } from "@/lib/session-query";
 
 const SITE_ORIGIN = "https://bilauitmcuti.com";
 
@@ -8,32 +7,44 @@ function getPathnameOnly(): string {
   return window.location.pathname || "/";
 }
 
-/** Path-only canonical URL (no session query). */
-export function getPageCanonicalUrl(): string {
-  if (typeof window !== "undefined") {
-    const pathname = getPathnameOnly();
-    if (pathname === "/") return window.location.origin;
-    return `${window.location.origin}${pathname}`;
-  }
+function getSiteOrigin(): string {
+  if (typeof window !== "undefined") return window.location.origin;
   return SITE_ORIGIN;
 }
 
-/** Current page URL for sharing, including session query when present. */
+function buildAbsoluteFromPathname(pathname: string): string {
+  const origin = getSiteOrigin();
+  if (pathname === "/") return origin;
+  return `${origin}${pathname}`;
+}
+
+/** Path-only URL for sharing and canonical (no session query). */
 export function getPageShareUrl(): string {
-  if (typeof window !== "undefined") {
-    const { origin, pathname, search } = window.location;
-    if (pathname === "/" && !search) return origin;
-    return `${origin}${pathname}${search}`;
-  }
-  return SITE_ORIGIN;
+  if (typeof window === "undefined") return SITE_ORIGIN;
+  return buildAbsoluteFromPathname(getPathnameOnly());
 }
 
-/** Keep canonical path-only; og:url includes session query for social previews. */
+/**
+ * og:url for client sync: matches the address bar when it has session query keys;
+ * otherwise path-only (same as share URL).
+ */
+export function getPageOpenGraphUrl(): string {
+  if (typeof window === "undefined") return SITE_ORIGIN;
+  const pathname = getPathnameOnly();
+  const base = buildAbsoluteFromPathname(pathname);
+  const search = window.location.search;
+  if (!search) return base;
+  const params = new URLSearchParams(search);
+  if (!hasSessionQueryParams(params)) return base;
+  return `${base}${search}`;
+}
+
+/** Canonical and share stay clean; og:url includes session query only when present in the URL. */
 export function syncPageShareUrl(): void {
   if (typeof document === "undefined") return;
 
-  const canonicalUrl = getPageCanonicalUrl();
-  const shareUrl = getPageShareUrl();
+  const canonicalUrl = getPageShareUrl();
+  const ogUrl = getPageOpenGraphUrl();
 
   let canonical = document.querySelector('link[rel="canonical"]');
   if (!canonical) {
@@ -43,17 +54,18 @@ export function syncPageShareUrl(): void {
   }
   canonical.setAttribute("href", canonicalUrl);
 
-  let ogUrl = document.querySelector('meta[property="og:url"]');
-  if (!ogUrl) {
-    ogUrl = document.createElement("meta");
-    ogUrl.setAttribute("property", "og:url");
-    document.head.appendChild(ogUrl);
+  let ogUrlMeta = document.querySelector('meta[property="og:url"]');
+  if (!ogUrlMeta) {
+    ogUrlMeta = document.createElement("meta");
+    ogUrlMeta.setAttribute("property", "og:url");
+    document.head.appendChild(ogUrlMeta);
   }
-  ogUrl.setAttribute("content", shareUrl);
+  ogUrlMeta.setAttribute("content", ogUrl);
 }
 
-export function replaceCalendarHistoryUrl(path: string, sessionIds: SessionId[] = []): void {
+/** Replace address bar with a clean path (no session query). */
+export function replaceCalendarHistoryUrl(path: string): void {
   if (typeof window === "undefined") return;
-  window.history.replaceState(null, "", buildCalendarUrlPath(path, sessionIds));
+  window.history.replaceState(null, "", path);
   syncPageShareUrl();
 }
