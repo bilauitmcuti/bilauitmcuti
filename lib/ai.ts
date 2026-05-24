@@ -168,16 +168,10 @@ export function isAiRateLimitError(error: unknown): boolean {
 /** Errors where trying the production backup model may succeed. */
 export function isModelFallbackError(error: unknown): boolean {
   if (isAiRateLimitError(error)) return true;
-  const status =
-    error !== null &&
-    typeof error === "object" &&
-    "status" in error &&
-    typeof (error as { status?: unknown }).status === "number"
-      ? (error as { status: number }).status
-      : undefined;
+  const status = getAiErrorStatus(error);
   if (status === 500 || status === 502 || status === 503 || status === 504) return true;
 
-  const msg = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  const msg = normalizeAiErrorMessage(error).toLowerCase();
   return (
     msg.includes("503") ||
     msg.includes("500") ||
@@ -256,7 +250,7 @@ function extractWorkersAiContent(result: unknown): string {
     const geminiCandidates = (result as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })
       .candidates;
     const geminiText = geminiCandidates?.[0]?.content?.parts
-      ?.map((p) => p.text ?? "")
+      ?.map((p) => (p as { text?: string }).text ?? "")
       .join("");
     if (geminiText?.trim()) return geminiText.trim();
   }
@@ -266,6 +260,68 @@ function extractWorkersAiContent(result: unknown): string {
 
 function isGooglePartnerModelId(modelId: string): boolean {
   return modelId.startsWith("google/");
+}
+
+/** Normalize Workers AI / gateway errors (often plain objects, not Error instances). */
+export function normalizeAiErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object") {
+    const o = error as Record<string, unknown>;
+    if (typeof o.message === "string") return o.message;
+    if (typeof o.error === "string") return o.error;
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return String(error);
+    }
+  }
+  return String(error);
+}
+
+function getAiErrorStatus(error: unknown): number | undefined {
+  if (
+    error !== null &&
+    typeof error === "object" &&
+    "status" in error &&
+    typeof (error as { status?: unknown }).status === "number"
+  ) {
+    return (error as { status: number }).status;
+  }
+  return undefined;
+}
+
+function buildModelRunInput(
+  modelId: string,
+  messages: { role: "system" | "user" | "assistant"; content: string }[],
+  max_tokens: number,
+  temperature: number,
+  stream: boolean
+): Record<string, unknown> {
+  if (isGooglePartnerModelId(modelId)) {
+    return {
+      contents: messagesToGeminiContents(messages),
+      generationConfig: {
+        maxOutputTokens: max_tokens,
+        temperature,
+      },
+      ...(stream ? { stream: true } : {}),
+    };
+  }
+  return {
+    messages,
+    max_tokens,
+    temperature,
+    ...(stream ? { stream: true } : {}),
+  };
+}
+
+/** Whether to attempt the next model in the production chain after a failure. */
+function shouldTryNextModelInChain(error: unknown, isLast: boolean): boolean {
+  if (isLast) return false;
+  const status = getAiErrorStatus(error);
+  if (status === 401 || status === 403 || status === 413) return false;
+  return true;
 }
 
 function messagesToGeminiContents(
@@ -314,44 +370,24 @@ async function workersAiChatCompletion(params: {
     throw err;
   }
 
-  const runPayload = {
-    max_tokens: params.max_tokens,
-    temperature: params.temperature,
-  };
-
   try {
-    const result = await ai.run(params.modelId, {
-      messages: params.messages,
-      ...runPayload,
-    });
+    const input = buildModelRunInput(
+      params.modelId,
+      params.messages,
+      params.max_tokens,
+      params.temperature,
+      false
+    );
+    const result = await ai.run(params.modelId, input);
     return extractWorkersAiContent(result);
   } catch (firstError) {
-    if (!isGooglePartnerModelId(params.modelId) || !isMessagesApiUnsupportedError(firstError)) {
-      if (firstError instanceof Error) {
-        const msg = firstError.message.toLowerCase();
-        if (msg.includes("429") || msg.includes("rate limit")) {
-          Object.assign(firstError, { status: 429 });
-        }
-      }
-      throw firstError;
+    const msg = normalizeAiErrorMessage(firstError).toLowerCase();
+    if (msg.includes("429") || msg.includes("rate limit")) {
+      const err = firstError instanceof Error ? firstError : new Error(msg);
+      Object.assign(err, { status: 429 });
+      throw err;
     }
-
-    try {
-      const contents = messagesToGeminiContents(params.messages);
-      const result = await ai.run(params.modelId, {
-        contents,
-        ...runPayload,
-      });
-      return extractWorkersAiContent(result);
-    } catch (e) {
-      if (e instanceof Error) {
-        const msg = e.message.toLowerCase();
-        if (msg.includes("429") || msg.includes("rate limit")) {
-          Object.assign(e, { status: 429 });
-        }
-      }
-      throw e;
-    }
+    throw firstError;
   }
 }
 
@@ -386,7 +422,7 @@ export async function askWorkersAi(
       });
     } catch (err) {
       lastError = err;
-      if (isLast || !isModelFallbackError(err)) throw err;
+      if (!shouldTryNextModelInChain(err, isLast)) throw err;
     }
   }
   throw lastError;
@@ -403,13 +439,23 @@ function extractStreamDelta(chunk: unknown): string {
   if (typeof data.response === "string") return data.response;
   if (typeof data.text === "string") return data.text;
 
-  const choiceDelta = (chunk as { choices?: Array<{ delta?: { content?: string } }> }).choices?.[0]
-    ?.delta?.content;
-  if (typeof choiceDelta === "string") return choiceDelta;
+  const choice = (chunk as {
+    choices?: Array<{
+      delta?: { content?: string; reasoning?: string; reasoning_content?: string };
+      message?: { content?: string; reasoning?: string };
+    }>;
+  }).choices?.[0];
+  const delta = choice?.delta;
+  if (typeof delta?.content === "string" && delta.content) return delta.content;
+  if (typeof delta?.reasoning === "string" && delta.reasoning) return delta.reasoning;
+  if (typeof delta?.reasoning_content === "string" && delta.reasoning_content) {
+    return delta.reasoning_content;
+  }
 
-  const messageContent = (chunk as { choices?: Array<{ message?: { content?: string } }> })
-    .choices?.[0]?.message?.content;
-  if (typeof messageContent === "string") return messageContent;
+  const messageContent = choice?.message?.content;
+  if (typeof messageContent === "string" && messageContent) return messageContent;
+  const messageReasoning = choice?.message?.reasoning;
+  if (typeof messageReasoning === "string" && messageReasoning) return messageReasoning;
 
   const geminiParts = (
     chunk as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
@@ -499,29 +545,15 @@ async function workersAiChatCompletionStream(params: {
     throw err;
   }
 
-  const runPayload = {
-    max_tokens: params.max_tokens,
-    temperature: params.temperature,
-    stream: true,
-  };
-
-  try {
-    const result = await ai.run(params.modelId, {
-      messages: params.messages,
-      ...runPayload,
-    });
-    return iterateAiStream(result);
-  } catch (firstError) {
-    if (!isGooglePartnerModelId(params.modelId) || !isMessagesApiUnsupportedError(firstError)) {
-      throw firstError;
-    }
-    const contents = messagesToGeminiContents(params.messages);
-    const result = await ai.run(params.modelId, {
-      contents,
-      ...runPayload,
-    });
-    return iterateAiStream(result);
-  }
+  const input = buildModelRunInput(
+    params.modelId,
+    params.messages,
+    params.max_tokens,
+    params.temperature,
+    true
+  );
+  const result = await ai.run(params.modelId, input);
+  return iterateAiStream(result);
 }
 
 export interface StreamWorkersAiOptions {
@@ -572,7 +604,10 @@ export async function streamWorkersAi(
           await options.onToken(full);
           return full;
         }
-        throw new Error("Empty response from model");
+        const emptyErr = new Error(`Empty response from model (${modelId})`);
+        if (!shouldTryNextModelInChain(emptyErr, isLast)) throw emptyErr;
+        lastError = emptyErr;
+        continue;
       }
       return full;
     } catch (err) {
@@ -587,7 +622,8 @@ export async function streamWorkersAi(
         return full;
       }
       lastError = err;
-      if (isLast || !isModelFallbackError(err)) throw err;
+      if (!shouldTryNextModelInChain(err, isLast)) throw err;
+      continue;
     }
   }
   throw lastError;

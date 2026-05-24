@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAiBinding, getMaxOutputTokensForHost, type ChatMessage } from "@/lib/ai";
+import {
+  getAiBinding,
+  getMaxOutputTokensForHost,
+  resolveProductionChatModelChain,
+  resolveWorkersAiModelTier,
+  type ChatMessage,
+} from "@/lib/ai";
 import { getLanguageTurnDirective } from "@/lib/chat-language";
 import { normalizeAssistantTables } from "@/lib/format-ai-table";
 import {
@@ -318,6 +324,8 @@ export async function POST(request: NextRequest) {
     }
 
     const requestHost = request.headers.get("host");
+    const modelTier = resolveWorkersAiModelTier(requestHost);
+    const modelChain = resolveProductionChatModelChain(requestHost);
     const maxOutputTokens = getMaxOutputTokensForHost(requestHost);
     const modelBudget = getModelResponseBudget(
       sanitizedMessage,
@@ -403,6 +411,8 @@ export async function POST(request: NextRequest) {
               errMsg: mapped.message,
               status: mapped.status,
               cause: error instanceof Error ? error.message : String(error),
+              modelTier,
+              modelChain: modelChain.join(" → "),
             });
             enqueue(encodeSseEvent("error", { error: mapped.message, status: mapped.status }));
             controller.close();
@@ -422,11 +432,14 @@ export async function POST(request: NextRequest) {
       return withVerifiedCookie(jsonError("Invalid JSON in request body", 400));
     }
     const mapped = mapChatError(error);
+    const requestHost = request.headers.get("host");
     logger.error("Chat API error", {
       correlationId,
       errMsg: mapped.message,
       status: mapped.status,
       cause: error instanceof Error ? error.message : String(error),
+      modelTier: resolveWorkersAiModelTier(requestHost),
+      modelChain: resolveProductionChatModelChain(requestHost).join(" → "),
     });
     return withVerifiedCookie(jsonError(mapped.message, mapped.status));
   }

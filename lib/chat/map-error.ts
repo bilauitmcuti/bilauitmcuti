@@ -1,6 +1,14 @@
+import { normalizeAiErrorMessage } from "@/lib/ai";
+
 export function mapChatError(error: unknown): { message: string; status: number } {
-  const errMsg = (error instanceof Error ? error.message : String(error)).toLowerCase();
-  const status = (error as { status?: number })?.status;
+  const errMsg = normalizeAiErrorMessage(error).toLowerCase();
+  const status =
+    error !== null &&
+    typeof error === "object" &&
+    "status" in error &&
+    typeof (error as { status?: unknown }).status === "number"
+      ? (error as { status: number }).status
+      : undefined;
 
   if (
     status === 503 ||
@@ -53,6 +61,25 @@ export function mapChatError(error: unknown): { message: string; status: number 
   if (errMsg.includes("empty response")) {
     return {
       message: "The AI model returned an empty reply. Please try again or rephrase your question.",
+      status: 502,
+    };
+  }
+  if (status === 502 || errMsg.includes("502")) {
+    return {
+      message: "AI service returned an error. Please try again in a moment.",
+      status: 502,
+    };
+  }
+  if (status === 500 || errMsg.includes("500")) {
+    return {
+      message: "AI service error. Please try again shortly.",
+      status: 502,
+    };
+  }
+  if (errMsg.includes("gateway") || errMsg.includes("partner") || errMsg.includes("unified")) {
+    return {
+      message:
+        "Partner AI model is unavailable. Enable Workers AI partner models in your Cloudflare account or try again later.",
       status: 502,
     };
   }
