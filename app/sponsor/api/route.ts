@@ -1,6 +1,6 @@
 export const runtime = 'edge';
 import { NextRequest, NextResponse } from "next/server";
-import { sendDiscordWebhookWithFile } from "@/lib/discord-webhook";
+import { buildSponsorNotificationEmbed, sendDiscordWebhookWithFile } from "@/lib/discord-webhook";
 import { logger } from "@/lib/logger";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
@@ -66,36 +66,6 @@ function parseSponsorFields(raw: Record<string, unknown>): { success: true; data
   }
 
   return { success: true, data: { anonymous, nickname, socialPlatform, socialHandle, message, turnstileToken, startedAt, website } };
-}
-
-function buildSponsorNotificationText(params: {
-  anonymous: boolean;
-  nickname: string;
-  socialPlatform: string;
-  socialHandle: string;
-  message: string;
-  userAgent: string;
-  fileName: string;
-  mimeType: string;
-}): string {
-  const now = new Date().toISOString();
-  const nameLine = params.anonymous
-    ? "Name: Anonymous"
-    : `Nickname: ${params.nickname.trim()}`;
-  const socialLine = params.anonymous
-    ? "Social: (not provided — anonymous submission)"
-    : `Social: ${params.socialPlatform} — ${params.socialHandle.trim()}`;
-  return [
-    "New Sponsor Submission",
-    `Time: ${now}`,
-    nameLine,
-    socialLine,
-    `User Agent: ${params.userAgent || "unknown"}`,
-    `Proof file: ${params.fileName} (${params.mimeType})`,
-    "",
-    "Message:",
-    params.message.trim(),
-  ].join("\n");
 }
 
 export async function POST(request: NextRequest) {
@@ -188,7 +158,7 @@ export async function POST(request: NextRequest) {
     const nickname = anonymous ? "" : (data.nickname ?? "").trim();
     const userAgent = request.headers.get("user-agent") ?? "unknown";
 
-    const summary = buildSponsorNotificationText({
+    const embed = buildSponsorNotificationEmbed({
       anonymous,
       nickname,
       socialPlatform: data.socialPlatform,
@@ -197,9 +167,10 @@ export async function POST(request: NextRequest) {
       userAgent,
       fileName: proof.name || "proof",
       mimeType: proof.type || "unknown",
+      time: new Date().toISOString(),
     });
 
-    await sendDiscordWebhookWithFile({ content: summary, file: proof });
+    await sendDiscordWebhookWithFile({ embeds: [embed], file: proof });
 
     return withVerifiedCookie(NextResponse.json({ message: "Thanks! Your sponsorship details were submitted." }));
   } catch (error) {

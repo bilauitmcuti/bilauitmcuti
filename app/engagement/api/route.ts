@@ -1,6 +1,6 @@
 export const runtime = 'edge';
 import { NextRequest, NextResponse } from "next/server";
-import { sendDiscordWebhook } from "@/lib/discord-webhook";
+import { buildEngagementNotificationEmbed, sendDiscordWebhook } from "@/lib/discord-webhook";
 import { logger } from "@/lib/logger";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { jsonError, getClientIp, formatNotificationTime } from "@/lib/api-response";
@@ -17,15 +17,6 @@ function parseRatingRequest(raw: unknown): { success: true; data: RatingRequest 
   const rating = Number((raw as Record<string, unknown>).rating);
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) return { success: false };
   return { success: true, data: { rating } };
-}
-
-function buildEngagementNotificationText(rating: number): string {
-  return [
-    "User Star Rating",
-    "",
-    `Rating: ${rating} out of 5 stars`,
-    `Time: ${formatNotificationTime(new Date())}`,
-  ].join("\n");
 }
 
 export async function POST(request: NextRequest) {
@@ -53,8 +44,11 @@ export async function POST(request: NextRequest) {
     const parsed = parseRatingRequest(rawBody);
     if (!parsed.success) return jsonError("Invalid rating value.", 400);
 
-    const text = buildEngagementNotificationText(parsed.data.rating);
-    await sendDiscordWebhook(text);
+    const embed = buildEngagementNotificationEmbed({
+      rating: parsed.data.rating,
+      time: formatNotificationTime(new Date()),
+    });
+    await sendDiscordWebhook({ embeds: [embed] });
 
     return NextResponse.json({ message: "Thanks for your rating!" });
   } catch (error) {

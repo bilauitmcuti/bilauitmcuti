@@ -1,6 +1,25 @@
 const DISCORD_CONTENT_MAX_LENGTH = 2000;
+const DISCORD_EMBED_TITLE_MAX_LENGTH = 256;
+const DISCORD_EMBED_DESCRIPTION_MAX_LENGTH = 4096;
+const DISCORD_EMBED_FIELD_NAME_MAX_LENGTH = 256;
+const DISCORD_EMBED_FIELD_VALUE_MAX_LENGTH = 1024;
+const DISCORD_EMBED_MAX_COUNT = 10;
 
 let _discordWebhookUrl: string | null = null;
+
+export interface DiscordEmbedField {
+  name: string;
+  value: string;
+  inline?: boolean;
+}
+
+export interface DiscordEmbed {
+  title?: string;
+  description?: string;
+  color?: number;
+  timestamp?: string;
+  fields?: DiscordEmbedField[];
+}
 
 export function getDiscordWebhookUrl(): string {
   if (_discordWebhookUrl) return _discordWebhookUrl;
@@ -16,9 +35,32 @@ export function getDiscordWebhookUrl(): string {
   return _discordWebhookUrl;
 }
 
+function truncate(value: string, maxLength: number): string {
+  if (value.length <= maxLength) return value;
+  return value.slice(0, maxLength - 3) + "...";
+}
+
 function truncateContent(content: string): string {
-  if (content.length <= DISCORD_CONTENT_MAX_LENGTH) return content;
-  return content.slice(0, DISCORD_CONTENT_MAX_LENGTH - 3) + "...";
+  return truncate(content, DISCORD_CONTENT_MAX_LENGTH);
+}
+
+function normalizeEmbed(embed: DiscordEmbed): DiscordEmbed {
+  return {
+    ...embed,
+    title: embed.title ? truncate(embed.title, DISCORD_EMBED_TITLE_MAX_LENGTH) : undefined,
+    description: embed.description
+      ? truncate(embed.description, DISCORD_EMBED_DESCRIPTION_MAX_LENGTH)
+      : undefined,
+    fields: embed.fields?.map((field) => ({
+      ...field,
+      name: truncate(field.name, DISCORD_EMBED_FIELD_NAME_MAX_LENGTH),
+      value: truncate(field.value, DISCORD_EMBED_FIELD_VALUE_MAX_LENGTH),
+    })),
+  };
+}
+
+function normalizeEmbeds(embeds: DiscordEmbed[]): DiscordEmbed[] {
+  return embeds.slice(0, DISCORD_EMBED_MAX_COUNT).map(normalizeEmbed);
 }
 
 async function assertDiscordResponseOk(response: Response): Promise<void> {
@@ -27,26 +69,41 @@ async function assertDiscordResponseOk(response: Response): Promise<void> {
   throw new Error(`Discord webhook failed (${response.status}): ${detail.slice(0, 200)}`);
 }
 
-export async function sendDiscordWebhook(content: string): Promise<void> {
+export async function sendDiscordWebhook(params: {
+  content?: string;
+  embeds: DiscordEmbed[];
+}): Promise<void> {
   const url = getDiscordWebhookUrl();
+  const payload: { content?: string; embeds: DiscordEmbed[] } = {
+    embeds: normalizeEmbeds(params.embeds),
+  };
+  if (params.content?.trim()) {
+    payload.content = truncateContent(params.content.trim());
+  }
+
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content: truncateContent(content) }),
+    body: JSON.stringify(payload),
   });
   await assertDiscordResponseOk(response);
 }
 
 export async function sendDiscordWebhookWithFile(params: {
-  content: string;
+  content?: string;
+  embeds: DiscordEmbed[];
   file: File;
 }): Promise<void> {
   const url = getDiscordWebhookUrl();
+  const payload: { content?: string; embeds: DiscordEmbed[] } = {
+    embeds: normalizeEmbeds(params.embeds),
+  };
+  if (params.content?.trim()) {
+    payload.content = truncateContent(params.content.trim());
+  }
+
   const form = new FormData();
-  form.append(
-    "payload_json",
-    JSON.stringify({ content: truncateContent(params.content) })
-  );
+  form.append("payload_json", JSON.stringify(payload));
   form.append("files[0]", params.file, params.file.name || "proof");
 
   const response = await fetch(url, {
@@ -54,4 +111,81 @@ export async function sendDiscordWebhookWithFile(params: {
     body: form,
   });
   await assertDiscordResponseOk(response);
+}
+
+export function buildContactNotificationEmbed(params: {
+  who: string;
+  category: string;
+  message: string;
+  rating: number;
+  email?: string;
+  time: string;
+}): DiscordEmbed {
+  const trimmedEmail = params.email?.trim() ?? "";
+  const fields: DiscordEmbedField[] = [
+    { name: "Who", value: params.who, inline: true },
+    { name: "Category", value: params.category, inline: true },
+    { name: "Rating", value: `${params.rating} out of 5 stars`, inline: true },
+    { name: "Time", value: params.time, inline: false },
+  ];
+  if (trimmedEmail.length > 0) {
+    fields.push({ name: "Email", value: trimmedEmail, inline: false });
+  }
+
+  return {
+    title: "User Feedback",
+    color: 0x5865f2,
+    fields,
+    description: params.message,
+  };
+}
+
+export function buildEngagementNotificationEmbed(params: {
+  rating: number;
+  time: string;
+}): DiscordEmbed {
+  return {
+    title: "User Star Rating",
+    color: 0xfee75c,
+    fields: [
+      { name: "Rating", value: `${params.rating} out of 5 stars`, inline: true },
+      { name: "Time", value: params.time, inline: true },
+    ],
+  };
+}
+
+export function buildSponsorNotificationEmbed(params: {
+  anonymous: boolean;
+  nickname: string;
+  socialPlatform: string;
+  socialHandle: string;
+  message: string;
+  userAgent: string;
+  fileName: string;
+  mimeType: string;
+  time: string;
+}): DiscordEmbed {
+  const nameValue = params.anonymous
+    ? "Anonymous"
+    : params.nickname.trim();
+  const socialValue = params.anonymous
+    ? "(not provided — anonymous submission)"
+    : `${params.socialPlatform} — ${params.socialHandle.trim()}`;
+
+  return {
+    title: "New Sponsor Submission",
+    color: 0x57f287,
+    fields: [
+      { name: "Time", value: params.time, inline: false },
+      { name: params.anonymous ? "Name" : "Nickname", value: nameValue, inline: true },
+      { name: "Social", value: socialValue, inline: false },
+      { name: "User Agent", value: params.userAgent || "unknown", inline: false },
+      {
+        name: "Proof file",
+        value: `${params.fileName} (${params.mimeType})`,
+        inline: false,
+      },
+    ],
+    description: params.message.trim(),
+  };
 }

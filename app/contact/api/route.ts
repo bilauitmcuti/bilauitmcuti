@@ -1,7 +1,7 @@
 export const runtime = 'edge';
 import { NextRequest, NextResponse } from "next/server";
 import { CONTACT_CATEGORY_OPTIONS, CONTACT_WHO_OPTIONS } from "@/lib/contact";
-import { sendDiscordWebhook } from "@/lib/discord-webhook";
+import { buildContactNotificationEmbed, sendDiscordWebhook } from "@/lib/discord-webhook";
 import { logger } from "@/lib/logger";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
@@ -55,27 +55,6 @@ function parseContactRequest(raw: unknown): { success: true; data: ContactReques
     success: true,
     data: { who, category, message, startedAt, website, email, turnstileToken, rating: parsedRating },
   };
-}
-
-function buildContactNotificationText(
-  who: string,
-  category: string,
-  message: string,
-  rating: number,
-  email?: string
-): string {
-  const trimmedEmail = email?.trim() ?? "";
-  const lines = [
-    "User Feedback",
-    "",
-    `Who: ${who}`,
-    `Category: ${category}`,
-    `Rating: ${rating} out of 5 stars`,
-    `Time: ${formatNotificationTime(new Date())}`,
-  ];
-  if (trimmedEmail.length > 0) lines.push(`Email: ${trimmedEmail}`);
-  lines.push("", "Message:", message);
-  return lines.join("\n");
 }
 
 export async function POST(request: NextRequest) {
@@ -150,8 +129,15 @@ export async function POST(request: NextRequest) {
       shouldSetVerifiedCookie = true;
     }
 
-    const text = buildContactNotificationText(who, category, message.trim(), rating, email);
-    await sendDiscordWebhook(text);
+    const embed = buildContactNotificationEmbed({
+      who,
+      category,
+      message: message.trim(),
+      rating,
+      email,
+      time: formatNotificationTime(new Date()),
+    });
+    await sendDiscordWebhook({ embeds: [embed] });
 
     return withVerifiedCookie(NextResponse.json({ message: "Thanks! Your message has been submitted." }));
   } catch (error) {
