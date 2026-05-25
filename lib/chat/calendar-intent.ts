@@ -11,7 +11,33 @@ export type CalendarContextIntent =
   | "lecture_count"
   | "festive";
 
-const FEE_HINTS = ["gt", "gt2", "rpgt", "yuran", "fee", "payment", "bayaran"];
+const FEE_HINTS = [
+  "gt",
+  "gt2",
+  "rpgt",
+  "yuran",
+  "fee",
+  "payment",
+  "bayaran",
+  "pembayaran",
+  "penangguhan",
+  "deferment",
+];
+const STUDY_FEE_HINTS = [
+  "yuran pengajian",
+  "yuran kolej",
+  "bilik berdua",
+  "bilik bertiga",
+  "bilik berempat",
+  "barang elektrik",
+  "senarai yuran",
+  "tuition fee",
+  "college fee",
+  "hostel fee",
+  "yuran diploma",
+  "yuran degree",
+  "yuran ijazah",
+];
 const REGISTRATION_HINTS = [
   "registration",
   "pendaftaran",
@@ -54,6 +80,7 @@ export function resolveCalendarContextIntent(message: string): CalendarContextIn
 
   if (DAYS_UNTIL_HINTS.some((h) => lower.includes(h))) return "days_until";
   if (LECTURE_COUNT_HINTS.some((h) => lower.includes(h))) return "lecture_count";
+  if (STUDY_FEE_HINTS.some((h) => lower.includes(h))) return "all";
   if (FEE_HINTS.some((h) => lower.includes(h))) return "fee";
   if (GUGUR_HINTS.some((h) => lower.includes(h))) return "gugur";
   if (REVISION_HINTS.some((h) => lower.includes(h))) return "revision";

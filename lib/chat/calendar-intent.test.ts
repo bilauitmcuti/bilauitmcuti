@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { resolveCalendarContextIntent } from "@/lib/chat/calendar-intent";
 import { filterActivitiesByContextIntent } from "@/lib/chat/context";
+import { isCalendarQuestion } from "@/lib/chat/intent";
 import type { Activity } from "@/lib/data";
 
 const sample: Activity[] = [
@@ -35,6 +36,36 @@ describe("resolveCalendarContextIntent", () => {
       "days_until"
     );
   });
+
+  it("returns all for study fee questions", () => {
+    expect(resolveCalendarContextIntent("Berapa yuran pengajian diploma?")).toBe("all");
+  });
+
+  it("returns fee for calendar payment deadlines", () => {
+    expect(resolveCalendarContextIntent("Bila tarikh akhir bayar yuran GT?")).toBe("fee");
+  });
+
+  it("returns fee for Online Fee Deferment wording", () => {
+    expect(
+      resolveCalendarContextIntent(
+        "Bila tempoh permohonan penangguhan pembayaran yuran via Online Fee Deferment?"
+      )
+    ).toBe("fee");
+  });
+});
+
+describe("isCalendarQuestion", () => {
+  it("routes fee deferment tempoh questions to calendar", () => {
+    expect(
+      isCalendarQuestion(
+        "Bila tempoh permohonan penangguhan pembayaran yuran via Online Fee Deferment?"
+      )
+    ).toBe(true);
+  });
+
+  it("routes related fee deferment dates to calendar", () => {
+    expect(isCalendarQuestion("Ada tarikh berkaitan Fee Deferment?")).toBe(true);
+  });
 });
 
 describe("filterActivitiesByContextIntent", () => {
@@ -43,5 +74,20 @@ describe("filterActivitiesByContextIntent", () => {
     expect(filtered.every((a) => a.type === "break" || a.name.toLowerCase().includes("cuti"))).toBe(
       true
     );
+  });
+
+  it("filters fee intent to penangguhan rows", () => {
+    const feeRows: Activity[] = [
+      {
+        name: "Tarikh Akhir Keputusan Permohonan Penangguhan Pembayaran Yuran",
+        startDate: "2026-04-27",
+        type: "registration",
+        group: "B",
+      },
+      { name: "Cuti Pertengahan Semester", startDate: "2026-03-15", type: "break", group: "B" },
+    ];
+    const filtered = filterActivitiesByContextIntent(feeRows, "fee");
+    expect(filtered.some((a) => a.name.toLowerCase().includes("penangguhan"))).toBe(true);
+    expect(filtered.every((a) => a.type === "break")).toBe(false);
   });
 });

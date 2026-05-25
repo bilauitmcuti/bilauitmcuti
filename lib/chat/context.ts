@@ -99,9 +99,9 @@ export function getFilteredGroupBActivities(program: string, sessionIds: Session
 }
 
 export function formatActivitiesAsContext(activities: Activity[]): string {
-  // Newest first so model output aligns with descending-date instructions
+  // Oldest → newest so model lists match ascending-date instructions
   const sorted = [...activities].sort(
-    (a, b) => toComparableDateValue(b.startDate) - toComparableDateValue(a.startDate)
+    (a, b) => toComparableDateValue(a.startDate) - toComparableDateValue(b.startDate)
   );
 
   return sorted
@@ -335,7 +335,10 @@ export function filterActivitiesByContextIntent(
           name.includes("gt") ||
           name.includes("rpgt") ||
           name.includes("yuran") ||
-          name.includes("fee")
+          name.includes("fee") ||
+          name.includes("penangguhan") ||
+          name.includes("deferment") ||
+          name.includes("bayaran")
         );
       case "revision":
         return name.includes("ulangkaji") || name.includes("revision");

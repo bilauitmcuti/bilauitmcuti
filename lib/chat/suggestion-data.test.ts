@@ -1,53 +1,62 @@
 import { describe, expect, it } from "vitest";
 import {
   getRandomSuggestions,
+  SUGGESTIONS_GENERAL,
   SUGGESTIONS_GROUP_A,
   SUGGESTIONS_GROUP_B,
 } from "@/components/chat/suggestion-data";
-
-const POOL_SIZE = 30;
-const HALF_POOL = 15;
+import { isCalendarQuestion } from "@/lib/chat/intent";
 
 describe("suggestion pools", () => {
   it("Group A has 30 questions", () => {
-    expect(SUGGESTIONS_GROUP_A).toHaveLength(POOL_SIZE);
+    expect(SUGGESTIONS_GROUP_A).toHaveLength(30);
   });
 
   it("Group B has 30 questions", () => {
-    expect(SUGGESTIONS_GROUP_B).toHaveLength(POOL_SIZE);
+    expect(SUGGESTIONS_GROUP_B).toHaveLength(30);
+  });
+
+  it("has general UiTM questions", () => {
+    expect(SUGGESTIONS_GENERAL.length).toBeGreaterThan(0);
+  });
+
+  it("every Group A suggestion routes to the calendar prompt", () => {
+    for (const q of SUGGESTIONS_GROUP_A) {
+      expect(isCalendarQuestion(q), q).toBe(true);
+    }
+  });
+
+  it("every Group B suggestion routes to the calendar prompt", () => {
+    for (const q of SUGGESTIONS_GROUP_B) {
+      expect(isCalendarQuestion(q), q).toBe(true);
+    }
   });
 });
 
+const DISPLAY_COUNT = 8;
+
 describe("getRandomSuggestions", () => {
-  it("returns 5 suggestions from Group A pools", () => {
+  it("returns 8 suggestions for Group A", () => {
     const picks = getRandomSuggestions("A", []);
-    expect(picks).toHaveLength(5);
-    expect(picks.every((s) => SUGGESTIONS_GROUP_A.includes(s))).toBe(true);
+    expect(picks).toHaveLength(DISPLAY_COUNT);
+    const allowed = [...SUGGESTIONS_GROUP_A, ...SUGGESTIONS_GENERAL];
+    expect(picks.every((s) => allowed.includes(s))).toBe(true);
   });
 
-  it("returns 5 suggestions from Group B pools", () => {
+  it("returns 8 suggestions for Group B", () => {
     const picks = getRandomSuggestions("B", []);
-    expect(picks).toHaveLength(5);
-    expect(picks.every((s) => SUGGESTIONS_GROUP_B.includes(s))).toBe(true);
+    expect(picks).toHaveLength(DISPLAY_COUNT);
+    const allowed = [...SUGGESTIONS_GROUP_B, ...SUGGESTIONS_GENERAL];
+    expect(picks.every((s) => allowed.includes(s))).toBe(true);
   });
 
-  it("mixes first-half and second-half pools for Group A", () => {
-    const firstHalf = SUGGESTIONS_GROUP_A.slice(0, HALF_POOL);
-    const secondHalf = SUGGESTIONS_GROUP_A.slice(HALF_POOL);
+  it("includes at least one general question for Group A", () => {
     const picks = getRandomSuggestions("A", []);
-    const fromFirst = picks.filter((s) => firstHalf.includes(s)).length;
-    const fromSecond = picks.filter((s) => secondHalf.includes(s)).length;
-    expect(fromFirst).toBeGreaterThanOrEqual(2);
-    expect(fromSecond).toBeGreaterThanOrEqual(2);
+    expect(picks.some((s) => SUGGESTIONS_GENERAL.includes(s))).toBe(true);
   });
 
-  it("mixes first-half and second-half pools for Group B", () => {
-    const firstHalf = SUGGESTIONS_GROUP_B.slice(0, HALF_POOL);
-    const secondHalf = SUGGESTIONS_GROUP_B.slice(HALF_POOL);
+  it("includes at least one general question for Group B", () => {
     const picks = getRandomSuggestions("B", []);
-    const fromFirst = picks.filter((s) => firstHalf.includes(s)).length;
-    const fromSecond = picks.filter((s) => secondHalf.includes(s)).length;
-    expect(fromFirst).toBeGreaterThanOrEqual(2);
-    expect(fromSecond).toBeGreaterThanOrEqual(2);
+    expect(picks.some((s) => SUGGESTIONS_GENERAL.includes(s))).toBe(true);
   });
 });

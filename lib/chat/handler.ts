@@ -50,6 +50,7 @@ import {
 } from "@/lib/chat/context";
 import { resolveCalendarContextIntent, isNarrowCalendarIntent } from "@/lib/chat/calendar-intent";
 import {
+  getCalendarUnderstandingDirective,
   getCompletionInstruction,
   isCalendarQuestion,
   isComparisonQuestion,
@@ -57,7 +58,16 @@ import {
   isTableFormatRequested,
   messageAsksDetail,
   needsSecondaryGroupContext,
+  needsUitmKnowledgeSupplement,
 } from "@/lib/chat/intent";
+import {
+  buildLectureWeekQuickReference,
+  needsLectureWeekContext,
+} from "@/lib/chat/lecture-week-context";
+import {
+  buildPublicHolidayChatContext,
+  needsPublicHolidayContext,
+} from "@/lib/chat/public-holiday-context";
 import {
   collectAllowedDateTokens,
   DATE_VALIDATION_RETRY_NUDGE,
@@ -240,7 +250,7 @@ export async function POST(request: NextRequest) {
         ? "Pre-Diploma, Diploma, Bachelor's Degree, Master's & PhD - Semester March to August 2026"
         : "Foundation/Professional - Semester December 2025 to May 2026";
 
-    const quickReference = computeQuickReferenceForSessions(
+    let quickReference = computeQuickReferenceForSessions(
       contextSessionIds,
       selectedProgram,
       primaryGroup,
@@ -266,13 +276,49 @@ export async function POST(request: NextRequest) {
       isCompareRequested || isTableFormatRequested(sanitizedMessage);
     const isSimple = isSimpleCalendarQuestion(sanitizedMessage);
     const asksDetail = messageAsksDetail(sanitizedMessage);
+
+    if (
+      useCalendarPrompt &&
+      needsLectureWeekContext(contextIntent, sanitizedMessage)
+    ) {
+      const lectureWeekRef = await buildLectureWeekQuickReference(
+        contextSessionIds,
+        todayISO
+      );
+      if (lectureWeekRef) {
+        quickReference = quickReference
+          ? `${quickReference}\n${lectureWeekRef}`
+          : lectureWeekRef;
+      }
+    }
+
+    let publicHolidayRef = "";
+    let publicHolidayDirective = "";
+    if (needsPublicHolidayContext(sanitizedMessage)) {
+      const phCtx = await buildPublicHolidayChatContext(sanitizedMessage, todayISO);
+      publicHolidayRef = phCtx.block;
+      publicHolidayDirective = phCtx.directive;
+      if (publicHolidayRef) {
+        quickReference = quickReference
+          ? `${quickReference}\n${publicHolidayRef}`
+          : publicHolidayRef;
+      }
+    }
+
     const includeSecondary =
       useCalendarPrompt && needsSecondaryGroupContext(sanitizedMessage, primaryGroup);
     const includeUitmSupplement =
-      !useCalendarPrompt || (!isSimple && !asksDetail);
+      !useCalendarPrompt ||
+      (!isSimple && !asksDetail) ||
+      needsUitmKnowledgeSupplement(sanitizedMessage);
 
+    const feeDefermentQuestion =
+      contextIntent === "fee" &&
+      /\b(penangguhan|deferment)\b/i.test(sanitizedMessage);
     const maxPrimaryChars = isNarrowCalendarIntent(contextIntent)
-      ? MAX_PRIMARY_CONTEXT_CHARS_NARROW
+      ? feeDefermentQuestion
+        ? MAX_PRIMARY_CONTEXT_CHARS_COMPACT
+        : MAX_PRIMARY_CONTEXT_CHARS_NARROW
       : isSimple && !asksDetail
         ? MAX_PRIMARY_CONTEXT_CHARS_COMPACT
         : MAX_PRIMARY_CONTEXT_CHARS;
@@ -299,7 +345,10 @@ export async function POST(request: NextRequest) {
             maxPrimaryChars,
           }
         )
-      : buildResearchSystemPrompt(todayFormatted);
+      : buildResearchSystemPrompt(todayFormatted) +
+        (publicHolidayRef
+          ? `\n\n${publicHolidayRef}`
+          : "");
 
     const cacheKey = [
       todayISO,
@@ -335,8 +384,15 @@ export async function POST(request: NextRequest) {
       maxOutputTokens
     );
     const languageDirective = getLanguageTurnDirective(sanitizedMessage, sanitizedHistory);
+    const understandingDirective = useCalendarPrompt
+      ? getCalendarUnderstandingDirective(sanitizedMessage)
+      : "";
     const systemPromptWithCompletion =
-      systemPrompt + getCompletionInstruction(isSimple, asksDetail) + languageDirective;
+      systemPrompt +
+      getCompletionInstruction(isSimple, asksDetail) +
+      understandingDirective +
+      publicHolidayDirective +
+      languageDirective;
 
     const allowedDates = useCalendarPrompt
       ? collectAllowedDateTokens(primaryActivities)

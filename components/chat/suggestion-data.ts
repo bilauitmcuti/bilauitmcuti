@@ -1,90 +1,84 @@
-/** Group A — questions 1–15 (registration, fees, appeals). */
-const SUGGESTIONS_GROUP_A_SHORT = [
-  "Bila boleh buat persetujuan menerima tawaran UiTM Asasi?",
-  "Bila tarikh pendaftaran online sebagai pelajar Asasi UiTM?",
-  "Bila pendaftaran secara fizikal pelajar baharu Group A?",
-  "Bila proses serahan dokumen pelajar baharu Asasi?",
-  "Bila tarikh akhir muat naik gambar kad pelajar di iStudent?",
-  "Bila tarikh akhir pengemaskinian rekod pelajar di iStudent Portal?",
-  "Bila Program Minggu Destini Siswa (MDS) untuk Group A?",
-  "Bila boleh daftar kursus untuk pelajar baharu dan lama Group A?",
-  "Bila tempoh permohonan penangguhan pembayaran yuran Group A?",
-  "Bila tarikh akhir keputusan permohonan penangguhan pembayaran yuran?",
-  "Bila tempoh validasi kursus berdaftar semester semasa Group A?",
-  "Bila boleh mohon daftar atau gugur kursus lewat atau luar tempoh?",
-  "Bila tarikh akhir pembayaran yuran Group A?",
-  "Bila Gugur Taraf (GT) akan berlaku untuk Group A?",
-  "Bila boleh hantar Permohonan Rayuan Pembatalan Gugur Taraf (RPGT)?",
-];
-
-/** Group A — questions 16–30 (appeals, exams, breaks). */
-const SUGGESTIONS_GROUP_A_LONG = [
-  "Bila keputusan RPGT akan dikeluarkan?",
-  "Bila tarikh akhir bayar yuran bagi pelajar yang lulus RPGT?",
-  "Bila Gugur Taraf kedua (GT2) untuk pelajar yang masih tidak bayar yuran?",
-  "Bila Gugur Taraf Muktamad untuk Group A?",
-  "Bila pelajar Group A boleh mula cetak slip menduduki peperiksaan?",
-  "Bila kuliah bermula untuk Group A semester ini?",
-  "Bila Proses Entrance Survey untuk Group A?",
-  "Bila Ujian Pertengahan Semester Group A?",
-  "Bila Cuti Pertengahan Semester Group A?",
-  "Bila Cuti Khas Perayaan Aidil Fitri untuk Group A?",
-  "Bila Minggu Ulangkaji untuk Group A?",
-  "Bila Penilaian atau Peperiksaan Akhir Group A?",
-  "Bila Proses Exit Survey Group A?",
-  "Bila Student Feedback Online (SuFO) Group A?",
-  "Bila Cuti Semester Group A bermula?",
-];
-
 export const SUGGESTIONS_GROUP_A = [
-  ...SUGGESTIONS_GROUP_A_SHORT,
-  ...SUGGESTIONS_GROUP_A_LONG,
-];
-
-/** Group B — questions 1–15 (registration, fees, appeals). */
-const SUGGESTIONS_GROUP_B_SHORT = [
-  "Bila boleh buat persetujuan menerima tawaran UiTM secara online untuk Group B?",
-  "Bila pendaftaran online sebagai pelajar sepenuh masa Group B?",
-  "Bila pendaftaran fizikal dan serahan dokumen pelajar baharu Group B?",
-  "Bila Program Minggu Destini Siswa (MDS) dan Program Minggu Edu 5.0@UiTM Group B?",
-  "Bila Program Pemantapan Destini Siswa (PDS) untuk Group B?",
-  "Bila pendaftaran kolej penginapan pelajar baharu Group B?",
-  "Bila pendaftaran pelajar baharu tawaran kedua Group B?",
-  "Bila pendaftaran kursus pelajar baharu mod ePJJ atau PLK?",
-  "Bila tarikh akhir muat naik gambar kad pelajar di iStudent Portal Group B?",
-  "Bila tarikh akhir kemaskini rekod pelajar di iStudent Portal Group B?",
-  "Bila tempoh permohonan penangguhan pembayaran yuran via Online Fee Deferment?",
-  "Bila tarikh akhir keputusan permohonan penangguhan pembayaran yuran Group B?",
-  "Bila tempoh validasi kursus berdaftar semester semasa Group B?",
-  "Bila boleh mohon daftar atau gugur kursus lewat atau luar tempoh Group B?",
-  "Bila tarikh akhir pembayaran yuran Group B?",
-];
-
-/** Group B — questions 16–30 (appeals, exams, breaks). */
-const SUGGESTIONS_GROUP_B_LONG = [
-  "Bila Gugur Taraf (GT) berlaku untuk Group B?",
-  "Bila boleh hantar Permohonan Rayuan Pembatalan Gugur Taraf (RPGT) Group B?",
-  "Bila keputusan rayuan pembatalan Gugur Taraf (RPGT) Group B dikeluarkan?",
-  "Bila Gugur Taraf kedua (GT2) untuk pelajar yang masih tidak daftar kursus dan tiada pembayaran yuran?",
-  "Bila tarikh akhir bayar yuran bagi pelajar yang diluluskan penangguhan yuran Group B?",
-  "Bila Gugur Taraf Muktamad untuk Group B?",
-  "Bila pelajar Group B boleh mula cetak slip menduduki peperiksaan?",
-  "Bila kuliah bermula untuk Group B semester ini?",
-  "Bila Proses Entrance Survey untuk Group B?",
-  "Bila Cuti Pertengahan Semester atau Cuti Perayaan Group B?",
-  "Bila Minggu Ulangkaji untuk Group B?",
-  "Bila English Exit Test (EET Speaking) Group B?",
-  "Bila Penilaian atau Peperiksaan Akhir atau EET Bertulis Group B?",
-  "Bila Short Semester untuk Group B?",
-  "Bila Cuti Semester Group B bermula?",
+  "Bila kuliah bermula untuk Group A semester ini?",
+  "Lecture 1 Group A — bila mula?",
+  "Bilakah Lecture 2 bermula untuk Group A?",
+  "Lecture 3 Group A bermula bila?",
+  "Minggu kuliah terakhir Group A bila?",
+  "Ujian Pertengahan Semester Group A bila?",
+  "Cuti Pertengahan Semester Group A bila?",
+  "Cuti Khas Aidil Fitri untuk Group A bila?",
+  "Minggu Ulangkaji Group A bila?",
+  "Peperiksaan Akhir Group A bila?",
+  "Peperiksaan minggu akhir Group A bila?",
+  "Bila boleh cetak slip menduduki peperiksaan Group A?",
+  "Cuti Semester Group A bermula bila?",
+  "Cuti semester panjang Group A bila?",
+  "Proses Entrance Survey Group A bila?",
+  "Exit Survey Group A bila?",
+  "SuFO Group A — bila perlu siap?",
+  "Program MDS Group A bila?",
+  "Pendaftaran online Asasi UiTM Group A bila?",
+  "Pendaftaran fizikal pelajar baharu Group A bila?",
+  "Pendaftaran kursus pelajar baharu dan lama Group A bila?",
+  "Validasi kursus berdaftar semester ini Group A bila?",
+  "Bila akhir bayar yuran Group A?",
+  "Ada tarikh berkaitan penangguhan yuran Group A?",
+  "Serahan dokumen pelajar baharu Asasi Group A bila?",
+  "Persetujuan tawaran UiTM Asasi Group A bila?",
+  "Muat naik gambar kad pelajar iStudent Group A — bila akhir?",
+  "Gugur Taraf (GT) Group A bila berlaku?",
+  "Permohonan RPGT Group A bila?",
+  "Gugur Taraf Muktamad Group A bila?",
 ];
 
 export const SUGGESTIONS_GROUP_B = [
-  ...SUGGESTIONS_GROUP_B_SHORT,
-  ...SUGGESTIONS_GROUP_B_LONG,
+  "Kuliah Group B semester ini bermula bila?",
+  "Lecture 1 Group B bila?",
+  "Bila mula Lecture 2 untuk Group B?",
+  "Bilakah Lecture 3 untuk Group B?",
+  "Minggu kuliah terakhir Group B bila?",
+  "Ujian Pertengahan Semester Group B bila?",
+  "Cuti Pertengahan Semester atau cuti perayaan Group B bila?",
+  "Minggu Ulangkaji Group B bila?",
+  "EET Speaking Group B bila?",
+  "Peperiksaan Akhir atau EET Bertulis Group B bila?",
+  "Peperiksaan minggu akhir Group B bila?",
+  "Slip menduduki peperiksaan Group B — bila boleh cetak?",
+  "Short Semester Group B bila?",
+  "Kuliah intersesi atau peperiksaan Short Semester Group B bila?",
+  "Cuti Semester Group B bermula bila?",
+  "Cuti Krismas atau tahun baharu Group B bila?",
+  "Entrance Survey Group B bila?",
+  "MDS dan Edu 5.0@UiTM Group B bila?",
+  "Program PDS Group B bila?",
+  "Pendaftaran online pelajar sepenuh masa Group B bila?",
+  "Pendaftaran fizikal & serahan dokumen pelajar baharu Group B bila?",
+  "Pendaftaran kursus ePJJ atau PLK Group B bila?",
+  "Validasi kursus berdaftar Group B bila?",
+  "Akhir bayar yuran Group B bila?",
+  "Tarikh berkaitan penangguhan yuran Group B?",
+  "Pendaftaran kolej penginapan pelajar baharu Group B bila?",
+  "Persetujuan tawaran UiTM online Group B bila?",
+  "Gambar kad pelajar iStudent Group B — tarikh akhir?",
+  "GT Group B bila berlaku?",
+  "Gugur Taraf Muktamad Group B bila?",
 ];
 
-const DISPLAY_COUNT = 5;
+/** General UiTM calendar questions — mixed into carousel for Group A and Group B. */
+export const SUGGESTIONS_GENERAL = [
+  "Apa beza Group A dan Group B dalam kalendar UiTM?",
+  "Sesi, semester, atau penggal — apa bezanya pada kalendar UiTM?",
+  "Macam mana nak baca jadual pendaftaran, kuliah, peperiksaan, dan cuti?",
+  "Cuti umum Malaysia ada dalam kalendar UiTM tak?",
+  "Program mana guna Group A dan Group B?",
+  "Cuti atau peperiksaan seterusnya bila pada kalendar semester ini?",
+  "Minggu Ulangkaji dan Peperiksaan Akhir — maksudnya apa dalam kalendar?",
+  "Penangguhan yuran (Fee Deferment) — tarikh apa dalam kalendar?",
+];
+
+const DISPLAY_COUNT = 8;
+const GROUP_PICK_COUNT = 4;
+const GENERAL_PICK_COUNT = DISPLAY_COUNT - GROUP_PICK_COUNT;
 
 function shuffle<T>(items: T[]): T[] {
   const copy = [...items];
@@ -101,47 +95,19 @@ function pickFromPool(pool: string[], count: number, exclude: string[]): string[
   return shuffle(source).slice(0, count);
 }
 
-/** Pick half short + half long suggestions for the carousel. */
-function pickBalancedGroupSuggestions(
-  shortPool: string[],
-  longPool: string[],
-  exclude: string[],
-  total: number = DISPLAY_COUNT
-): string[] {
-  const longCount = Math.floor(total / 2);
-  const shortCount = total - longCount;
-  const pickedShort = pickFromPool(shortPool, shortCount, exclude);
-  const pickedLong = pickFromPool(longPool, longCount, [
-    ...exclude,
-    ...pickedShort,
-  ]);
-  return shuffle([...pickedShort, ...pickedLong]);
-}
-
 export function getRandomSuggestions(group: "A" | "B", exclude: string[]): string[] {
-  if (group === "A") {
-    const balanced = pickBalancedGroupSuggestions(
-      SUGGESTIONS_GROUP_A_SHORT,
-      SUGGESTIONS_GROUP_A_LONG,
-      exclude
-    );
-    if (balanced.length >= DISPLAY_COUNT) return balanced;
-    const pool = SUGGESTIONS_GROUP_A.filter((s) => !exclude.includes(s));
-    return shuffle(pool.length >= DISPLAY_COUNT ? pool : SUGGESTIONS_GROUP_A).slice(
-      0,
-      DISPLAY_COUNT
-    );
-  }
+  const groupPool = group === "A" ? SUGGESTIONS_GROUP_A : SUGGESTIONS_GROUP_B;
+  const groupPicks = pickFromPool(groupPool, GROUP_PICK_COUNT, exclude);
+  const generalPicks = pickFromPool(SUGGESTIONS_GENERAL, GENERAL_PICK_COUNT, [
+    ...exclude,
+    ...groupPicks,
+  ]);
+  const picks = shuffle([...groupPicks, ...generalPicks]);
+  if (picks.length >= DISPLAY_COUNT) return picks;
 
-  const balanced = pickBalancedGroupSuggestions(
-    SUGGESTIONS_GROUP_B_SHORT,
-    SUGGESTIONS_GROUP_B_LONG,
-    exclude
+  const fallback = [...groupPool, ...SUGGESTIONS_GENERAL].filter(
+    (s) => !exclude.includes(s)
   );
-  if (balanced.length >= DISPLAY_COUNT) return balanced;
-  const pool = SUGGESTIONS_GROUP_B.filter((s) => !exclude.includes(s));
-  return shuffle(pool.length >= DISPLAY_COUNT ? pool : SUGGESTIONS_GROUP_B).slice(
-    0,
-    DISPLAY_COUNT
-  );
+  const pool = fallback.length >= DISPLAY_COUNT ? fallback : [...groupPool, ...SUGGESTIONS_GENERAL];
+  return shuffle(pool).slice(0, DISPLAY_COUNT);
 }

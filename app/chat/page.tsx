@@ -942,12 +942,9 @@ export default function ChatPage() {
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-4 text-center mx-auto max-w-[600px]">
             <div>
-              <h2 className="text-2xl font-semibold mb-1">Bila UiTM Cuti?</h2>
+              <h2 className="text-xl font-semibold mb-1">Bila UiTM Cuti</h2>
               <p className="text-sm text-muted-foreground max-w-xs">
-                Ask about the UiTM academic calendar. Select your program and start.
-              </p>
-              <p className="text-sm text-muted-foreground max-w-xs">
-                Use @ to mention a calendar session.
+                Ask anything about academic calendars or public holidays. Pick your programme from the list, or type @ to mention a specific calendar.
               </p>
             </div>
             {showTurnstileChallenge ? (

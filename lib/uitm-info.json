@@ -105,6 +105,36 @@
     "entryQualifications": "SPM, STPM, Matriculation, Asasi/Foundation, Diploma, equivalent certificates",
     "note": "Each programme has specific entry requirements - check hea.uitm.edu.my for details"
   },
+  "examGrades": {
+    "passing": {
+      "grades": ["A+", "A", "A-", "B+", "B", "B-", "C+", "C"],
+      "status": "Lulus (LU)"
+    },
+    "failing": {
+      "grades": ["C-", "D+", "D", "E", "F", "GC", "GF"],
+      "status": "Gagal (GA)"
+    }
+  },
+  "studentFees": {
+    "title": "Senarai Yuran Pengajian UITM",
+    "tuition": {
+      "semester1": { "diploma": "RM748", "degree": "RM798" },
+      "semester2AndAbove": { "diploma": "RM540", "degree": "RM590" }
+    },
+    "collegePerSemester": {
+      "double": "RM420",
+      "triple": "RM315",
+      "quad": "RM210",
+      "labels": {
+        "double": "Bilik Berdua",
+        "triple": "Bilik Bertiga",
+        "quad": "Bilik Berempat"
+      }
+    },
+    "electricalPerItemPerSemester": "RM10",
+    "electricalNote": "Yuran Barang Elektrik per barang untuk satu semester",
+    "disclaimer": "Harga mungkin berkurang atau lebih tertakluk pada status pelajar anda atau pihak kampus anda."
+  },
   "portals": {
     "officialWebsite": "uitm.edu.my",
     "iStudentPortal": "simsweb.uitm.edu.my or istudent.uitm.edu.my",

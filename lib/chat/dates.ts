@@ -1,9 +1,30 @@
-export function getTodayISO(): string {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+const MALAYSIA_TIME_ZONE = "Asia/Kuala_Lumpur";
+
+/** Calendar date YYYY-MM-DD in Malaysia (UTC+8), not server local/UTC. */
+export function getTodayISO(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: MALAYSIA_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+}
+
+/** Human-readable Malaysia date/time for AI prompts. */
+export function getMalaysiaNowFormatted(now: Date = new Date()): string {
+  const datePart = new Intl.DateTimeFormat("en-GB", {
+    timeZone: MALAYSIA_TIME_ZONE,
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(now);
+  const timePart = new Intl.DateTimeFormat("en-GB", {
+    timeZone: MALAYSIA_TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(now);
+  return `${datePart}, ${timePart} MYT`;
 }
 
 export function normalizeDateString(dateStr: string): string {

@@ -393,3 +393,89 @@ export async function fetchLectureWeeks(
   lectureWeeksInflight.set(sessionId, promise);
   return promise;
 }
+
+// ── Public holidays ───────────────────────────────────────────────────────────
+
+export interface PublicHolidayRow {
+  id: string;
+  name: string;
+  date: string;
+  day: string;
+  states: string[];
+  isSubjectToChange: boolean;
+}
+
+export interface PublicHolidaysResponse {
+  defaultYear: number;
+  year: number;
+  total: number;
+  holidays: PublicHolidayRow[];
+}
+
+const publicHolidaysInflight = new Map<string, Promise<PublicHolidaysResponse>>();
+const publicHolidaysCache = new Map<string, { data: PublicHolidaysResponse; at: number }>();
+const PUBLIC_HOLIDAYS_TTL_MS = 5 * 60 * 1000;
+
+function parsePublicHolidaysResponse(data: unknown): PublicHolidaysResponse {
+  if (!data || typeof data !== "object") {
+    return { defaultYear: new Date().getFullYear(), year: new Date().getFullYear(), total: 0, holidays: [] };
+  }
+  const o = data as Record<string, unknown>;
+  const query = (o.query && typeof o.query === "object" ? o.query : {}) as Record<string, unknown>;
+  const year =
+    typeof query.year === "number"
+      ? query.year
+      : typeof o.defaultYear === "number"
+        ? o.defaultYear
+        : new Date().getFullYear();
+  const defaultYear = typeof o.defaultYear === "number" ? o.defaultYear : year;
+  const holidays: PublicHolidayRow[] = Array.isArray(o.holidays)
+    ? o.holidays.map((row) => {
+        const h = (row && typeof row === "object" ? row : {}) as Record<string, unknown>;
+        return {
+          id: String(h.id ?? ""),
+          name: String(h.name ?? ""),
+          date: String(h.date ?? ""),
+          day: String(h.day ?? ""),
+          states: Array.isArray(h.states) ? h.states.map(String) : [],
+          isSubjectToChange: Boolean(h.isSubjectToChange),
+        };
+      })
+    : [];
+  const total = typeof o.total === "number" ? o.total : holidays.length;
+  return { defaultYear, year, total, holidays };
+}
+
+/**
+ * Malaysia public holidays (nationwide + state/regional).
+ * GET /api/v1/public-holiday?coverage=all
+ */
+export async function fetchPublicHolidays(
+  options?: { coverage?: "all"; year?: number }
+): Promise<PublicHolidaysResponse> {
+  const q = new URLSearchParams({ coverage: options?.coverage ?? "all" });
+  if (options?.year != null) q.set("year", String(options.year));
+  const cacheKey = q.toString();
+  const url = buildCalendarRequestUrl("v1/public-holiday", q);
+
+  const now = Date.now();
+  const cached = publicHolidaysCache.get(cacheKey);
+  if (cached && now - cached.at < PUBLIC_HOLIDAYS_TTL_MS) return cached.data;
+
+  const existing = publicHolidaysInflight.get(cacheKey);
+  if (existing) return existing;
+
+  const promise = (async () => {
+    try {
+      const data = await fetchJsonWithRetry(url);
+      const result = parsePublicHolidaysResponse(data);
+      publicHolidaysCache.set(cacheKey, { data: result, at: Date.now() });
+      return result;
+    } finally {
+      publicHolidaysInflight.delete(cacheKey);
+    }
+  })();
+
+  publicHolidaysInflight.set(cacheKey, promise);
+  return promise;
+}
