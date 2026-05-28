@@ -1024,11 +1024,6 @@ export default function ChatPage() {
                   ) : (
                     <div className="w-full px-1 py-1 text-sm leading-relaxed text-foreground">
                       <FormattedMessage content={msg.content} />
-                      {assistantFinished && (
-                        <div className="text-right text-xs text-muted-foreground mt-2">
-                          {formatTime24(msg.timestamp ?? Date.now())}
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
