@@ -74,6 +74,40 @@ All dynamic routes must export `export const runtime = 'edge'`. Restore with `no
 
 `wrangler.jsonc` sets `pages_build_output_dir` for Pages + local `wrangler pages dev`. See `.cursor/rules/cloudflare-pages-deploy.mdc`.
 
+## Cloudflare Zaraz + Google Analytics 4
+
+Analytics uses **GA4** (`G-D94Q17TQ22`) delivered through **Cloudflare Zaraz** on the edge — no `gtag.js` in the app bundle. Zaraz auto-injects on proxied `bilauitmcuti.com` traffic.
+
+```
+Browser → Zaraz (Cloudflare edge) → Google Analytics 4
+```
+
+### Dashboard setup (one-time)
+
+1. Cloudflare dashboard → **Tag setup** (Zaraz) for zone `bilauitmcuti.com`.
+2. **Third-party tools** → Add **Google Analytics 4** → Measurement ID `G-D94Q17TQ22` (see `GA_MEASUREMENT_ID` in [`lib/zaraz.ts`](lib/zaraz.ts)).
+3. On the GA4 tool, enable automatic actions:
+   - **Pageviews** — first page load (and `Pageview` events from [`components/zaraz-page-view.tsx`](components/zaraz-page-view.tsx) on Next.js client navigations).
+   - **Events** — forwards all `zaraz.track()` calls (including custom events below) to GA4.
+4. **Settings** → leave **Single Page Application support** **off** (the app sends virtual pageviews via `ZarazPageView` instead, to avoid double-counting).
+5. Publish Zaraz config. Verify with [Debug mode](https://developers.cloudflare.com/zaraz/web-api/debug-mode/) on production.
+
+### Custom events (app → Zaraz → GA4)
+
+Client code uses [`lib/zaraz.ts`](lib/zaraz.ts) (`trackZarazEvent`, `ZARAZ_EVENTS`). Events are no-ops when Zaraz is absent (local `pnpm dev` without Cloudflare proxy).
+
+| `ZARAZ_EVENTS` key | GA4 event name | When |
+|---------------------|----------------|------|
+| `pageview` | `Pageview` | Next.js client route change |
+| `chatMessageSent` | `chat_message_sent` | Chat reply received |
+| `chatFeedback` | `chat_feedback` | Thumbs up/down on assistant reply |
+| `engagementPromptShown` | `engagement_prompt_shown` | Engagement prompt opens |
+| `engagementRating` | `engagement_rating` | Star rating submitted |
+| `engagementShare` | `engagement_share` | Share/copy link from prompt |
+| `engagementFeedbackClick` | `engagement_feedback_click` | User taps “Send feedback” in prompt |
+
+With **Events** automatic action enabled on the GA4 tool, these appear in GA4 without extra trigger configuration.
+
 ## Known Limitations
 
 - Chat rate limiting uses in-memory storage per isolate (`lib/rate-limit.ts`).

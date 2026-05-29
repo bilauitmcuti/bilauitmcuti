@@ -1,10 +1,10 @@
-import React from "react"
+import React, { Suspense } from "react"
 import type { Metadata, Viewport } from 'next'
-import Script from 'next/script'
 import { ThemeProvider } from '@/components/theme-provider'
 import { ThemeShortcut } from '@/components/theme-shortcut'
 import { VersionBanner } from '@/components/version-banner'
 import { EngagementPromptRoot } from '@/components/engagement-prompt-provider'
+import { ZarazPageView } from '@/components/zaraz-page-view'
 import './globals.css'
 import { Geist, Geist_Mono } from "next/font/google"
 import { cn } from "@/lib/utils"
@@ -18,8 +18,6 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
   variable: "--font-geist-mono",
 })
-
-const GA_MEASUREMENT_ID = 'G-D94Q17TQ22'
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://bilauitmcuti.com'),
@@ -313,18 +311,9 @@ export default function RootLayout({
           <ThemeShortcut />
           <EngagementPromptRoot>{children}</EngagementPromptRoot>
         </ThemeProvider>
-        <Script
-          src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
-          strategy="afterInteractive"
-        />
-        <Script id="google-analytics" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', '${GA_MEASUREMENT_ID}');
-          `}
-        </Script>
+        <Suspense fallback={null}>
+          <ZarazPageView />
+        </Suspense>
         <script
           dangerouslySetInnerHTML={{
             __html: `

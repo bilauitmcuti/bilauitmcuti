@@ -15,6 +15,7 @@ import {
   resetEngagementCycle,
   type EngagementActionType,
 } from "@/lib/engagement-prompt";
+import { trackZarazEvent, ZARAZ_EVENTS } from "@/lib/zaraz";
 
 interface EngagementPromptContextValue {
   open: boolean;
@@ -55,6 +56,7 @@ export function EngagementPromptProvider({ children }: { children: ReactNode }) 
       }
       pendingOpenTimerRef.current = null;
       markEngagementShown();
+      trackZarazEvent(ZARAZ_EVENTS.engagementPromptShown);
       setOpen(true);
     };
 

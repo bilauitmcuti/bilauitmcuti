@@ -24,6 +24,7 @@ import { StarRating } from "@/components/star-rating";
 import { shareOrCopyLink } from "@/lib/web-share";
 import { getPageShareUrl } from "@/lib/share-url";
 import { cn } from "@/lib/utils";
+import { trackZarazEvent, ZARAZ_EVENTS } from "@/lib/zaraz";
 
 const SHARE_TITLE = "Bila UiTM Cuti";
 const SHARE_TEXT =
@@ -126,6 +127,7 @@ export function EngagementPromptSheet({
           }
 
           onRatingComplete();
+          trackZarazEvent(ZARAZ_EVENTS.engagementRating, { rating: value });
         } catch {
           if (latestSubmittedRatingRef.current === value) {
             toast.error(
@@ -147,6 +149,7 @@ export function EngagementPromptSheet({
     });
 
     if (result === "shared" || result === "copied") {
+      trackZarazEvent(ZARAZ_EVENTS.engagementShare, { method: result });
       if (result === "copied") {
         toast.success("Link copied! Paste it to share with friends.");
       }
@@ -159,6 +162,7 @@ export function EngagementPromptSheet({
   }, [onShareComplete]);
 
   const handleFeedback = useCallback(() => {
+    trackZarazEvent(ZARAZ_EVENTS.engagementFeedbackClick);
     onFeedbackComplete();
     router.push("/feedback");
   }, [onFeedbackComplete, router]);

@@ -2,17 +2,25 @@
 
 import useEmblaCarousel from "embla-carousel-react";
 
+import { cn } from "@/lib/utils";
+
 interface SuggestionCarouselProps {
   suggestions: string[];
   disabled: boolean;
   onSelect: (suggestion: string) => void;
+  className?: string;
 }
 
-export function SuggestionCarousel({ suggestions, disabled, onSelect }: SuggestionCarouselProps) {
+export function SuggestionCarousel({
+  suggestions,
+  disabled,
+  onSelect,
+  className,
+}: SuggestionCarouselProps) {
   const [emblaRef] = useEmblaCarousel({ dragFree: true, containScroll: "trimSnaps", align: "center" });
 
   return (
-    <div className="suggestions-carousel relative -mx-4 md:mx-0 mb-2">
+    <div className={cn("suggestions-carousel relative -mx-4 md:mx-0 mb-2", className)}>
       <div className="suggestions-fade-left" />
       <div className="suggestions-fade-right" />
       <div className="suggestions-swipe overflow-hidden" ref={emblaRef}>

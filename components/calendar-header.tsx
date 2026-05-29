@@ -8,6 +8,10 @@ import {
   buildDateToWeekNumberMap,
   getLectureWeekNumberForDate,
 } from "@/lib/lecture-weeks-resolve";
+import {
+  calendarTitleH1Class,
+  calendarTitleH1Style,
+} from "@/lib/calendar-title-styles";
 import { useIsStandaloneDisplayMode } from "@/lib/use-standalone-display-mode";
 
 interface CalendarHeaderProps {
@@ -53,9 +57,6 @@ function filterSessionsForGroup(
   return sessions.filter((id) => getGroupFromSession(id) === group);
 }
 
-const calendarTitleH1Class =
-  "font-semibold leading-[2.5rem] tracking-tight text-5xl text-foreground transition-none";
-const calendarTitleH1Style = { transition: "none" } as const;
 const calendarHeaderBadgeClass =
   "mb-2 text-xs px-3 py-1.5 rounded-full border border-border bg-secondary/50 dark:bg-[#2A2A2A] text-foreground transition-none whitespace-nowrap";
 const calendarHeaderBadgeStyle = { transition: "none" } as const;

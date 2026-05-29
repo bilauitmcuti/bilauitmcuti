@@ -23,6 +23,7 @@ import {
   normalizeSessionsForGroup,
 } from "@/lib/session-memory";
 import { cn } from "@/lib/utils";
+import { trackZarazEvent, ZARAZ_EVENTS } from "@/lib/zaraz";
 import { sessionSubmenuItemClass } from "@/lib/session-submenu-item-class";
 import { SessionSubmenuItemLabel } from "@/components/session-submenu-item-label";
 import {
@@ -70,7 +71,9 @@ import { useTurnstileSiteKeyFromContext } from "@/components/turnstile-site-key-
 import { useEngagementPrompt } from "@/components/engagement-prompt-provider";
 import { FormattedMessage } from "@/components/chat/formatted-message";
 import { SuggestionCarousel } from "@/components/chat/suggestion-carousel";
+import { useChatGreeting } from "@/components/chat/use-chat-greeting";
 import { getRandomSuggestions } from "@/components/chat/suggestion-data";
+import { useDesktopViewport } from "@/lib/use-mobile-viewport";
 import {
   CHAT_TURNSTILE_COOKIE,
   FETCH_TIMEOUT_MS,
@@ -113,6 +116,8 @@ export default function ChatPage() {
 
   const router = useRouter();
   const { recordEngagementAction } = useEngagementPrompt();
+  const chatGreeting = useChatGreeting();
+  const isDesktopViewport = useDesktopViewport();
   const programOptions = getProgramOptions();
   const calendarDataVersion = getSnapshot().version;
   const [messages, setMessages] = useState<Message[]>([]);
@@ -716,6 +721,13 @@ export default function ChatPage() {
           return [...prev, assistantMessage];
         });
       }
+
+      if (chatRequestSucceeded) {
+        trackZarazEvent(ZARAZ_EVENTS.chatMessageSent, {
+          program: selectedProgram,
+          sessionCount: selectedSessions.length,
+        });
+      }
     } catch {
       const errorNow = Date.now();
       const errorMessage: Message = {
@@ -889,6 +901,7 @@ export default function ChatPage() {
       }
       setFeedbackSent((prev) => ({ ...prev, [msgId]: true }));
       setFeedbackError(null);
+      trackZarazEvent(ZARAZ_EVENTS.chatFeedback, { rating: nextReaction });
     } catch {
       setFeedbackError("Could not send feedback. Please try again.");
     }
@@ -919,6 +932,16 @@ export default function ChatPage() {
     }, 100);
   }, [messages, scrollToBottom]);
 
+  const isEmptyChat = messages.length === 0;
+
+  const chatInputPlaceholder = useMemo(() => {
+    if (!isEmptyChat) return "Write a message...";
+    if (isDesktopViewport) {
+      return "Ask about calendars or holidays. Select your programme, or type @ to mention one.";
+    }
+    return "How can I help you today?";
+  }, [isEmptyChat, isDesktopViewport]);
+
   return (
     <div className="relative flex flex-col h-dvh bg-background text-foreground">
       {/* Top fade - always visible, independent of header scroll */}
@@ -937,14 +960,35 @@ export default function ChatPage() {
         </header>
       </div>
 
+      {/* Chat area + composer */}
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 flex-col",
+          isEmptyChat && "lg:justify-center lg:gap-16"
+        )}
+      >
       {/* Chat messages area */}
-      <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-4 md:px-0 pt-0 pb-6">
-        {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full gap-4 text-center mx-auto max-w-[600px]">
-            <div>
-              <h2 className="text-xl font-semibold mb-1">Bila UiTM Cuti</h2>
-              <p className="text-sm text-muted-foreground max-w-xs">
-                Ask anything about academic calendars or public holidays. Pick your programme from the list, or type @ to mention a specific calendar.
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className={cn(
+          "px-4 md:px-0",
+          isEmptyChat
+            ? "flex flex-1 flex-col items-center justify-center pt-0 pb-6 lg:flex-none lg:overflow-visible lg:pb-0"
+            : "flex-1 overflow-y-auto pt-0 pb-6"
+        )}
+      >
+        {isEmptyChat ? (
+          <div className="flex h-full flex-col items-center justify-center gap-4 px-4 text-center mx-auto max-w-[600px] lg:h-auto">
+            <div className="flex w-full max-w-md flex-col items-center gap-2 text-center">
+              <h1
+                className="text-2xl sm:text-3xl font-semibold tracking-tight text-foreground text-balance"
+                suppressHydrationWarning
+              >
+                {chatGreeting}
+              </h1>
+              <p className="text-sm text-muted-foreground max-w-sm mx-auto text-balance lg:hidden">
+                Ask about academic calendars or public holidays. Select your programme, or type @ to mention a calendar.
               </p>
             </div>
             {showTurnstileChallenge ? (
@@ -1082,8 +1126,13 @@ export default function ChatPage() {
         )}
       </div>
 
-      {/* Input area - prompt form like ChatGPT with dropdown inside textarea */}
-      <div className="chat-input-area relative px-4 md:px-0 pt-1 lg:pt-0.5 pb-6">
+      {/* Input area - bottom on mobile / active chat; centered below greeting on desktop empty */}
+      <div
+        className={cn(
+          "chat-input-area relative px-4 md:px-0 pt-1 lg:pt-0.5 pb-6",
+          isEmptyChat && "chat-input-area-centered lg:pt-0 lg:pb-10"
+        )}
+      >
         <div className="mx-auto max-w-[600px]">
           {/* Suggestion chips - swipeable carousel with edge fades */}
           {feedbackError && (
@@ -1135,7 +1184,7 @@ export default function ChatPage() {
               onClick={(e) => updateMentionState(e.currentTarget.value, e.currentTarget.selectionStart)}
               onKeyUp={(e) => updateMentionState(e.currentTarget.value, e.currentTarget.selectionStart)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask anything about your schedule"
+              placeholder={chatInputPlaceholder}
               disabled={isLoading}
               rows={1}
               className="chat-input relative z-10 w-full resize-none bg-transparent px-4 pt-3 pb-1 text-sm leading-relaxed placeholder:text-muted-foreground focus:outline-none disabled:opacity-50"
@@ -1410,6 +1459,7 @@ export default function ChatPage() {
             {disclaimerTexts[disclaimerIndex]}
           </span>
         </div>
+      </div>
       </div>
     </div>
   );
