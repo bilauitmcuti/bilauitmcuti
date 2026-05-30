@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { cleanAiReply, extractFinalAnswerFromPlanning } from "@/lib/chat/sanitize";
+import {
+  cleanAiReply,
+  extractFinalAnswerFromPlanning,
+  normalizeLatexArtifacts,
+} from "@/lib/chat/sanitize";
 
 describe("extractFinalAnswerFromPlanning", () => {
   it("extracts text after Answer:", () => {
@@ -8,6 +12,16 @@ Answer: The Peperiksaan Intersesi exam week is from 21-09-2026 to 25-09-2026.
 Language: English? Yes.`;
     expect(extractFinalAnswerFromPlanning(raw)).toBe(
       "The Peperiksaan Intersesi exam week is from 21-09-2026 to 25-09-2026."
+    );
+  });
+});
+
+describe("normalizeLatexArtifacts", () => {
+  it("converts LaTeX arrows to Unicode arrows", () => {
+    const raw =
+      "Sesi (Tahun Akademik) $\\rightarrow$ mengandungi $\\rightarrow$ Semester/Penggal (Tempoh Kuliah & Exam) $\\rightarrow$ mengandungi $\\rightarrow$ Minggu Kuliah (Lecture Weeks).";
+    expect(normalizeLatexArtifacts(raw)).toBe(
+      "Sesi (Tahun Akademik) → mengandungi → Semester/Penggal (Tempoh Kuliah & Exam) → mengandungi → Minggu Kuliah (Lecture Weeks)."
     );
   });
 });

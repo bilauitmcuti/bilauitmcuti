@@ -42,6 +42,48 @@ export function extractFinalAnswerFromPlanning(raw: string): string | null {
   return null;
 }
 
+const LATEX_SYMBOLS: Record<string, string> = {
+  rightarrow: "→",
+  leftarrow: "←",
+  leftrightarrow: "↔",
+  Rightarrow: "⇒",
+  Leftarrow: "⇐",
+  to: "→",
+  gets: "←",
+  cdots: "…",
+  ldots: "…",
+  times: "×",
+  pm: "±",
+  leq: "≤",
+  geq: "≥",
+  neq: "≠",
+  approx: "≈",
+};
+
+/** Models sometimes emit LaTeX ($\\rightarrow$, etc.) despite plain-text prompts. */
+export function normalizeLatexArtifacts(text: string): string {
+  let out = text;
+  for (const [cmd, symbol] of Object.entries(LATEX_SYMBOLS)) {
+    const escaped = cmd.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    out = out.replace(
+      new RegExp(`\\$\\s*\\\\?${escaped}\\s*\\$`, "gi"),
+      symbol
+    );
+    out = out.replace(new RegExp(`\\\\${escaped}(?![a-zA-Z])`, "g"), symbol);
+  }
+  out = out.replace(/\$([^$\n]+)\$/g, (_, inner: string) => {
+    const trimmed = inner.trim();
+    const cmdMatch = /^\\+([a-zA-Z]+)/.exec(trimmed);
+    if (cmdMatch) {
+      const mapped = LATEX_SYMBOLS[cmdMatch[1]!];
+      if (mapped) return mapped;
+      return cmdMatch[1]!;
+    }
+    return trimmed.replace(/[{}]/g, "");
+  });
+  return out.replace(/\\text\{([^}]*)\}/g, "$1");
+}
+
 export function cleanAiReply(rawReply: string): string {
   const fromPlanning = extractFinalAnswerFromPlanning(rawReply);
   const source = fromPlanning ?? rawReply;
@@ -72,7 +114,7 @@ export function cleanAiReply(rawReply: string): string {
     })
     .join("\n");
 
-  const cleaned = withoutPlanningLines
+  const cleaned = normalizeLatexArtifacts(withoutPlanningLines)
     .replace(/\((?:PAST|NOW|UPCOMING)\)\s*/gi, "")
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(/\*([^*]+)\*/g, "$1")

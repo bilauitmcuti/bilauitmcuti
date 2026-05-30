@@ -3,7 +3,11 @@ export const ENGAGEMENT_STORAGE_KEYS = {
   actionCount: "engagement-prompt-action-count",
   threshold: "engagement-prompt-threshold",
   lastShownAt: "engagement-prompt-last-shown-at",
+  ratingAttempts: "engagement-prompt-rating-attempts",
 } as const;
+
+/** Max star-rating submissions (engagement drawer/dialog) before stars are disabled. */
+export const MAX_ENGAGEMENT_RATING_ATTEMPTS = 2;
 
 export type EngagementActionType =
   | "grid_cell_open"
@@ -109,4 +113,21 @@ export function resetEngagementCycle(): void {
 
 export function markEngagementShown(): void {
   safeSetItem(ENGAGEMENT_STORAGE_KEYS.lastShownAt, String(Date.now()));
+}
+
+export function getEngagementRatingAttempts(): number {
+  const stored = safeGetItem(ENGAGEMENT_STORAGE_KEYS.ratingAttempts);
+  const parsed = stored ? parseInt(stored, 10) : 0;
+  return Number.isNaN(parsed) || parsed < 0 ? 0 : parsed;
+}
+
+export function isEngagementRatingLimitReached(): boolean {
+  return getEngagementRatingAttempts() >= MAX_ENGAGEMENT_RATING_ATTEMPTS;
+}
+
+/** Records one rating submission; returns the new attempt count. */
+export function recordEngagementRatingAttempt(): number {
+  const next = getEngagementRatingAttempts() + 1;
+  safeSetItem(ENGAGEMENT_STORAGE_KEYS.ratingAttempts, String(next));
+  return next;
 }
