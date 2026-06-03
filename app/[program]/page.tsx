@@ -4,7 +4,9 @@ import { CalendarWrapper } from '@/components/calendar-wrapper';
 import { notFound } from 'next/navigation';
 import { isValidProgramRoute, getProgramDisplayName } from '@/lib/route-utils';
 import { getProgramCanonicalUrl, getProgramPageTitle, getProgramSeoDescription } from '@/lib/program-seo';
+import { SITE_ORIGIN } from '@/lib/page-seo';
 import { buildCalendarPageMetadata } from '@/lib/calendar-seo-metadata';
+import { PageSeoBlock } from '@/components/page-seo-block';
 import type { Metadata } from 'next';
 
 
@@ -32,39 +34,6 @@ export async function generateMetadata({ params, searchParams }: ProgramPageProp
   });
 }
 
-function ProgramJsonLd({ program }: { program: string }) {
-  const title = getProgramPageTitle(program);
-  const description = getProgramSeoDescription(program);
-  const canonical = getProgramCanonicalUrl(program);
-  const programName = getProgramDisplayName(program);
-  return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{
-        __html: JSON.stringify({
-          "@context": "https://schema.org",
-          "@graph": [
-            {
-              "@type": "BreadcrumbList",
-              "itemListElement": [
-                { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://bilauitmcuti.com" },
-                { "@type": "ListItem", "position": 2, "name": programName, "item": canonical },
-              ],
-            },
-            {
-              "@type": "WebPage",
-              "name": title,
-              "url": canonical,
-              "description": description,
-              "isPartOf": { "@type": "WebSite", "name": "Bila UiTM Cuti", "url": "https://bilauitmcuti.com" },
-            },
-          ],
-        }),
-      }}
-    />
-  );
-}
-
 export default async function ProgramPage({ params }: ProgramPageProps) {
   const { program } = await params;
   
@@ -73,10 +42,21 @@ export default async function ProgramPage({ params }: ProgramPageProps) {
   }
 
   const programName = getProgramDisplayName(program);
-  
+  const canonical = getProgramCanonicalUrl(program);
+  const description = getProgramSeoDescription(program);
+  const heading = getProgramPageTitle(program);
+
   return (
     <>
-      <ProgramJsonLd program={program} />
+      <PageSeoBlock
+        heading={heading}
+        description={description}
+        url={canonical}
+        breadcrumbs={[
+          { name: 'Home', item: SITE_ORIGIN },
+          { name: programName, item: canonical },
+        ]}
+      />
       <CalendarWrapper viewMode="grid" programFromRoute={program} />
     </>
   );

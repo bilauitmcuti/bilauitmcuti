@@ -943,7 +943,7 @@ export default function ChatPage() {
   }, [isEmptyChat, isDesktopViewport]);
 
   return (
-    <div className="relative flex flex-col h-dvh bg-background text-foreground">
+    <div className="relative flex flex-col h-dvh bg-background text-foreground" data-nosnippet>
       {/* Top fade - always visible, independent of header scroll */}
       <div className="chat-top-fade absolute top-0 left-0 right-0 z-[9] pointer-events-none" />
 

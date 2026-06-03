@@ -1,7 +1,21 @@
 import { memo, useMemo, useCallback, useSyncExternalStore } from 'react';
 import { useCalendarHydrationVersion } from '@/components/calendar-hydration-context';
 import { getSnapshot, subscribe } from '@/lib/calendar-store';
-import { getActivitiesForMonthMultiSessions, getMonthsForSessions, formatDateRange, getDaysUntilStart, formatCountdown, getProgramBadgeConfig, getProgramBadgesConfig, type Activity, type ProgramGroup, type SessionId } from '@/lib/data';
+import {
+  getActivitiesForList,
+  getActivityListDisplayAnchorDate,
+  groupActivitiesByListStartMonth,
+  parseListMonthKey,
+  formatDateRange,
+  getDaysUntilStart,
+  formatCountdown,
+  getProgramBadgeConfig,
+  getProgramBadgesConfig,
+  type Activity,
+  type ActivityFilterOptions,
+  type ProgramGroup,
+  type SessionId,
+} from '@/lib/data';
 
 interface ListViewProps {
   selectedProgram: string;
@@ -78,51 +92,28 @@ export const ListView = memo(function ListView({
     return 'B';
   };
 
-  const shouldShowActivity = useCallback((type: string, activity?: Activity): boolean => {
-    if (type === 'registration' && !showRegistration) return false;
-    if (type === 'lecture' && !showLecture) return false;
-    if (type === 'examination' && !showExamination) return false;
-    if (type === 'break' && !showBreak) return false;
-    
-    // Filter out Short Semester if toggle is off
-    if (
-      type === 'lecture' &&
-      (activity?.name?.includes('Short Semester') || activity?.name?.includes('Semester Pendek')) &&
-      !showSemesterPendek
-    ) return false;
-    
-    // Filter out Intersession Classes if toggle is off
-    if (
-      type === 'lecture' &&
-      (activity?.name?.includes('Intersession Classes') || activity?.name?.includes('Intersesi')) &&
-      !showKuliahIntersesi
-    ) return false;
-    
-    // Filter out Others Exams (Khas + English Exit Test) if toggle is off
-    if (type === 'examination' && (activity?.name?.includes('Khas') || activity?.name?.includes('English Exit Test') || activity?.name?.includes('EET Lisan')) && !showOthersExams) return false;
-    
-    // Handle "All" option - show all Group B activities (all-student and every programType)
-    if (selectedProgram === 'All') {
-      return true;
-    }
-    
-    // Filter by program type or programTypes
-    if (activity?.programTypes?.length) {
-      return activity.programTypes.includes(selectedProgram);
-    }
-    if (activity?.programType && activity.programType !== selectedProgram) return false;
-    
-    return true;
-  }, [
-    showRegistration,
-    showLecture,
-    showExamination,
-    showBreak,
-    showSemesterPendek,
-    showKuliahIntersesi,
-    showOthersExams,
-    selectedProgram,
-  ]);
+  const listFilterOptions = useMemo<ActivityFilterOptions>(
+    () => ({
+      selectedProgram,
+      showRegistration,
+      showLecture,
+      showSemesterPendek,
+      showKuliahIntersesi,
+      showExamination,
+      showOthersExams,
+      showBreak,
+    }),
+    [
+      selectedProgram,
+      showRegistration,
+      showLecture,
+      showSemesterPendek,
+      showKuliahIntersesi,
+      showExamination,
+      showOthersExams,
+      showBreak,
+    ]
+  );
 
   const group = useMemo(() => getProgramGroup(selectedProgram), [selectedProgram]);
   const shouldMergePartTimeForAllList = useMemo(
@@ -137,59 +128,17 @@ export const ListView = memo(function ListView({
     return programType;
   }, [shouldMergePartTimeForAllList]);
   
-  const months = useMemo(
-    () => {
-      void calendarDataVersion;
-      return getMonthsForSessions(selectedSessions, {
-        selectedProgram,
-        showRegistration,
-        showLecture,
-        showExamination,
-        showOthersExams,
-        showBreak,
-        showSemesterPendek,
-        showKuliahIntersesi,
-        showKKT,
-      });
-    },
-    [
-      selectedSessions,
-      selectedProgram,
-      showRegistration,
-      showLecture,
-      showExamination,
-      showOthersExams,
-      showBreak,
-      showSemesterPendek,
-      showKuliahIntersesi,
-      showKKT,
-      calendarDataVersion,
-    ]
-  );
+  const listActivities = useMemo(() => {
+    void calendarDataVersion;
+    return getActivitiesForList(selectedSessions, listFilterOptions);
+  }, [selectedSessions, listFilterOptions, calendarDataVersion]);
 
-  const activities = useMemo(
-    () => {
-      void calendarDataVersion;
-      return months.flatMap(({ month, year }) =>
-        getActivitiesForMonthMultiSessions(year, month, selectedSessions, showKKT)
-      );
-    },
-    [months, selectedSessions, showKKT, calendarDataVersion]
-  );
-
-  // Filter activities by program type BEFORE deduplication to ensure correct filtering
-  const filteredActivities = useMemo(
-    () => activities.filter((a) => shouldShowActivity(a.type, a)),
-    [activities, shouldShowActivity]
-  );
-
-  // Filter out duplicate activities.
-  // For Group B "All" list, merge Diploma/Bachelor Part-Time duplicates into one row.
+  // One list row per activity (multi-session merge; Part-Time merge on Group B "All").
   const uniqueActivities = useMemo(
     () =>
       Array.from(
         new Map(
-          filteredActivities.map((activity) => {
+          listActivities.map((activity) => {
             const dedupeKey = [
               activity.name,
               activity.startDate,
@@ -211,23 +160,11 @@ export const ListView = memo(function ListView({
         if (dateCompare !== 0) return dateCompare;
         return a.name.localeCompare(b.name);
       }),
-    [filteredActivities, getNormalizedProgramType]
+    [listActivities, getNormalizedProgramType]
   );
 
-  // Group activities by month - use UTC to ensure consistency
   const groupedByMonth = useMemo(
-    () =>
-      uniqueActivities.reduce((acc, activity) => {
-        const [year, month, day] = activity.startDate.split('-').map(Number);
-        const date = new Date(Date.UTC(year, month - 1, day));
-        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-        const monthKey = `${monthNames[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
-        if (!acc[monthKey]) {
-          acc[monthKey] = [];
-        }
-        acc[monthKey].push(activity);
-        return acc;
-      }, {} as Record<string, typeof uniqueActivities>),
+    () => groupActivitiesByListStartMonth(uniqueActivities),
     [uniqueActivities]
   );
 
@@ -239,40 +176,17 @@ export const ListView = memo(function ListView({
     return 'bg-muted';
   };
 
-  const monthNames = useMemo(
-    () => ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
-    []
-  );
-  const parseMonthKey = useCallback((key: string) => {
-    const [name, yearStr] = key.split(' ');
-    const month = monthNames.indexOf(name) + 1;
-    const year = parseInt(yearStr ?? '0', 10);
-    return { year, month };
-  }, [monthNames]);
   const sortedMonths = useMemo(
     () =>
       Object.keys(groupedByMonth).sort((a, b) => {
-        const pa = parseMonthKey(a);
-        const pb = parseMonthKey(b);
+        const pa = parseListMonthKey(a);
+        const pb = parseListMonthKey(b);
         return pa.year !== pb.year ? pa.year - pb.year : pa.month - pb.month;
       }),
-    [groupedByMonth, parseMonthKey]
+    [groupedByMonth]
   );
 
-  // Filter activities based on visibility toggles and states
-  const filteredGroupedByMonth = useMemo(
-    () =>
-      Object.entries(groupedByMonth).reduce((acc, [month, activities]) => {
-        acc[month] = activities.filter((a) => shouldShowActivity(a.type, a));
-        return acc;
-      }, {} as Record<string, typeof uniqueActivities>),
-    [groupedByMonth, shouldShowActivity]
-  );
-
-  const hasAnyActivities = useMemo(
-    () => sortedMonths.some((m) => (filteredGroupedByMonth[m]?.length ?? 0) > 0),
-    [sortedMonths, filteredGroupedByMonth]
-  );
+  const hasAnyActivities = uniqueActivities.length > 0;
 
   const bgClass = 'bg-background';
   const textClass = 'text-foreground';
@@ -290,7 +204,7 @@ export const ListView = memo(function ListView({
         </div>
       ) : sortedMonths.map((month) => {
         // Hide months with no activities
-        if (!filteredGroupedByMonth[month] || filteredGroupedByMonth[month].length === 0) {
+        if (!groupedByMonth[month] || groupedByMonth[month].length === 0) {
           return null;
         }
         
@@ -301,11 +215,9 @@ export const ListView = memo(function ListView({
           </div>
           
           <div className="space-y-4 transition-none" suppressHydrationWarning>
-            {filteredGroupedByMonth[month] && filteredGroupedByMonth[month].length > 0 ? (
-              filteredGroupedByMonth[month].map((activity) => {
-                // Use regional dates if KKT filter is on
-                const useRegionalDate = showKKT && activity.regionalStartDate;
-                const dateStr = useRegionalDate ? activity.regionalStartDate! : activity.startDate;
+            {groupedByMonth[month] && groupedByMonth[month].length > 0 ? (
+              groupedByMonth[month].map((activity) => {
+                const dateStr = getActivityListDisplayAnchorDate(activity, showKKT);
                 const badgeConfigs = getProgramBadgesConfig(activity, selectedProgram);
                 const singleBadgeConfig = getProgramBadgeConfig(activity);
                 const hasAnyProgramBadge = singleBadgeConfig || badgeConfigs.length > 0;

@@ -574,8 +574,9 @@ export function getActivitiesForMonth(
       endDate = toDateOrNull(activity.endDate) ?? startDate;
     }
 
-    const monthStart = new Date(year, month - 1, 1);
-    const monthEnd = new Date(year, month, 0);
+    // UTC month bounds — must match matchesActivityDate / toDateOrNull (YYYY-MM-DD = UTC midnight).
+    const monthStart = new Date(Date.UTC(year, month - 1, 1));
+    const monthEnd = new Date(Date.UTC(year, month, 0));
     return startDate <= monthEnd && endDate >= monthStart;
   });
 }
@@ -799,6 +800,85 @@ export function getMonthsForSessions(
     return fallbackMonths.length > 0 ? fallbackMonths : getDefaultMonthsWindow();
   }
   return months;
+}
+
+/** English month labels for list section headers (UTC grouping). */
+export const LIST_MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+] as const;
+
+/**
+ * List left column + countdown anchor. Uses regional start only when KKT toggle is on.
+ * Section grouping always uses {@link getActivityListGroupMonthKey} (startDate).
+ */
+export function getActivityListDisplayAnchorDate(activity: Activity, showKKT: boolean): string {
+  if (showKKT && activity.regionalStartDate) return activity.regionalStartDate;
+  return activity.startDate;
+}
+
+/** List section key from activity startDate (UTC calendar date, not regional). */
+export function getActivityListGroupMonthKey(activity: Activity): string {
+  const normalized = normalizeDateString(activity.startDate);
+  const [year, month] = normalized.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, 1));
+  return `${LIST_MONTH_NAMES[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
+}
+
+export function parseListMonthKey(key: string): { year: number; month: number } {
+  const [name, yearStr] = key.split(' ');
+  const month = LIST_MONTH_NAMES.indexOf(name as (typeof LIST_MONTH_NAMES)[number]) + 1;
+  return { year: parseInt(yearStr ?? '0', 10), month };
+}
+
+function compareActivitiesByStartDate(a: Activity, b: Activity): number {
+  const dateCompare = new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+  if (dateCompare !== 0) return dateCompare;
+  return a.name.localeCompare(b.name);
+}
+
+/**
+ * All activities for list view: every row from the store for selected sessions,
+ * filtered like grid ({@link shouldIncludeActivity}), deduped across sessions, sorted by startDate.
+ */
+export function getActivitiesForList(
+  sessionIds: SessionId[],
+  filters: ActivityFilterOptions
+): Activity[] {
+  if (sessionIds.length === 0) return [];
+  const all: Activity[] = [];
+  for (const sid of sessionIds) {
+    const group = getGroupFromSession(sid);
+    for (const activity of getActivitiesForSession(sid)) {
+      if (activity.group === group && shouldIncludeActivity(activity, filters)) {
+        all.push(activity);
+      }
+    }
+  }
+  return dedupeActivities(all).sort(compareActivitiesByStartDate);
+}
+
+/** Group list rows by startDate month (one section per activity, no overlap duplicates). */
+export function groupActivitiesByListStartMonth(activities: Activity[]): Record<string, Activity[]> {
+  return activities.reduce(
+    (acc, activity) => {
+      const monthKey = getActivityListGroupMonthKey(activity);
+      if (!acc[monthKey]) acc[monthKey] = [];
+      acc[monthKey].push(activity);
+      return acc;
+    },
+    {} as Record<string, Activity[]>
+  );
 }
 
 /** Get activities for a date across multiple sessions (merged, deduped). */

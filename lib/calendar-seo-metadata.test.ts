@@ -1,5 +1,46 @@
 import { describe, expect, it } from "vitest";
-import { buildCalendarPageMetadata } from "./calendar-seo-metadata";
+import {
+  buildCalendarPageMetadata,
+  resolveCalendarSeoFromPathname,
+} from "./calendar-seo-metadata";
+
+describe("resolveCalendarSeoFromPathname", () => {
+  it("returns program title for grid program routes", () => {
+    const seo = resolveCalendarSeoFromPathname("/bachelor");
+    expect(seo.title).toBe("Bachelor - Bila UiTM Cuti");
+    expect(seo.canonical).toBe("https://bilauitmcuti.com/bachelor");
+  });
+
+  it("returns program title for list program routes", () => {
+    const seo = resolveCalendarSeoFromPathname("/diploma/list");
+    expect(seo.title).toBe("Diploma - Bila UiTM Cuti");
+    expect(seo.canonical).toBe("https://bilauitmcuti.com/diploma/list");
+  });
+
+  it("returns homepage title for / and /list", () => {
+    expect(resolveCalendarSeoFromPathname("/").title).toBe(
+      "Bila UiTM Cuti - Kalendar Akademik"
+    );
+    expect(resolveCalendarSeoFromPathname("/list").title).toBe(
+      "Bila UiTM Cuti - Kalendar Akademik"
+    );
+  });
+
+  it("uses different Malay descriptions for program grid vs list", () => {
+    const grid = resolveCalendarSeoFromPathname("/bachelor");
+    const list = resolveCalendarSeoFromPathname("/bachelor/list");
+    expect(grid.description).not.toBe(list.description);
+    expect(grid.description).toContain("Sarjana Muda");
+    expect(list.description).toContain("Senarai");
+  });
+
+  it("uses different Malay descriptions for homepage grid vs /list", () => {
+    const grid = resolveCalendarSeoFromPathname("/");
+    const list = resolveCalendarSeoFromPathname("/list");
+    expect(grid.description).not.toBe(list.description);
+    expect(list.description).toContain("senarai");
+  });
+});
 
 describe("buildCalendarPageMetadata list routes", () => {
   it("uses clean og:url for /list without session query", () => {

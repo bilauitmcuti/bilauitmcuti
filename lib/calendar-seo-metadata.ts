@@ -6,12 +6,17 @@ import {
 import {
   getProgramCanonicalUrl,
   getProgramListCanonicalUrl,
+  getProgramListSeoDescription,
   getProgramPageTitle,
   getProgramSeoDescription,
 } from "@/lib/program-seo";
 import { isValidProgramRoute } from "@/lib/route-utils";
-
-const SITE_ORIGIN = "https://bilauitmcuti.com";
+import {
+  HOMEPAGE_LIST_SEO_DESCRIPTION,
+  HOMEPAGE_SEO_DESCRIPTION,
+  HOMEPAGE_SEO_TITLE,
+  SITE_ORIGIN,
+} from "@/lib/page-seo";
 const GRID_COVER = `${SITE_ORIGIN}/all-cover.png`;
 const LIST_COVER = `${SITE_ORIGIN}/list-cover.png`;
 
@@ -42,34 +47,85 @@ export interface CalendarSeoOptions {
   searchParams?: SearchParamsInput;
 }
 
+export interface CalendarPageSeo {
+  title: string;
+  description: string;
+  canonical: string;
+  coverImage: string;
+  viewMode: "grid" | "list";
+}
+
+/** Parse pathname into view mode and optional program slug (client history.replaceState safe). */
+export function parseCalendarPathname(pathname: string): {
+  viewMode: "grid" | "list";
+  programSlug?: string;
+} {
+  const segments = pathname.split("/").filter(Boolean);
+  const isList = segments[segments.length - 1] === "list";
+  const viewMode = isList ? "list" : "grid";
+
+  let programSlug: string | undefined;
+  if (isList && segments.length >= 2) {
+    programSlug = segments[0];
+  } else if (!isList && segments.length >= 1 && segments[0] !== "list") {
+    programSlug = segments[0];
+  }
+
+  return { viewMode, programSlug };
+}
+
+export function resolveCalendarSeoContent(
+  viewMode: "grid" | "list",
+  programSlug?: string
+): CalendarPageSeo {
+  const isList = viewMode === "list";
+  const coverImage = isList ? LIST_COVER : GRID_COVER;
+
+  if (programSlug && isValidProgramRoute(programSlug)) {
+    return {
+      title: getProgramPageTitle(programSlug),
+      description: isList
+        ? getProgramListSeoDescription(programSlug)
+        : getProgramSeoDescription(programSlug),
+      canonical: isList
+        ? getProgramListCanonicalUrl(programSlug)
+        : getProgramCanonicalUrl(programSlug),
+      coverImage,
+      viewMode,
+    };
+  }
+
+  if (isList) {
+    return {
+      title: HOMEPAGE_SEO_TITLE,
+      description: HOMEPAGE_LIST_SEO_DESCRIPTION,
+      canonical: `${SITE_ORIGIN}/list`,
+      coverImage,
+      viewMode,
+    };
+  }
+
+  return {
+    title: HOMEPAGE_SEO_TITLE,
+    description: HOMEPAGE_SEO_DESCRIPTION,
+    canonical: SITE_ORIGIN,
+    coverImage,
+    viewMode,
+  };
+}
+
+export function resolveCalendarSeoFromPathname(pathname: string): CalendarPageSeo {
+  const { viewMode, programSlug } = parseCalendarPathname(pathname);
+  return resolveCalendarSeoContent(viewMode, programSlug);
+}
+
 export function buildCalendarPageMetadata(options: CalendarSeoOptions): Metadata {
   const { pathname, viewMode, programSlug } = options;
   const params = toURLSearchParams(options.searchParams);
   const sessionIds = parseSessionIdsFromSearchParams(params);
   const isList = viewMode === "list";
-  const coverImage = isList ? LIST_COVER : GRID_COVER;
-
-  let title: string;
-  let description: string;
-  let canonical: string;
-
-  if (programSlug && isValidProgramRoute(programSlug)) {
-    title = getProgramPageTitle(programSlug);
-    description = getProgramSeoDescription(programSlug);
-    canonical = isList
-      ? getProgramListCanonicalUrl(programSlug)
-      : getProgramCanonicalUrl(programSlug);
-  } else if (isList) {
-    title = "Bila UiTM Cuti - Kalendar Akademik";
-    description =
-      "Interactive UiTM academic calendar. View registration dates, lecture schedules, examination periods, and breaks.";
-    canonical = `${SITE_ORIGIN}/list`;
-  } else {
-    title = "Bila UiTM Cuti - Kalendar Akademik";
-    description =
-      "Kalendar akademik UiTM interaktif. Lihat jadual pendaftaran, kuliah, peperiksaan, dan cuti semester.";
-    canonical = SITE_ORIGIN;
-  }
+  const seo = resolveCalendarSeoContent(viewMode, programSlug);
+  const { title, description, canonical, coverImage } = seo;
 
   const ogUrl =
     sessionIds.length > 0

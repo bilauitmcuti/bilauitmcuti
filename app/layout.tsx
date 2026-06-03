@@ -8,6 +8,7 @@ import { ZarazPageView } from '@/components/zaraz-page-view'
 import './globals.css'
 import { Geist, Geist_Mono } from "next/font/google"
 import { cn } from "@/lib/utils"
+import { buildSiteNavigationSchemaElements, HOMEPAGE_SEO_DESCRIPTION } from '@/lib/page-seo'
 
 const geistSans = Geist({
   subsets: ["latin"],
@@ -29,7 +30,7 @@ export const metadata: Metadata = {
   other: {
     'site_name': 'Bila UiTM Cuti',
   },
-  description: 'Kalendar akademik UiTM interaktif. Lihat jadual pendaftaran, kuliah, peperiksaan, dan cuti semester. Interactive UiTM academic calendar with registration dates, lecture schedules, examination periods, and breaks. Includes regional variations for Kedah, Kelantan, and Terengganu.',
+  description: HOMEPAGE_SEO_DESCRIPTION,
   keywords: ['UiTM', 'academic calendar', 'registration', 'examination', 'lectures', 'holidays', 'Malaysia', 'Universiti Teknologi MARA', 'UiTM student app', 'Bila UiTM Cuti', 'Cuti UiTM', 'Jadual UiTM', 'Kalendar UiTM', 'Kalendar Akademik UiTM', 'Academic Calendar UiTM', 'jadual akademik UiTM', 'cuti semester UiTM', 'tarikh peperiksaan UiTM', 'tarikh pendaftaran UiTM', 'kuliah UiTM', 'uitm cuti', 'uitm cuti bila', 'bila cuti uitm', 'cuti uitm 2026', 'cuti uitm 2027', 'kalendar cuti uitm'],
   generator: 'Next.js',
   manifest: '/manifest.json',
@@ -58,7 +59,7 @@ export const metadata: Metadata = {
   openGraph: {
     siteName: 'Bila UiTM Cuti',
     title: 'Bila UiTM Cuti',
-    description: 'Kalendar akademik UiTM. Jadual pendaftaran, kuliah, peperiksaan, dan cuti semester. Interactive UiTM academic calendar with schedules and examination dates.',
+    description: HOMEPAGE_SEO_DESCRIPTION,
     type: 'website',
     url: 'https://bilauitmcuti.com',
     locale: 'ms_MY',
@@ -74,7 +75,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Bila UiTM Cuti',
-    description: 'Kalendar akademik UiTM. Jadual pendaftaran, kuliah, peperiksaan, dan cuti semester untuk semua program.',
+    description: HOMEPAGE_SEO_DESCRIPTION,
     images: ['https://bilauitmcuti.com/all-cover.png'],
   },
   icons: {
@@ -121,7 +122,6 @@ export default function RootLayout({
         <meta name="theme-color" content="#ffffff" />
         <meta name="application-name" content="Bila UiTM Cuti" />
         <meta property="og:site_name" content="Bila UiTM Cuti" />
-        <meta property="og:title" content="Bila UiTM Cuti" />
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
         <meta name="apple-mobile-web-app-title" content="Bila UiTM Cuti" />
         <link rel="manifest" href="/manifest.json" />
@@ -151,28 +151,7 @@ export default function RootLayout({
                     '@id': 'https://bilauitmcuti.com/#organization',
                   },
                   inLanguage: ['ms-MY', 'en'],
-                  hasPart: [
-                    {
-                      '@type': 'SiteNavigationElement',
-                      name: 'Diploma',
-                      url: 'https://bilauitmcuti.com/diploma',
-                    },
-                    {
-                      '@type': 'SiteNavigationElement',
-                      name: 'Bachelor',
-                      url: 'https://bilauitmcuti.com/bachelor',
-                    },
-                    {
-                      '@type': 'SiteNavigationElement',
-                      name: 'Master',
-                      url: 'https://bilauitmcuti.com/master',
-                    },
-                    {
-                      '@type': 'SiteNavigationElement',
-                      name: 'PhD',
-                      url: 'https://bilauitmcuti.com/phd',
-                    },
-                  ],
+                  hasPart: buildSiteNavigationSchemaElements(),
                 },
               ],
             }),

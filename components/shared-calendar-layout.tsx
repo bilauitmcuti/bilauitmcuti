@@ -511,7 +511,11 @@ export function SharedCalendarLayout({
       hydratedSnapshotProgram={initialCalendarHydration?.programUsed ?? null}
       serverHydrateKey={initialCalendarHydration?.hydrateKey ?? null}
     >
-    <div className={`min-h-screen ${bgClass} transition-none relative`} style={{ transition: 'none' }}>
+    <div
+      className={`min-h-screen ${bgClass} transition-none relative`}
+      style={{ transition: 'none' }}
+      data-nosnippet
+    >
       <div className="mx-auto max-w-[1000px] px-4 py-8 sm:px-6 lg:px-4 transition-none" style={{ transition: 'none' }}>
         <CalendarHeader
           selectedSessions={selectedSessions}

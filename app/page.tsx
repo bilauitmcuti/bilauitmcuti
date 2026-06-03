@@ -7,6 +7,12 @@ export type ViewMode = 'list' | 'grid';
 
 
 import { CalendarWrapper } from '@/components/calendar-wrapper';
+import { PageSeoBlock } from '@/components/page-seo-block';
+import {
+  HOMEPAGE_SEO_DESCRIPTION,
+  HOMEPAGE_SEO_TITLE,
+  SITE_ORIGIN,
+} from '@/lib/page-seo';
 import Link from 'next/link';
 
 interface HomePageProps {
@@ -26,6 +32,11 @@ export async function generateMetadata({ searchParams }: HomePageProps): Promise
 export default function Page() {
   return (
     <>
+      <PageSeoBlock
+        heading={HOMEPAGE_SEO_TITLE}
+        description={HOMEPAGE_SEO_DESCRIPTION}
+        url={SITE_ORIGIN}
+      />
       <nav aria-label="Program shortcuts" className="sr-only">
         <ul>
           <li>

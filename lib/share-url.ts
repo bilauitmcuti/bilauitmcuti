@@ -1,3 +1,4 @@
+import { resolveCalendarSeoFromPathname } from "@/lib/calendar-seo-metadata";
 import { hasSessionQueryParams } from "@/lib/session-query";
 
 const SITE_ORIGIN = "https://bilauitmcuti.com";
@@ -39,6 +40,76 @@ export function getPageOpenGraphUrl(): string {
   return `${base}${search}`;
 }
 
+function upsertMetaContent(
+  selector: string,
+  create: () => HTMLElement,
+  content: string
+): void {
+  let el = document.querySelector(selector);
+  if (!el) {
+    el = create();
+    document.head.appendChild(el);
+  }
+  el.setAttribute("content", content);
+}
+
+/** Keep document title and core meta tags aligned after client-side URL changes. */
+export function syncPageDocumentSeo(pathname?: string): void {
+  if (typeof document === "undefined") return;
+
+  const path =
+    pathname ?? (typeof window !== "undefined" ? window.location.pathname : "/");
+  const { title, description, coverImage } = resolveCalendarSeoFromPathname(path);
+
+  document.title = title;
+
+  upsertMetaContent(
+    'meta[name="description"]',
+    () => {
+      const meta = document.createElement("meta");
+      meta.setAttribute("name", "description");
+      return meta;
+    },
+    description
+  );
+
+  for (const property of ["og:title", "og:description", "og:image"] as const) {
+    const content =
+      property === "og:title"
+        ? title
+        : property === "og:description"
+          ? description
+          : coverImage;
+    upsertMetaContent(
+      `meta[property="${property}"]`,
+      () => {
+        const meta = document.createElement("meta");
+        meta.setAttribute("property", property);
+        return meta;
+      },
+      content
+    );
+  }
+
+  for (const name of ["twitter:title", "twitter:description", "twitter:image"] as const) {
+    const content =
+      name === "twitter:title"
+        ? title
+        : name === "twitter:description"
+          ? description
+          : coverImage;
+    upsertMetaContent(
+      `meta[name="${name}"]`,
+      () => {
+        const meta = document.createElement("meta");
+        meta.setAttribute("name", name);
+        return meta;
+      },
+      content
+    );
+  }
+}
+
 /** Canonical and share stay clean; og:url includes session query only when present in the URL. */
 export function syncPageShareUrl(): void {
   if (typeof document === "undefined") return;
@@ -61,6 +132,8 @@ export function syncPageShareUrl(): void {
     document.head.appendChild(ogUrlMeta);
   }
   ogUrlMeta.setAttribute("content", ogUrl);
+
+  syncPageDocumentSeo();
 }
 
 /** Replace address bar with a clean path (no session query). */
