@@ -7,6 +7,7 @@ interface StarRatingProps {
   rating: number;
   onRatingChange: (value: number) => void;
   disabled?: boolean;
+  centered?: boolean;
   label?: string;
   className?: string;
 }
@@ -15,14 +16,28 @@ export function StarRating({
   rating,
   onRatingChange,
   disabled = false,
+  centered = false,
   label = "How has your experience been so far?",
   className,
 }: StarRatingProps) {
   return (
-    <div className={cn("flex flex-col gap-2", className)}>
-      <p className="text-xs text-muted-foreground">{label}</p>
+    <div
+      className={cn(
+        "flex flex-col gap-2",
+        centered && "items-center",
+        className
+      )}
+    >
+      <p
+        className={cn(
+          "text-sm text-muted-foreground",
+          centered && "text-center"
+        )}
+      >
+        {label}
+      </p>
       <div
-        className="flex items-center gap-1"
+        className={cn("flex items-center gap-1", centered && "justify-center")}
         role="group"
         aria-label="Experience rating"
         data-vaul-no-drag=""
@@ -36,7 +51,7 @@ export function StarRating({
             aria-label={`${value} star${value === 1 ? "" : "s"}`}
             aria-pressed={rating >= value ? "true" : "false"}
             onClick={() => onRatingChange(value)}
-            className="touch-manipulation rounded-md p-1 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50"
+            className="touch-manipulation rounded-md p-1 transition-colors hover:bg-muted outline-none focus:outline-none focus-visible:outline-none disabled:opacity-50"
           >
             <Star
               className={cn(

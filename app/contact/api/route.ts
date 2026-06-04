@@ -1,7 +1,7 @@
 export const runtime = 'edge';
 import { NextRequest, NextResponse } from "next/server";
 import { CONTACT_CATEGORY_OPTIONS, CONTACT_WHO_OPTIONS } from "@/lib/contact";
-import { getTelegramEnv } from "@/lib/env";
+import { buildContactNotificationEmbed, sendDiscordWebhook } from "@/lib/discord-webhook";
 import { logger } from "@/lib/logger";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
@@ -10,6 +10,7 @@ import {
   verifyTurnstileToken,
 } from "@/lib/turnstile";
 import { isTurnstileVerificationRequired } from "@/lib/turnstile-config";
+import { jsonError, getClientIp, formatNotificationTime } from "@/lib/api-response";
 
 
 const MAX_BODY_SIZE_BYTES = 10 * 1024;
@@ -54,69 +55,6 @@ function parseContactRequest(raw: unknown): { success: true; data: ContactReques
     success: true,
     data: { who, category, message, startedAt, website, email, turnstileToken, rating: parsedRating },
   };
-}
-
-function jsonError(message: string, status: number) {
-  return NextResponse.json({ error: message }, { status });
-}
-
-function getClientIp(request: NextRequest): string {
-  return (
-    request.headers.get("cf-connecting-ip") ||
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    request.headers.get("x-real-ip") ||
-    "unknown"
-  );
-}
-
-function formatTelegramTime(date: Date): string {
-  return date.toLocaleString("en-MY", {
-    timeZone: "Asia/Kuala_Lumpur",
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
-
-function buildTelegramText(
-  who: string,
-  category: string,
-  message: string,
-  ip: string,
-  rating: number,
-  email?: string
-): string {
-  const trimmedEmail = email?.trim() ?? "";
-  const lines = [
-    "User Feedback",
-    "",
-    `Who: ${who}`,
-    `Category: ${category}`,
-    `Rating: ${rating} out of 5 stars`,
-    `Time: ${formatTelegramTime(new Date())}`,
-    `IP: ${ip}`,
-  ];
-  if (trimmedEmail.length > 0) lines.push(`Email: ${trimmedEmail}`);
-  lines.push("", "Message:", message);
-  return lines.join("\n");
-}
-
-async function sendToTelegram(text: string) {
-  const { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID } = getTelegramEnv();
-  const endpoint = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: TELEGRAM_CHAT_ID,
-      text,
-      disable_web_page_preview: true,
-    }),
-  });
-
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw new Error(`Telegram API failed (${response.status}): ${detail.slice(0, 200)}`);
-  }
 }
 
 export async function POST(request: NextRequest) {
@@ -191,8 +129,15 @@ export async function POST(request: NextRequest) {
       shouldSetVerifiedCookie = true;
     }
 
-    const text = buildTelegramText(who, category, message.trim(), ip, rating, email);
-    await sendToTelegram(text);
+    const embed = buildContactNotificationEmbed({
+      who,
+      category,
+      message: message.trim(),
+      rating,
+      email,
+      time: formatNotificationTime(new Date()),
+    });
+    await sendDiscordWebhook({ kind: "rate_feedback", embeds: [embed] });
 
     return withVerifiedCookie(NextResponse.json({ message: "Thanks! Your message has been submitted." }));
   } catch (error) {

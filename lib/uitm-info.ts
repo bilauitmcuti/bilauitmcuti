@@ -1,7 +1,7 @@
 /**
  * Static knowledge base sourced from https://www.uitm.edu.my/
  * Used as AI context for general UiTM questions that go beyond calendar data.
- * Data stored in uitm-info.json for AI model access and deterministic answers.
+ * Data stored in uitm-info.json for AI model access in research-mode chat.
  * Last updated: February 2026
  */
 
@@ -21,6 +21,26 @@ interface UitmInfoJson {
   faculties: Record<string, string[]>;
   programmes: { levels: ProgrammeLevel[] };
   admission: Record<string, string | string[]>;
+  examGrades?: {
+    passing: { grades: string[]; status: string };
+    failing: { grades: string[]; status: string };
+  };
+  studentFees?: {
+    title: string;
+    tuition: {
+      semester1: { diploma: string; degree: string };
+      semester2AndAbove: { diploma: string; degree: string };
+    };
+    collegePerSemester: {
+      double: string;
+      triple: string;
+      quad: string;
+      labels?: { double: string; triple: string; quad: string };
+    };
+    electricalPerItemPerSemester: string;
+    electricalNote?: string;
+    disclaimer: string;
+  };
   portals: Record<string, string>;
   contact: Record<string, string>;
   links: Record<string, string>;
@@ -111,6 +131,44 @@ export function getUitmInfoAsContext(): string {
   lines.push(`Entry qualifications accepted: ${data.admission.entryQualifications}`);
   lines.push(data.admission.note as string);
   lines.push("");
+
+  if (data.examGrades) {
+    lines.push("=== GRADING (PEPERIKSAAN) ===");
+    lines.push(
+      `Lulus (LU): ${data.examGrades.passing.grades.join(", ")} — ${data.examGrades.passing.status}`
+    );
+    lines.push(
+      `Gagal (GA): ${data.examGrades.failing.grades.join(", ")} — ${data.examGrades.failing.status}`
+    );
+    lines.push("");
+  }
+
+  if (data.studentFees) {
+    const fees = data.studentFees;
+    lines.push(`=== YURAN PENGAJIAN (ANGGARAN) — ${fees.title} ===`);
+    lines.push("Yuran Pengajian (Semester 1 / first sem):");
+    lines.push(`- Diploma: ${fees.tuition.semester1.diploma}`);
+    lines.push(`- Degree: ${fees.tuition.semester1.degree}`);
+    lines.push("Yuran Pengajian (Semester 2 dan ke atas):");
+    lines.push(`- Diploma: ${fees.tuition.semester2AndAbove.diploma}`);
+    lines.push(`- Degree: ${fees.tuition.semester2AndAbove.degree}`);
+    lines.push("Yuran Kolej (satu semester):");
+    const roomLabels = fees.collegePerSemester.labels;
+    lines.push(
+      `- ${roomLabels?.double ?? "Bilik Berdua"}: ${fees.collegePerSemester.double}`
+    );
+    lines.push(
+      `- ${roomLabels?.triple ?? "Bilik Bertiga"}: ${fees.collegePerSemester.triple}`
+    );
+    lines.push(
+      `- ${roomLabels?.quad ?? "Bilik Berempat"}: ${fees.collegePerSemester.quad}`
+    );
+    lines.push(
+      `${fees.electricalNote ?? "Yuran Barang Elektrik (satu semester)"}: ${fees.electricalPerItemPerSemester} per barang`
+    );
+    lines.push(`Disclaimer: ${fees.disclaimer}`);
+    lines.push("");
+  }
 
   lines.push("=== STUDENT PORTALS & SERVICES ===");
   lines.push(`- Official Website: ${data.portals.officialWebsite}`);

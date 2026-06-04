@@ -39,7 +39,6 @@ interface TooltipActivityListProps {
   showKKT: boolean;
   /** Tooltip: mobile chevron paging. Drawer (mobile viewport): min 30vh, max 60vh; list scrolls below fixed header. */
   listMode: 'paginated' | 'full';
-  surface: 'tooltip' | 'drawer';
   /** Lecture week chip; rendered inside this list (scrolls with activities). */
   weekNum?: number | null;
 }
@@ -52,13 +51,10 @@ function TooltipActivityList({
   currentDateStr,
   showKKT,
   listMode,
-  surface,
   weekNum = null,
 }: TooltipActivityListProps) {
-  const isDrawer = surface === 'drawer';
-  const drawerTextClass = 'text-[12px]';
-  const badgeTextClass = isDrawer ? drawerTextClass : 'text-[10px] lg:text-xs';
-  const activityTextClass = isDrawer ? drawerTextClass : 'text-xs';
+  const badgeTextClass = 'text-[10px] lg:text-xs';
+  const activityTextClass = 'text-xs';
   const PAGE_SIZE = 7;
   const [startIndex, setStartIndex] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
@@ -106,8 +102,8 @@ function TooltipActivityList({
         ) : null}
 
         {weekNum != null ? (
-          <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2 border-0 shadow-none outline-none ring-0 ring-offset-0 [box-shadow:none]">
-            <div className="mt-1 h-2 w-2 shrink-0 rounded-full bg-transparent" aria-hidden />
+          <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 border-0 shadow-none outline-none ring-0 ring-offset-0 [box-shadow:none]">
+            <div className="h-2 w-2 shrink-0 rounded-full bg-transparent" aria-hidden />
             <div className="min-w-0 text-left">
               <span className={cn('inline-block rounded-full bg-zinc-100 px-2 py-0.5 font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200', badgeTextClass)}>
                 Week {weekNum}
@@ -137,8 +133,8 @@ function TooltipActivityList({
           const displayName = days != null ? `${label} (${formatCountdown(days)})` : label;
 
           return (
-            <div key={`${activity.name}|${activity.startDate}|${idx}`} className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2 transition-none">
-              <div className={`h-2 w-2 rounded-full mt-1 flex-shrink-0 ${dotColor} transition-none`} />
+            <div key={`${activity.name}|${activity.startDate}|${idx}`} className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 transition-none">
+              <div className={`h-2 w-2 shrink-0 rounded-full ${dotColor} transition-none`} />
               <div className="min-w-0">
                 {badgeConfigs.length > 0 ? (
                   <div className="mb-1 flex flex-wrap gap-1">
@@ -262,7 +258,6 @@ function GridDayActivitiesPanel({
         currentDateStr={currentDateStr}
         showKKT={showKKT}
         listMode="paginated"
-        surface="tooltip"
         weekNum={weekNum}
       />
     );
@@ -277,7 +272,6 @@ function GridDayActivitiesPanel({
       currentDateStr={currentDateStr}
       showKKT={showKKT}
       listMode="full"
-      surface="drawer"
       weekNum={weekNum}
     />
   );

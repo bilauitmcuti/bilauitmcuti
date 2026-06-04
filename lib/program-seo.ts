@@ -29,10 +29,20 @@ export function getProgramSeoDescription(programSlug: string): string {
   return `Kalendar akademik UiTM untuk ${name}. Lihat tarikh pendaftaran, jadual kuliah, tempoh peperiksaan, dan cuti.`
 }
 
+/** List-view meta description (differs from grid program routes). */
+export function getProgramListSeoDescription(programSlug: string): string {
+  const name = getProgramDisplayName(programSlug)
+  return `Senarai kalendar akademik UiTM ${name}. Jadual tarikh pendaftaran, kuliah, peperiksaan, dan cuti semester dalam paparan senarai.`
+}
+
 export function getProgramPageTitle(programSlug: string): string {
   return `${getProgramDisplayName(programSlug)} - Bila UiTM Cuti`
 }
 
 export function getProgramCanonicalUrl(programSlug: string): string {
   return `${siteBase}/${programSlug}`
+}
+
+export function getProgramListCanonicalUrl(programSlug: string): string {
+  return `${siteBase}/${programSlug}/list`
 }

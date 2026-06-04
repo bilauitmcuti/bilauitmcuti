@@ -5,6 +5,7 @@
   "compatibility_date": "2025-11-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "ai": {
-    "binding": "AI"
+    "binding": "AI",
+    "remote": true
   }
 }

@@ -44,7 +44,12 @@ const nextConfig = {
       },
       {
         source: '/foundation',
-        destination: '/foundation-professional',
+        destination: '/',
+        permanent: true, // HTTP 308
+      },
+      {
+        source: '/pwa',
+        destination: '/download',
         permanent: true, // HTTP 308
       },
     ]
@@ -85,7 +90,7 @@ const nextConfig = {
           {
             key: 'Content-Security-Policy',
             // Calendar data: same-origin /api/v1/meta|calendar (legacy /api/calendar-proxy). Turnstile requires challenges.cloudflare.com.
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://static.cloudflareinsights.com https://www.googletagmanager.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://challenges.cloudflare.com https://static.cloudflareinsights.com https://www.google-analytics.com https://www.googletagmanager.com https://region1.google-analytics.com https://analytics.google.com; frame-src https://challenges.cloudflare.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self';",
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://challenges.cloudflare.com https://static.cloudflareinsights.com; frame-src https://challenges.cloudflare.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self';",
           },
         ],
       },
@@ -94,7 +99,9 @@ const nextConfig = {
 }
 
 if (process.env.NODE_ENV === 'development') {
-  await setupDevPlatform();
+  await setupDevPlatform({
+    configPath: path.resolve(process.cwd(), 'wrangler.jsonc'),
+  });
 }
 
 export default nextConfig

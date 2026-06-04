@@ -1,8 +1,9 @@
 export const runtime = 'edge';
 import { NextRequest, NextResponse } from "next/server";
-import { getTelegramEnv } from "@/lib/env";
+import { buildEngagementNotificationEmbed, sendDiscordWebhook } from "@/lib/discord-webhook";
 import { logger } from "@/lib/logger";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { jsonError, getClientIp, formatNotificationTime } from "@/lib/api-response";
 
 
 const MAX_BODY_SIZE_BYTES = 512;
@@ -16,56 +17,6 @@ function parseRatingRequest(raw: unknown): { success: true; data: RatingRequest 
   const rating = Number((raw as Record<string, unknown>).rating);
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) return { success: false };
   return { success: true, data: { rating } };
-}
-
-function jsonError(message: string, status: number) {
-  return NextResponse.json({ error: message }, { status });
-}
-
-function getClientIp(request: NextRequest): string {
-  return (
-    request.headers.get("cf-connecting-ip") ||
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    request.headers.get("x-real-ip") ||
-    "unknown"
-  );
-}
-
-function formatTelegramTime(date: Date): string {
-  return date.toLocaleString("en-MY", {
-    timeZone: "Asia/Kuala_Lumpur",
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
-
-function buildTelegramText(rating: number, ip: string): string {
-  return [
-    "User Star Rating",
-    "",
-    `Rating: ${rating} out of 5 stars`,
-    `Time: ${formatTelegramTime(new Date())}`,
-    `IP: ${ip}`,
-  ].join("\n");
-}
-
-async function sendToTelegram(text: string) {
-  const { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID } = getTelegramEnv();
-  const endpoint = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: TELEGRAM_CHAT_ID,
-      text,
-      disable_web_page_preview: true,
-    }),
-  });
-
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw new Error(`Telegram API failed (${response.status}): ${detail.slice(0, 200)}`);
-  }
 }
 
 export async function POST(request: NextRequest) {
@@ -93,8 +44,11 @@ export async function POST(request: NextRequest) {
     const parsed = parseRatingRequest(rawBody);
     if (!parsed.success) return jsonError("Invalid rating value.", 400);
 
-    const text = buildTelegramText(parsed.data.rating, ip);
-    await sendToTelegram(text);
+    const embed = buildEngagementNotificationEmbed({
+      rating: parsed.data.rating,
+      time: formatNotificationTime(new Date()),
+    });
+    await sendDiscordWebhook({ kind: "rate_feedback", embeds: [embed] });
 
     return NextResponse.json({ message: "Thanks for your rating!" });
   } catch (error) {

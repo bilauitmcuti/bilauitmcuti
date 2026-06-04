@@ -3,6 +3,7 @@
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant standalone (@media (display-mode: standalone));
 
 /* Disable page transition animations for instant navigation */
 html {
@@ -370,6 +371,13 @@ input[type="checkbox"],
     pointer-events: none;
     background: linear-gradient(to bottom, transparent, var(--background));
     z-index: 1;
+  }
+
+  /* Desktop empty state: composer sits below greeting, no bottom fade needed */
+  @media (min-width: 1024px) {
+    .chat-input-area-centered::before {
+      display: none;
+    }
   }
 
   /* Hide calendar header during scroll restore to prevent flash on mobile/PWA */

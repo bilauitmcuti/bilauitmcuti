@@ -1,26 +1,44 @@
 export const runtime = 'edge';
 import type { Metadata } from 'next';
+import { buildCalendarPageMetadata } from '@/lib/calendar-seo-metadata';
 
 // Export types for use in other components
 export type ViewMode = 'list' | 'grid';
 
 
 import { CalendarWrapper } from '@/components/calendar-wrapper';
+import { PageSeoBlock } from '@/components/page-seo-block';
+import {
+  HOMEPAGE_SEO_DESCRIPTION,
+  HOMEPAGE_SEO_TITLE,
+  SITE_ORIGIN,
+} from '@/lib/page-seo';
 import Link from 'next/link';
 
-export const metadata: Metadata = {
-  title: 'Bila UiTM Cuti - Kalendar Akademik',
-};
+interface HomePageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export async function generateMetadata({ searchParams }: HomePageProps): Promise<Metadata> {
+  const sp = await searchParams;
+  return buildCalendarPageMetadata({
+    pathname: '/',
+    viewMode: 'grid',
+    searchParams: sp,
+  });
+}
 
 // Homepage: All programs, Grid view (default)
 export default function Page() {
   return (
     <>
+      <PageSeoBlock
+        heading={HOMEPAGE_SEO_TITLE}
+        description={HOMEPAGE_SEO_DESCRIPTION}
+        url={SITE_ORIGIN}
+      />
       <nav aria-label="Program shortcuts" className="sr-only">
         <ul>
-          <li>
-            <Link href="/foundation-professional">Foundation/Professional</Link>
-          </li>
           <li>
             <Link href="/diploma">Diploma</Link>
           </li>

@@ -12,7 +12,9 @@
     "dev": "next dev",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test:smoke": "echo smoke-placeholder",
+    "test:smoke": "node scripts/smoke.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "start": "next start",
     "pages:dev": "wrangler pages dev .vercel/output/static --compatibility-flag=nodejs_compat --ai=AI",
     "preview": "pnpm run build:pages && pnpm run pages:dev"
@@ -34,6 +36,7 @@
     "@radix-ui/react-popover": "1.1.4",
     "@radix-ui/react-select": "2.1.4",
     "@radix-ui/react-slot": "1.1.1",
+    "@radix-ui/react-tabs": "1.1.2",
     "@radix-ui/react-tooltip": "1.1.6",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -62,6 +65,7 @@
     "tw-animate-css": "1.3.3",
     "typescript": "^5",
     "vercel": "47.0.4",
-    "wrangler": "^4.69.0"
+    "vitest": "^4.1.7",
+    "wrangler": "^4.95.0"
   }
 }

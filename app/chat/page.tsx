@@ -16,7 +16,14 @@ import {
 import type { SessionId } from "@/lib/data";
 import { getFiltersFromCookie, type FilterStates } from "@/lib/cookie-utils";
 import { getRoutePath, isProgramValue, type ProgramValue } from "@/lib/route-utils";
+import {
+  areSessionListsEqual,
+  getGroupFromProgram,
+  getSessionMemoryKey,
+  normalizeSessionsForGroup,
+} from "@/lib/session-memory";
 import { cn } from "@/lib/utils";
+import { trackZarazEvent, ZARAZ_EVENTS } from "@/lib/zaraz";
 import { sessionSubmenuItemClass } from "@/lib/session-submenu-item-class";
 import { SessionSubmenuItemLabel } from "@/components/session-submenu-item-label";
 import {
@@ -51,570 +58,52 @@ import {
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableHead,
-  TableRow,
-  TableCell,
-} from "@/components/ui/table";
-import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import useEmblaCarousel from "embla-carousel-react";
 import {
   TurnstileWidget,
   type TurnstileWidgetHandle,
 } from "@/components/turnstile-widget";
 import { useTurnstileSiteKeyFromContext } from "@/components/turnstile-site-key-provider";
 import { useEngagementPrompt } from "@/components/engagement-prompt-provider";
+import { FormattedMessage } from "@/components/chat/formatted-message";
+import { SuggestionCarousel } from "@/components/chat/suggestion-carousel";
+import { useChatGreeting } from "@/components/chat/use-chat-greeting";
+import { getRandomSuggestions } from "@/components/chat/suggestion-data";
+import { useDesktopViewport } from "@/lib/use-mobile-viewport";
 import {
-  isMarkdownTableSeparator,
-  isPipeTableRow,
-  isTableCaptionRow,
-  parsePipeTableBlock,
-} from "@/lib/format-ai-table";
+  CHAT_TURNSTILE_COOKIE,
+  FETCH_TIMEOUT_MS,
+  RETRY_DELAYS_MS,
+  escapeRegExp,
+  formatTime24,
+  getActiveMentionMatch,
+  getChatErrorMessage,
+  getRandomLoadingPhrase,
+  consumeChatStream,
+  LOADING_INDICATOR_DELAY_MS,
+  MAX_CHAT_MESSAGE_LENGTH,
+  parseChatResponse,
+  prepareHistory,
+  type ChatMessageItem,
+  type MentionMatch,
+} from "@/components/chat/chat-utils";
+import {
+  getInitialChatSessions,
+  mergeSessionMapsFromHomepage,
+  resolveSessionsForProgram,
+  type ProgramSessionMap,
+} from "@/lib/chat/session-state";
 
-function getChatErrorMessage(res: Response, fallback: string): string {
-  if (res.status === 429) return "Too many requests. Please wait a moment before trying again.";
-  if (res.status === 403) return "Access was blocked. Please refresh and try again.";
-  if (res.status === 504) return "Request timed out. Please try again.";
-  if (res.status >= 500) return "Server is temporarily unavailable. Please try again in a moment.";
-  return fallback;
-}
-
-async function parseChatResponse(res: Response): Promise<{ error?: string; reply?: string }> {
-  const text = await res.text();
-  try {
-    return JSON.parse(text) as { error?: string; reply?: string };
-  } catch {
-    return { error: getChatErrorMessage(res, "Something went wrong. Please try again.") };
-  }
-}
-
-function parseTable(block: string): { headers: string[]; rows: string[][] } | null {
-  return parsePipeTableBlock(block);
-}
-
-/**
- * Finds GitHub-style markdown tables embedded in plain text (models often emit these
- * instead of [TABLE]...[/TABLE]). Returns ordered text + table segments.
- */
-function splitEmbeddedMarkdownTables(part: string): { type: "text" | "table"; body: string }[] {
-  const rawLines = part.split(/\r?\n/);
-  const segments: { type: "text" | "table"; body: string }[] = [];
-  const textBuf: string[] = [];
-  let i = 0;
-
-  function flushText() {
-    if (textBuf.length === 0) return;
-    const body = textBuf.join("\n");
-    textBuf.length = 0;
-    if (body.trim()) segments.push({ type: "text", body });
-  }
-
-  while (i < rawLines.length) {
-    const line = rawLines[i]?.replace(/\r$/, "") ?? "";
-    const line2 = rawLines[i + 1]?.replace(/\r$/, "");
-    const line3 = rawLines[i + 2]?.replace(/\r$/, "");
-
-    const hasSeparatorTable =
-      line2 !== undefined &&
-      line3 !== undefined &&
-      isMarkdownTableSeparator(line2) &&
-      isPipeTableRow(line3) &&
-      !isMarkdownTableSeparator(line3);
-
-    if (hasSeparatorTable) {
-      flushText();
-      if (line.trim() && (isTableCaptionRow(line) || !isPipeTableRow(line))) {
-        const caption = line.includes("|")
-          ? line
-              .replace(/^\|+|\|+$/g, "")
-              .split("|")
-              .map((c) => c.trim())
-              .filter(Boolean)[0] ?? line.trim()
-          : line.trim();
-        if (caption) textBuf.push(caption);
-        flushText();
-      } else if (
-        line.trim() &&
-        isPipeTableRow(line) &&
-        !isTableCaptionRow(line) &&
-        !isMarkdownTableSeparator(line)
-      ) {
-        const tableLines: string[] = [line, line2];
-        i += 2;
-        while (i < rawLines.length) {
-          const L = rawLines[i]?.replace(/\r$/, "") ?? "";
-          if (!L.trim()) break;
-          if (isPipeTableRow(L)) {
-            tableLines.push(L);
-            i++;
-          } else break;
-        }
-        segments.push({ type: "table", body: tableLines.join("\n") });
-        continue;
-      }
-
-      const tableLines: string[] = [line2];
-      i += 2;
-      while (i < rawLines.length) {
-        const L = rawLines[i]?.replace(/\r$/, "") ?? "";
-        if (!L.trim()) break;
-        if (isPipeTableRow(L)) {
-          tableLines.push(L);
-          i++;
-        } else break;
-      }
-      segments.push({ type: "table", body: tableLines.join("\n") });
-      continue;
-    }
-
-    textBuf.push(line);
-    i++;
-  }
-  flushText();
-  return segments;
-}
-
-function renderSegmentsWithMarkdownTables(
-  part: string,
-  keyPrefix: string
-): React.ReactNode[] {
-  const elements: React.ReactNode[] = [];
-  const segments = splitEmbeddedMarkdownTables(part);
-  segments.forEach((seg, segIdx) => {
-    if (seg.type === "table") {
-      const tableData = parseTable(seg.body);
-      if (tableData) {
-        elements.push(
-          <DataTable key={`${keyPrefix}-md-${segIdx}`} headers={tableData.headers} rows={tableData.rows} />
-        );
-      } else {
-        elements.push(
-          ...renderTextSection(seg.body.split(/\r?\n/), `${keyPrefix}-md-fail-${segIdx}`)
-        );
-      }
-    } else {
-      elements.push(...renderTextSection(seg.body.split(/\r?\n/), `${keyPrefix}-tx-${segIdx}`));
-    }
-  });
-  return elements;
-}
-
-/**
- * Renders a data table using shadcn Table components.
- */
-function DataTable({ headers, rows }: { headers: string[]; rows: string[][] }) {
-  return (
-    <div className="mt-2 rounded-lg border border-border overflow-hidden">
-      <Table>
-        <TableHeader>
-          <TableRow className="bg-muted/50">
-            {headers.map((h, idx) => (
-              <TableHead key={idx} className="text-xs font-semibold">
-                {h}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((row, rIdx) => (
-            <TableRow key={rIdx}>
-              {headers.map((_, cIdx) => (
-                <TableCell key={cIdx} className="text-xs">
-                  {row[cIdx] ?? ""}
-                </TableCell>
-              ))}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  );
-}
-
-/**
- * Renders a single section of text (no [TABLE] blocks) into formatted elements.
- * Handles bullet lists, numbered lists with nested sub-details, and plain text paragraphs.
- */
-function renderTextSection(lines: string[], keyPrefix: string): React.ReactNode[] {
-  const elements: React.ReactNode[] = [];
-  let i = 0;
-
-  while (i < lines.length) {
-    const trimmed = lines[i].trim();
-
-    // Skip empty lines
-    if (!trimmed) {
-      i++;
-      continue;
-    }
-
-    // Collect consecutive bullet lines (- item)
-    if (/^-\s/.test(trimmed)) {
-      const bullets: string[] = [];
-      while (i < lines.length && /^-\s/.test(lines[i].trim())) {
-        bullets.push(lines[i].trim().replace(/^-\s+/, ""));
-        i++;
-      }
-      elements.push(
-        <ul key={`${keyPrefix}-ul-${i}`} className="mt-1 space-y-0.5">
-          {bullets.map((b, idx) => (
-            <li key={idx} className="flex gap-2">
-              <span className="text-muted-foreground shrink-0">-</span>
-              <span>{b}</span>
-            </li>
-          ))}
-        </ul>
-      );
-      continue;
-    }
-
-    // Collect numbered list with optional sub-details
-    if (/^\d+[.)]\s/.test(trimmed)) {
-      const items: { num: string; text: string; details: { text: string; isDash: boolean }[] }[] = [];
-      while (i < lines.length) {
-        const cur = lines[i].trim();
-        if (!cur) { i++; continue; }
-        const match = cur.match(/^(\d+)[.)]\s+(.*)/);
-        if (match) {
-          items.push({ num: match[1], text: match[2], details: [] });
-          i++;
-          while (i < lines.length) {
-            const sub = lines[i].trim();
-            if (!sub) { i++; continue; }
-            if (/^\d+[.)]\s/.test(sub)) break;
-            if (/^-\s/.test(sub)) {
-              items[items.length - 1].details.push({ text: sub.replace(/^-\s+/, ""), isDash: true });
-            } else {
-              items[items.length - 1].details.push({ text: sub, isDash: false });
-            }
-            i++;
-          }
-        } else {
-          break;
-        }
-      }
-      elements.push(
-        <ol key={`${keyPrefix}-ol-${i}`} className="mt-1 space-y-1">
-          {items.map((item, idx) => (
-            <li key={idx}>
-              <div className="flex gap-2">
-                <span className="text-muted-foreground shrink-0 tabular-nums min-w-[1.2em] text-right">{item.num}.</span>
-                <span>{item.text}</span>
-              </div>
-              {item.details.length > 0 && (
-                <div className="ml-[calc(1.2em+0.5rem)] mt-0.5 space-y-0.5">
-                  {item.details.map((d, dIdx) => (
-                    <div key={dIdx} className={d.isDash ? "flex gap-2 text-muted-foreground" : ""}>
-                      {d.isDash && <span className="text-muted-foreground shrink-0">-</span>}
-                      <span>{d.text}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </li>
-          ))}
-        </ol>
-      );
-      continue;
-    }
-
-    // Regular text line
-    elements.push(
-      <p key={`${keyPrefix}-p-${i}`} className={elements.length > 0 ? "mt-1" : ""}>
-        {trimmed}
-      </p>
-    );
-    i++;
-  }
-
-  return elements;
-}
-
-/**
- * Renders assistant message content with formatted bullet points, numbered lists, and data tables.
- * Splits plain text into visual blocks: headings, bullets, numbered items, tables, and paragraphs.
- *
- * Tables are denoted by [TABLE]...[/TABLE] blocks with pipe-delimited rows.
- */
-function FormattedMessage({ content }: { content: string }) {
-  // Split content by [TABLE]...[/TABLE] blocks
-  const parts = content.split(/\[TABLE\]|\[\/TABLE\]/i);
-  const elements: React.ReactNode[] = [];
-
-  // Determine which parts are table blocks vs text.
-  // After splitting by [TABLE] and [/TABLE], the pattern is:
-  // text, tableContent, text, tableContent, ...
-  // The first part is always text, then alternates.
-  let isTable = false;
-  for (let pIdx = 0; pIdx < parts.length; pIdx++) {
-    const part = parts[pIdx];
-
-    if (isTable) {
-      // Try to parse as a table
-      const tableData = parseTable(part);
-      if (tableData) {
-        elements.push(<DataTable key={`table-${pIdx}`} headers={tableData.headers} rows={tableData.rows} />);
-      } else {
-        // Fallback: may still be a markdown pipe table, or plain text
-        elements.push(...renderSegmentsWithMarkdownTables(part, `tf-${pIdx}`));
-      }
-    } else {
-      const trimmedPart = part.trim();
-      if (trimmedPart) {
-        elements.push(...renderSegmentsWithMarkdownTables(part, `s-${pIdx}`));
-      }
-    }
-
-    isTable = !isTable;
-  }
-
-  return <>{elements}</>;
-}
-
-const SUGGESTIONS_GROUP_A = [
-  "What is the next upcoming break on my Group A calendar?",
-  "Bila cuti pertengahan semester untuk Kumpulan A?",
-  "Show my Group A lecture and break dates in a table",
-  "When do new intake vs returning students register (Group A)?",
-  "Bilakah tarikh sahkan kursus dan tambah/gugur lewat (Kumpulan A)?",
-  "What are GT, GT2, RPGT, and fee payment deadlines (Group A)?",
-  "When does Lecture Week 1 start and when does the last lecture week end (Group A)?",
-  "How many lecture weeks are in this Group A session?",
-  "When is revision week and how many days is it (Group A)?",
-  "When does semester break start and end (Group A)?",
-  "Is there an Aidilfitri or festive recess on the Group A calendar?",
-  "When are mid-semester and final examinations (Group A)?",
-  "From which date can I print my examination slip (Group A)?",
-  "List all exam-related dates for Group A in table format",
-  "Are Kedah, Kelantan, and Terengganu dates different from other states (Group A)?",
-  "When is Minggu Destini Siswa (MDS) for Group A?",
-  "What is SuFO and when is the online submission deadline (Group A)?",
-  "Summarize this Group A semester timeline in a table",
-  "Apakah program yang guna kalendar Kumpulan A?",
-  "What is UiTM Foundation (Asasi) and which campuses offer it?",
-];
-
-const SUGGESTIONS_GROUP_B = [
-  "What is the next important date on my Group B calendar?",
-  "Bila pendaftaran kursus Pra-Diploma, Diploma, dan Ijazah (Kumpulan B)?",
-  "Show Group B registration-to-exam timeline in a table",
-  "When does e-PJJ or PLK new-intake registration open (Group B)?",
-  "When must I validate registered courses (Group B)?",
-  "What is the late add/drop window after normal registration (Group B)?",
-  "Summarize GT, RPGT, GT2, and semester fee dates (Group B)",
-  "When do Lecture Weeks 1–3 run and when does Short Semester start (Group B)?",
-  "When are Intersession classes scheduled (Group B)?",
-  "Bila cuti pertengahan semester dan cuti semester (Kumpulan B)?",
-  "When is revision week for this Group B session?",
-  "Are break dates different for Kedah, Kelantan, and Terengganu (Group B)?",
-  "When is EET Speaking and the final EET assessment (Group B)?",
-  "List every examination period and slip date in a table (Group B)",
-  "When is Minggu Destini Siswa (MDS) for Group B?",
-  "What is SuFO and key briefing dates for Group B?",
-  "Compare registration, lectures, and exam phases in a table (Group B)",
-  "Apa itu e-PJJ UiTM dan siapa sesuai menggunakannya?",
-  "What diploma and degree programmes use the Group B calendar?",
-  "How many UiTM faculties are there and what do they cover?",
-];
-
-/** Neutral UITM info — combined with Group A or Group B pools only (never cross-mixed). */
-const SUGGESTIONS_GENERAL_NEUTRAL = [
-  "List UiTM campuses across Malaysia",
-  "Senarai kampus UiTM dan lokasi ringkas",
-  "How is Group A calendar different from Group B?",
-  "Apa beza sesi, semester, dan penggal di UiTM?",
-  "What is flexible modular system at UiTM?",
-  "How do I read registration vs lecture vs exam on the calendar?",
-  "Bila cuti umum negeri — adakah ia dalam kalendar UiTM?",
-  "Tell me about UiTM Shah Alam student services",
-];
-
-const SUGGESTIONS_GENERAL_EXTRA_A = [
-  "Which intake months use Group A (Dec–May cycle)?",
-  "Apa itu Program Asasi UiTM dan tarikh pentingnya?",
-];
-
-const SUGGESTIONS_GENERAL_EXTRA_B = [
-  "When does the Mar–Aug Group B academic year begin?",
-  "Apa syarat kemasukan Diploma UiTM secara ringkas?",
-];
-
-const LOADING_PHRASES = [
-  "Searching calendar data...",
-  "Checking your schedule...",
-  "Looking up dates...",
-  "Analyzing academic calendar...",
-  "Finding the answer...",
-  "Menyemak jadual akademik...",
-  "Mencari maklumat...",
-  "Menyusun jawapan...",
-  "Reviewing semester info...",
-  "Scanning timetable...",
-];
-
-const FETCH_TIMEOUT_MS = 60_000;
-const RETRY_DELAYS_MS = [400, 800, 1600];
-const CHAT_TURNSTILE_COOKIE = "chat_turnstile_verified";
-
-function getRandomLoadingPhrase(exclude?: string): string {
-  const available = LOADING_PHRASES.filter((p) => p !== exclude);
-  return available[Math.floor(Math.random() * available.length)];
-}
-
-function getProgramGroup(program: string): "A" | "B" {
-  if (program === "Foundation/Professional") return "A";
-  return "B";
-}
-
-function getSessionMemoryKey(program: ProgramValue): ProgramValue {
-  return getProgramGroup(program) === "B" ? ("All" as ProgramValue) : program;
-}
-
-type ProgramSessionMap = Partial<Record<ProgramValue, SessionId[]>>;
-
-function normalizeSessionsForGroup(sessionIds: SessionId[], group: "A" | "B"): SessionId[] {
-  const unique = Array.from(new Set(sessionIds));
-  return unique.filter((id) => getGroupFromSession(id) === group);
-}
-
-function areSessionListsEqual(left: SessionId[], right: SessionId[]): boolean {
-  if (left.length !== right.length) return false;
-  return left.every((id, index) => right[index] === id);
-}
-
-function resolveSessionsForProgram(
-  program: ProgramValue,
-  sessionCandidates: SessionId[],
-  sessionsByProgram: ProgramSessionMap,
-  dateStr: string
-): SessionId[] {
-  const group = getProgramGroup(program);
-  const sessionMemoryKey = getSessionMemoryKey(program);
-  const fromCandidates = normalizeSessionsForGroup(sessionCandidates, group);
-  if (fromCandidates.length > 0) return fromCandidates;
-
-  const fromProgramMemory = normalizeSessionsForGroup(sessionsByProgram[sessionMemoryKey] ?? [], group);
-  if (fromProgramMemory.length > 0) return fromProgramMemory;
-
-  return [getSessionForCurrentDate(group, dateStr)];
-}
-
-function normalizeEntriesFromSessionMap(
-  raw: Partial<Record<ProgramValue, SessionId[]>> | null | undefined
-): ProgramSessionMap {
-  const normalized: ProgramSessionMap = {};
-  if (!raw || typeof raw !== "object") return normalized;
-  for (const [programKey, sessionIds] of Object.entries(raw)) {
-    if (!Array.isArray(sessionIds) || sessionIds.length === 0) continue;
-    const program = programKey as ProgramValue;
-    const group = getProgramGroup(program);
-    const inGroup = normalizeSessionsForGroup(sessionIds, group);
-    if (inGroup.length > 0) normalized[getSessionMemoryKey(program)] = inGroup;
-  }
-  return normalized;
-}
-
-/** Prefer `calendar-filters` cookie (homepage / SSR), then localStorage. */
-function mergeSessionMapsFromHomepage(
-  fromLocal: Partial<Record<ProgramValue, SessionId[]>> | null,
-  filters: FilterStates
-): ProgramSessionMap {
-  const localNorm = normalizeEntriesFromSessionMap(fromLocal);
-  const cookieNorm = normalizeEntriesFromSessionMap(filters.sessionIdsByProgram ?? null);
-  const merged: ProgramSessionMap = { ...localNorm, ...cookieNorm };
-
-  if (filters.sessionIds && filters.sessionIds.length > 0) {
-    const prog =
-      filters.selectedProgram && isProgramValue(filters.selectedProgram)
-        ? filters.selectedProgram
-        : "All";
-    const memKey = getSessionMemoryKey(prog);
-    const group = getProgramGroup(prog);
-    const ids = normalizeSessionsForGroup(filters.sessionIds as SessionId[], group);
-    if (ids.length > 0 && (!merged[memKey] || merged[memKey]!.length === 0)) {
-      merged[memKey] = ids;
-    }
-  }
-
-  return merged;
-}
-
-function getRandomSuggestions(group: "A" | "B", exclude: string[]): string[] {
-  const groupPool =
-    group === "A"
-      ? [...SUGGESTIONS_GROUP_A, ...SUGGESTIONS_GENERAL_NEUTRAL, ...SUGGESTIONS_GENERAL_EXTRA_A]
-      : [...SUGGESTIONS_GROUP_B, ...SUGGESTIONS_GENERAL_NEUTRAL, ...SUGGESTIONS_GENERAL_EXTRA_B];
-  const available = groupPool.filter((s) => !exclude.includes(s));
-  const pool = available.length >= 5 ? available : groupPool;
-  const shuffled = [...pool].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, 5);
-}
-
-const MAX_HISTORY_CONTENT_LENGTH = 2000;
-const MAX_HISTORY_ITEMS = 4;
-
-function prepareHistory(messages: Message[]): { role: "user" | "assistant"; content: string }[] {
-  return messages
-    .slice(-MAX_HISTORY_ITEMS)
-    .map((msg) => ({
-      role: msg.role,
-      content: msg.content.slice(0, MAX_HISTORY_CONTENT_LENGTH),
-    }));
-}
-
-interface Message {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  timestamp?: number;
-}
-
-interface MentionMatch {
-  start: number;
-  end: number;
-  query: string;
-}
+type Message = ChatMessageItem;
 
 interface MentionItem {
   id: SessionId;
   label: string;
   text: string;
-}
-
-function formatTime24(timestamp: number): string {
-  const d = new Date(timestamp);
-  return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
-}
-
-function getInitialChatSessions(program: string): SessionId[] {
-  const group: "A" | "B" = program === "Foundation/Professional" ? "A" : "B";
-  const dateStr =
-    typeof window !== "undefined" ? new Date().toISOString().slice(0, 10) : "2026-03-15";
-  return [getSessionForCurrentDate(group, dateStr)];
-}
-
-function getActiveMentionMatch(value: string, caretIndex: number): MentionMatch | null {
-  if (caretIndex < 0) return null;
-  const prefix = value.slice(0, caretIndex);
-  const atIndex = prefix.lastIndexOf("@");
-  if (atIndex < 0) return null;
-  const charBefore = atIndex > 0 ? prefix[atIndex - 1] : "";
-  const isBoundary = atIndex === 0 || /\s/.test(charBefore);
-  if (!isBoundary) return null;
-  const query = prefix.slice(atIndex + 1);
-  if (/\s/.test(query)) return null;
-  return { start: atIndex, end: caretIndex, query };
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 export default function ChatPage() {
@@ -627,6 +116,8 @@ export default function ChatPage() {
 
   const router = useRouter();
   const { recordEngagementAction } = useEngagementPrompt();
+  const chatGreeting = useChatGreeting();
+  const isDesktopViewport = useDesktopViewport();
   const programOptions = getProgramOptions();
   const calendarDataVersion = getSnapshot().version;
   const [messages, setMessages] = useState<Message[]>([]);
@@ -648,10 +139,12 @@ export default function ChatPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [headerVisible, setHeaderVisible] = useState(true);
   const [reactions, setReactions] = useState<Record<string, "up" | "down" | null>>({});
-  const currentGroup = getProgramGroup(selectedProgram);
+  const [feedbackSent, setFeedbackSent] = useState<Record<string, boolean>>({});
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  const currentGroup = getGroupFromProgram(selectedProgram);
   const suggestionGroup = useMemo((): "A" | "B" => {
     const opt = getProgramOptions().find((p) => p.value === selectedProgram);
-    return opt?.group ?? getProgramGroup(selectedProgram);
+    return opt?.group ?? getGroupFromProgram(selectedProgram);
   }, [selectedProgram, calendarDataVersion]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isMentionOpen, setIsMentionOpen] = useState(false);
@@ -781,6 +274,23 @@ export default function ChatPage() {
     setSuggestions(getRandomSuggestions(suggestionGroup, []));
   }, [suggestionGroup]);
   const [loadingPhrase, setLoadingPhrase] = useState("");
+  const [showThinkingIndicator, setShowThinkingIndicator] = useState(false);
+  const thinkingDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearThinkingDelay = useCallback(() => {
+    if (thinkingDelayRef.current) {
+      clearTimeout(thinkingDelayRef.current);
+      thinkingDelayRef.current = null;
+    }
+  }, []);
+
+  const startThinkingDelay = useCallback(() => {
+    clearThinkingDelay();
+    setShowThinkingIndicator(false);
+    thinkingDelayRef.current = setTimeout(() => {
+      setShowThinkingIndicator(true);
+    }, LOADING_INDICATOR_DELAY_MS);
+  }, [clearThinkingDelay]);
 
   const handleSessionToggle = useCallback(
     (programValue: ProgramValue, sessionId: SessionId, group: "A" | "B") => {
@@ -833,6 +343,10 @@ export default function ChatPage() {
   const [disclaimerIndex, setDisclaimerIndex] = useState(0);
   const [disclaimerFade, setDisclaimerFade] = useState<"in" | "out">("in");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const hasScrolledRef = useRef(false);
+  const wasStreamingRef = useRef(false);
+  const streamingAssistantMessageRef = useRef<HTMLDivElement>(null);
+  const scrollAssistantMessageToTopRef = useRef<() => void>(() => {});
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const turnstileRef = useRef<TurnstileWidgetHandle>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -855,7 +369,6 @@ export default function ChatPage() {
     if (labels.length === 1) return labels[0];
     return `${labels.length} Selected`;
   }, [currentGroup, selectedSessions, calendarDataVersion]);
-  const [emblaRef] = useEmblaCarousel({ dragFree: true, containScroll: "trimSnaps", align: "center" });
   const allMentionTexts = useMemo(() => {
     const groupA = getSessionOptionsForGroup("A").map((session) => formatSessionLabelWithId(session));
     const groupB = getSessionOptionsForGroup("B").map((session) => formatSessionLabelWithId(session));
@@ -913,6 +426,24 @@ export default function ChatPage() {
     return null;
   }, [messages]);
 
+  const assistantScrollTargetId = useMemo(() => {
+    const streaming = messages.find(
+      (m) => m.role === "assistant" && m.isComplete === false
+    );
+    if (streaming) return streaming.id;
+    const last = messages[messages.length - 1];
+    if (last?.role === "assistant") return last.id;
+    return null;
+  }, [messages]);
+
+  const showThinkingUi = useMemo(
+    () =>
+      isLoading &&
+      showThinkingIndicator &&
+      !messages.some((m) => m.role === "assistant" && m.isComplete === false),
+    [isLoading, showThinkingIndicator, messages]
+  );
+
   const disclaimerTexts = useMemo(() => [
     "AI can make mistakes. Check important info.",
     "Free-tier AI model with daily rate limits.",
@@ -930,9 +461,9 @@ export default function ChatPage() {
     return () => clearInterval(interval);
   }, [disclaimerTexts.length]);
 
-  // Rotate loading phrases while waiting for AI response
+  // Rotate loading phrases while the delayed thinking indicator is visible
   useEffect(() => {
-    if (!isLoading) {
+    if (!showThinkingIndicator) {
       setLoadingPhrase("");
       return;
     }
@@ -941,15 +472,54 @@ export default function ChatPage() {
       setLoadingPhrase((prev) => getRandomLoadingPhrase(prev));
     }, 3000);
     return () => clearInterval(interval);
-  }, [isLoading]);
+  }, [showThinkingIndicator]);
+
+  useEffect(() => () => clearThinkingDelay(), [clearThinkingDelay]);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
 
+  const scrollAssistantMessageToTop = useCallback(() => {
+    if (hasScrolledRef.current) return;
+    streamingAssistantMessageRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+    hasScrolledRef.current = true;
+  }, []);
+
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
+    scrollAssistantMessageToTopRef.current = scrollAssistantMessageToTop;
+  }, [scrollAssistantMessageToTop]);
+
+  useLayoutEffect(() => {
+    const isStreaming = messages.some(
+      (m) => m.role === "assistant" && m.isComplete === false
+    );
+
+    if (wasStreamingRef.current && !isStreaming) {
+      hasScrolledRef.current = false;
+    }
+    wasStreamingRef.current = isStreaming;
+
+    if (messages.length === 0) {
+      hasScrolledRef.current = false;
+      return;
+    }
+
+    const last = messages[messages.length - 1];
+
+    if (last.role === "user") {
+      hasScrolledRef.current = false;
+      scrollToBottom();
+      return;
+    }
+
+    if (isStreaming || last.role === "assistant") {
+      scrollAssistantMessageToTop();
+    }
+  }, [messages, scrollToBottom, scrollAssistantMessageToTop]);
 
   useEffect(() => {
     adjustTextareaHeight();
@@ -973,7 +543,9 @@ export default function ChatPage() {
   }, [dropdownOpen]);
 
   const sendMessage = useCallback(async (text: string) => {
-    if (!text.trim() || isLoading || waitForTurnstileConfig) return;
+    const trimmed = text.trim();
+    if (!trimmed || isLoading || waitForTurnstileConfig) return;
+    if (trimmed.length > MAX_CHAT_MESSAGE_LENGTH) return;
     if (requiresTurnstile && !turnstileToken.trim()) {
       turnstileRef.current?.execute();
       return;
@@ -983,7 +555,7 @@ export default function ChatPage() {
     const userMessage: Message = {
       id: now.toString(),
       role: "user",
-      content: text.trim(),
+      content: trimmed,
       timestamp: now,
     };
 
@@ -991,6 +563,7 @@ export default function ChatPage() {
     setMessages(updatedMessages);
     setInput("");
     setIsLoading(true);
+    startThinkingDelay();
     recordEngagementAction("chat_send");
     let didAttemptFetch = false;
 
@@ -1015,15 +588,19 @@ export default function ChatPage() {
 
       const trimmedToken = turnstileToken.trim();
       const body = JSON.stringify({
-        message: text.trim(),
+        message: trimmed,
         program: selectedProgram,
         selectedSessions,
         history,
+        stream: true,
         turnstileToken: trimmedToken ? trimmedToken : undefined,
       });
       let content: string | null = null;
+      let correlationId: string | undefined;
       let maxAttempts = 3;
       let chatRequestSucceeded = false;
+      let usedStreamPlaceholder = false;
+      const assistantId = (now + 1).toString();
       const isRetryableStatus = (s: number) =>
         s === 429 || s === 500 || s === 502 || s === 503 || s === 504;
 
@@ -1039,6 +616,71 @@ export default function ChatPage() {
             credentials: "include",
           });
           clearTimeout(timeoutId);
+
+          const responseType = res.headers.get("content-type") ?? "";
+
+          if (responseType.includes("text/event-stream")) {
+            if (!res.ok) {
+              content = getChatErrorMessage(res, "Something went wrong. Please try again.");
+              break;
+            }
+
+            usedStreamPlaceholder = true;
+
+            await consumeChatStream(res, {
+              onToken: () => {
+                scrollAssistantMessageToTopRef.current();
+              },
+              onDone: (payload) => {
+                content = payload.reply;
+                chatRequestSucceeded = true;
+                clearThinkingDelay();
+                setShowThinkingIndicator(false);
+                const doneAt = Date.now();
+                const replyText = payload.reply ?? "";
+
+                setMessages((prev) => {
+                  const hasMsg = prev.some((m) => m.id === assistantId);
+                  if (!hasMsg) {
+                    return [
+                      ...prev,
+                      {
+                        id: assistantId,
+                        role: "assistant",
+                        content: replyText,
+                        correlationId: payload.correlationId,
+                        userPrompt: trimmed,
+                        isComplete: true,
+                        timestamp: doneAt,
+                      },
+                    ];
+                  }
+                  return prev.map((m) =>
+                    m.id === assistantId
+                      ? {
+                          ...m,
+                          content: replyText,
+                          correlationId: payload.correlationId,
+                          userPrompt: trimmed,
+                          isComplete: true,
+                          timestamp: doneAt,
+                        }
+                      : m
+                  );
+                });
+                setIsTurnstileSessionVerified(true);
+                setTurnstileToken("");
+                turnstileRef.current?.reset();
+              },
+              onError: (payload) => {
+                content = payload.error;
+                if (payload.status === 503 && maxAttempts === 3) {
+                  maxAttempts = 4;
+                }
+              },
+            });
+            break;
+          }
 
           const data = await parseChatResponse(res);
 
@@ -1057,7 +699,10 @@ export default function ChatPage() {
               continue;
             }
           } else {
+            clearThinkingDelay();
+            setShowThinkingIndicator(false);
             content = data.reply || "Sorry, I could not get a response.";
+            correlationId = data.correlationId;
             chatRequestSucceeded = true;
             setIsTurnstileSessionVerified(true);
             setTurnstileToken("");
@@ -1083,15 +728,57 @@ export default function ChatPage() {
         setTurnstileNonce((n) => n + 1);
       }
 
-      const assistantNow = Date.now();
-      const assistantMessage: Message = {
-        id: (assistantNow + 1).toString(),
-        role: "assistant",
-        content: content || "Something went wrong. Please try again.",
-        timestamp: assistantNow,
-      };
+      if (!chatRequestSucceeded) {
+        const assistantNow = Date.now();
+        const errorContent = content || "Something went wrong. Please try again.";
+        setMessages((prev) => {
+          const hasPlaceholder = prev.some((m) => m.id === assistantId);
+          if (hasPlaceholder) {
+            return prev.map((m) =>
+              m.id === assistantId
+                ? {
+                    ...m,
+                    content: errorContent,
+                    timestamp: assistantNow,
+                    isComplete: true,
+                  }
+                : m
+            );
+          }
+          return [
+            ...prev,
+            {
+              id: assistantId,
+              role: "assistant",
+              content: errorContent,
+              timestamp: assistantNow,
+              isComplete: true,
+            },
+          ];
+        });
+      } else if (!usedStreamPlaceholder) {
+        const assistantNow = Date.now();
+        const assistantMessage: Message = {
+          id: assistantId,
+          role: "assistant",
+          content: content || "Sorry, I could not get a response.",
+          timestamp: assistantNow,
+          userPrompt: trimmed,
+          correlationId,
+          isComplete: true,
+        };
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === assistantId)) return prev;
+          return [...prev, assistantMessage];
+        });
+      }
 
-      setMessages((prev) => [...prev, assistantMessage]);
+      if (chatRequestSucceeded) {
+        trackZarazEvent(ZARAZ_EVENTS.chatMessageSent, {
+          program: selectedProgram,
+          sessionCount: selectedSessions.length,
+        });
+      }
     } catch {
       const errorNow = Date.now();
       const errorMessage: Message = {
@@ -1102,9 +789,12 @@ export default function ChatPage() {
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
+      clearThinkingDelay();
+      setShowThinkingIndicator(false);
       setIsLoading(false);
     }
   }, [
+    clearThinkingDelay,
     isLoading,
     isTurnstileSessionVerified,
     messages,
@@ -1112,6 +802,7 @@ export default function ChatPage() {
     requiresTurnstile,
     selectedProgram,
     selectedSessions,
+    startThinkingDelay,
     turnstileToken,
     waitForTurnstileConfig,
   ]);
@@ -1217,11 +908,54 @@ export default function ChatPage() {
     }
   };
 
-  const handleReaction = (msgId: string, type: "up" | "down") => {
+  const handleReaction = async (msgId: string, type: "up" | "down") => {
+    const nextReaction = reactions[msgId] === type ? null : type;
     setReactions((prev) => ({
       ...prev,
-      [msgId]: prev[msgId] === type ? null : type,
+      [msgId]: nextReaction,
     }));
+
+    if (!nextReaction || feedbackSent[msgId]) return;
+
+    const assistantMsg = messages.find((m) => m.id === msgId);
+    if (!assistantMsg || assistantMsg.role !== "assistant" || !assistantMsg.content.trim()) {
+      setFeedbackError("Feedback is not available for this message yet.");
+      return;
+    }
+
+    const msgIndex = messages.findIndex((m) => m.id === msgId);
+    const userMsg =
+      msgIndex > 0 && messages[msgIndex - 1]?.role === "user"
+        ? messages[msgIndex - 1]
+        : null;
+    const userMessage =
+      assistantMsg.userPrompt ?? userMsg?.content ?? "";
+
+    try {
+      const res = await fetch("/chat/feedback/api", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          rating: nextReaction,
+          correlationId: assistantMsg.correlationId ?? undefined,
+          userMessage,
+          assistantMessage: assistantMsg.content,
+          program: selectedProgram,
+          selectedSessions,
+        }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        setFeedbackError(data.error ?? "Could not send feedback. Please try again.");
+        return;
+      }
+      setFeedbackSent((prev) => ({ ...prev, [msgId]: true }));
+      setFeedbackError(null);
+      trackZarazEvent(ZARAZ_EVENTS.chatFeedback, { rating: nextReaction });
+    } catch {
+      setFeedbackError("Could not send feedback. Please try again.");
+    }
   };
 
   const handleDelete = useCallback((msgId: string) => {
@@ -1249,8 +983,18 @@ export default function ChatPage() {
     }, 100);
   }, [messages, scrollToBottom]);
 
+  const isEmptyChat = messages.length === 0;
+
+  const chatInputPlaceholder = useMemo(() => {
+    if (!isEmptyChat) return "Write a message...";
+    if (isDesktopViewport) {
+      return "Ask about calendars or holidays. Select your programme, or type @ to mention one.";
+    }
+    return "How can I help you today?";
+  }, [isEmptyChat, isDesktopViewport]);
+
   return (
-    <div className="relative flex flex-col h-dvh bg-background text-foreground">
+    <div className="relative flex flex-col h-dvh bg-background text-foreground" data-nosnippet>
       {/* Top fade - always visible, independent of header scroll */}
       <div className="chat-top-fade absolute top-0 left-0 right-0 z-[9] pointer-events-none" />
 
@@ -1267,17 +1011,35 @@ export default function ChatPage() {
         </header>
       </div>
 
+      {/* Chat area + composer */}
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 flex-col",
+          isEmptyChat && "lg:justify-center lg:gap-16"
+        )}
+      >
       {/* Chat messages area */}
-      <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-4 md:px-0 pt-0 pb-6">
-        {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full gap-4 text-center mx-auto max-w-[600px]">
-            <div>
-              <h2 className="text-2xl font-semibold mb-1">Bila UiTM Cuti?</h2>
-              <p className="text-sm text-muted-foreground max-w-xs">
-                Ask about the UiTM academic calendar. Select your program and start.
-              </p>
-              <p className="text-sm text-muted-foreground max-w-xs">
-                Use @ to mention a calendar session.
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className={cn(
+          "px-4 md:px-0",
+          isEmptyChat
+            ? "flex flex-1 flex-col items-center justify-center pt-0 pb-6 lg:flex-none lg:overflow-visible lg:pb-0"
+            : "flex-1 overflow-y-auto pt-0 pb-6"
+        )}
+      >
+        {isEmptyChat ? (
+          <div className="flex h-full flex-col items-center justify-center gap-4 px-4 text-center mx-auto max-w-[600px] lg:h-auto">
+            <div className="flex w-full max-w-md flex-col items-center gap-2 text-center">
+              <h1
+                className="text-2xl sm:text-3xl font-semibold tracking-tight text-foreground text-balance"
+                suppressHydrationWarning
+              >
+                {chatGreeting}
+              </h1>
+              <p className="text-sm text-muted-foreground max-w-sm mx-auto text-balance lg:hidden">
+                Ask about academic calendars or public holidays. Select your programme, or type @ to mention a calendar.
               </p>
             </div>
             {showTurnstileChallenge ? (
@@ -1305,8 +1067,29 @@ export default function ChatPage() {
                 />
               </div>
             ) : null}
-            {messages.map((msg) => (
-              <div key={msg.id} className="space-y-1">
+            {messages.map((msg) => {
+              if (
+                msg.role === "assistant" &&
+                msg.isComplete === false &&
+                !msg.content.trim()
+              ) {
+                return null;
+              }
+              const assistantFinished =
+                msg.role === "assistant" &&
+                msg.isComplete !== false &&
+                msg.content.trim().length > 0;
+
+              return (
+              <div
+                key={msg.id}
+                ref={
+                  msg.id === assistantScrollTargetId
+                    ? streamingAssistantMessageRef
+                    : undefined
+                }
+                className="space-y-1"
+              >
                 <div
                   className={`flex ${
                     msg.role === "user" ? "justify-end" : "justify-start"
@@ -1342,17 +1125,12 @@ export default function ChatPage() {
                       </ContextMenuContent>
                     </ContextMenu>
                   ) : (
-                    <div
-                      className="max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed bg-secondary dark:bg-[#2A2A2A] text-foreground rounded-bl-md"
-                    >
+                    <div className="w-full px-1 py-1 text-sm leading-relaxed text-foreground">
                       <FormattedMessage content={msg.content} />
-                      <div className="text-right text-xs text-muted-foreground mt-1">
-                        {formatTime24((msg.timestamp ?? parseInt(msg.id, 10)) || Date.now())}
-                      </div>
                     </div>
                   )}
                 </div>
-                {msg.role === "assistant" && (
+                {assistantFinished && (
                   <div className="flex gap-1">
                     <button
                       onClick={() => handleCopy(msg.id, msg.content)}
@@ -1382,11 +1160,12 @@ export default function ChatPage() {
                   </div>
                 )}
               </div>
-            ))}
+            );
+            })}
 
-            {isLoading && (
+            {showThinkingUi && (
               <div className="flex flex-col items-start gap-1">
-                <div className="bg-secondary dark:bg-[#2A2A2A] rounded-2xl rounded-bl-md px-4 py-3">
+                <div className="px-1 py-1">
                   <div className="flex gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:0ms]" />
                     <span className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:150ms]" />
@@ -1406,37 +1185,30 @@ export default function ChatPage() {
         )}
       </div>
 
-      {/* Input area - prompt form like ChatGPT with dropdown inside textarea */}
-      <div className="chat-input-area relative px-4 md:px-0 pt-1 lg:pt-0.5 pb-6">
+      {/* Input area - bottom on mobile / active chat; centered below greeting on desktop empty */}
+      <div
+        className={cn(
+          "chat-input-area relative px-4 md:px-0 pt-1 lg:pt-0.5 pb-6",
+          isEmptyChat && "chat-input-area-centered lg:pt-0 lg:pb-10"
+        )}
+      >
         <div className="mx-auto max-w-[600px]">
           {/* Suggestion chips - swipeable carousel with edge fades */}
+          {feedbackError && (
+            <p className="text-xs text-destructive mb-2 px-1" role="status">
+              {feedbackError}
+            </p>
+          )}
           {messages.length === 0 && (
-            <div className="suggestions-carousel relative -mx-4 md:mx-0 mb-2">
-              <div className="suggestions-fade-left" />
-              <div className="suggestions-fade-right" />
-              <div
-                className="suggestions-swipe overflow-hidden"
-                ref={emblaRef}
-              >
-                <div className="embla__container flex gap-2 px-6">
-                  {suggestions.map((suggestion) => (
-                    <button
-                      key={suggestion}
-                      type="button"
-                      disabled={
-                        waitForTurnstileConfig ||
-                        (requiresTurnstile && !turnstileToken.trim()) ||
-                        isLoading
-                      }
-                      onClick={() => sendMessage(suggestion)}
-                      className="embla__slide flex-none text-xs px-3 py-1.5 rounded-full border border-border bg-secondary/50 hover:bg-secondary dark:bg-[#2A2A2A] dark:hover:bg-[#333] text-foreground transition-colors whitespace-nowrap disabled:opacity-40 disabled:pointer-events-none disabled:cursor-not-allowed"
-                    >
-                      {suggestion}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <SuggestionCarousel
+              suggestions={suggestions}
+              disabled={
+                waitForTurnstileConfig ||
+                (requiresTurnstile && !turnstileToken.trim()) ||
+                isLoading
+              }
+              onSelect={(suggestion) => sendMessage(suggestion)}
+            />
           )}
           <form
             onSubmit={handleSubmit}
@@ -1463,14 +1235,15 @@ export default function ChatPage() {
               ref={textareaRef}
               value={input}
               onChange={(e) => {
-                const nextValue = e.target.value;
+                const nextValue = e.target.value.slice(0, MAX_CHAT_MESSAGE_LENGTH);
                 setInput(nextValue);
                 updateMentionState(nextValue, e.target.selectionStart);
               }}
+              maxLength={MAX_CHAT_MESSAGE_LENGTH}
               onClick={(e) => updateMentionState(e.currentTarget.value, e.currentTarget.selectionStart)}
               onKeyUp={(e) => updateMentionState(e.currentTarget.value, e.currentTarget.selectionStart)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask anything about your schedule"
+              placeholder={chatInputPlaceholder}
               disabled={isLoading}
               rows={1}
               className="chat-input relative z-10 w-full resize-none bg-transparent px-4 pt-3 pb-1 text-sm leading-relaxed placeholder:text-muted-foreground focus:outline-none disabled:opacity-50"
@@ -1745,6 +1518,7 @@ export default function ChatPage() {
             {disclaimerTexts[disclaimerIndex]}
           </span>
         </div>
+      </div>
       </div>
     </div>
   );

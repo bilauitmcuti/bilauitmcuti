@@ -22,7 +22,14 @@ import {
 } from "@/components/ui/drawer";
 import { StarRating } from "@/components/star-rating";
 import { shareOrCopyLink } from "@/lib/web-share";
+import { getPageShareUrl } from "@/lib/share-url";
 import { cn } from "@/lib/utils";
+import {
+  isEngagementRatingLimitReached,
+  MAX_ENGAGEMENT_RATING_ATTEMPTS,
+  recordEngagementRatingAttempt,
+} from "@/lib/engagement-prompt";
+import { trackZarazEvent, ZARAZ_EVENTS } from "@/lib/zaraz";
 
 const SHARE_TITLE = "Bila UiTM Cuti";
 const SHARE_TEXT =
@@ -39,11 +46,15 @@ interface EngagementPromptSheetProps {
 
 function EngagementPromptBody({
   rating,
+  ratingDisabled,
+  centerRating,
   onRatingChange,
   onFeedback,
   onShare,
 }: {
   rating: number;
+  ratingDisabled: boolean;
+  centerRating?: boolean;
   onRatingChange: (value: number) => void;
   onFeedback: () => void;
   onShare: () => void;
@@ -58,7 +69,13 @@ function EngagementPromptBody({
         <StarRating
           rating={rating}
           onRatingChange={onRatingChange}
-          className="items-center text-center md:items-start md:text-left"
+          disabled={ratingDisabled}
+          centered={centerRating}
+          className={
+            centerRating
+              ? undefined
+              : "items-center text-center md:items-start md:text-left"
+          }
         />
       </div>
 
@@ -94,16 +111,30 @@ export function EngagementPromptSheet({
 }: EngagementPromptSheetProps) {
   const router = useRouter();
   const [rating, setRating] = useState(0);
+  const [ratingDisabled, setRatingDisabled] = useState(() =>
+    isEngagementRatingLimitReached()
+  );
   const latestSubmittedRatingRef = useRef(0);
 
   useEffect(() => {
     if (!open) return;
     setRating(0);
     latestSubmittedRatingRef.current = 0;
+    setRatingDisabled(isEngagementRatingLimitReached());
   }, [open]);
 
   const handleRatingChange = useCallback(
     (value: number) => {
+      if (ratingDisabled || isEngagementRatingLimitReached()) {
+        setRatingDisabled(true);
+        return;
+      }
+
+      const attempts = recordEngagementRatingAttempt();
+      if (attempts >= MAX_ENGAGEMENT_RATING_ATTEMPTS) {
+        setRatingDisabled(true);
+      }
+
       setRating(value);
       latestSubmittedRatingRef.current = value;
 
@@ -125,6 +156,7 @@ export function EngagementPromptSheet({
           }
 
           onRatingComplete();
+          trackZarazEvent(ZARAZ_EVENTS.engagementRating, { rating: value });
         } catch {
           if (latestSubmittedRatingRef.current === value) {
             toast.error(
@@ -134,12 +166,11 @@ export function EngagementPromptSheet({
         }
       })();
     },
-    [onRatingComplete]
+    [onRatingComplete, ratingDisabled]
   );
 
   const handleShare = useCallback(async () => {
-    const url =
-      typeof window !== "undefined" ? window.location.origin : "https://bilauitmcuti.com";
+    const url = getPageShareUrl();
     const result = await shareOrCopyLink({
       title: SHARE_TITLE,
       text: SHARE_TEXT,
@@ -147,6 +178,7 @@ export function EngagementPromptSheet({
     });
 
     if (result === "shared" || result === "copied") {
+      trackZarazEvent(ZARAZ_EVENTS.engagementShare, { method: result });
       if (result === "copied") {
         toast.success("Link copied! Paste it to share with friends.");
       }
@@ -159,6 +191,7 @@ export function EngagementPromptSheet({
   }, [onShareComplete]);
 
   const handleFeedback = useCallback(() => {
+    trackZarazEvent(ZARAZ_EVENTS.engagementFeedbackClick);
     onFeedbackComplete();
     router.push("/feedback");
   }, [onFeedbackComplete, router]);
@@ -171,6 +204,7 @@ export function EngagementPromptSheet({
             <DrawerTitle>Enjoying Bila UiTM Cuti?</DrawerTitle>
             <EngagementPromptBody
               rating={rating}
+              ratingDisabled={ratingDisabled}
               onRatingChange={handleRatingChange}
               onFeedback={handleFeedback}
               onShare={handleShare}
@@ -194,6 +228,8 @@ export function EngagementPromptSheet({
         </DialogHeader>
         <EngagementPromptBody
           rating={rating}
+          ratingDisabled={ratingDisabled}
+          centerRating
           onRatingChange={handleRatingChange}
           onFeedback={handleFeedback}
           onShare={handleShare}

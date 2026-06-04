@@ -1,4 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  CALENDAR_FILTERS_COOKIE,
+  CALENDAR_FILTERS_MAX_AGE,
+  parseFiltersFromCookie,
+} from "@/lib/cookie-utils";
+import {
+  applySessionIdsToFilters,
+  hasSessionQueryParams,
+  isCalendarPath,
+  parseSessionIdsFromSearchParams,
+  resolveCleanCalendarPath,
+  resolveProgramForSessionQuery,
+} from "@/lib/session-query";
+import { isSocialPreviewCrawler } from "@/lib/social-preview-crawler";
 
 /**
  * Bot patterns to block from accessing chat routes.
@@ -69,20 +83,65 @@ function isLikelyRealBrowser(request: NextRequest, pathname: string): boolean {
   return request.method === "POST" && hasPageOrigin(request);
 }
 
+function handleSessionQueryRedirect(request: NextRequest): NextResponse | null {
+  const pathname = request.nextUrl.pathname;
+  if (!isCalendarPath(pathname)) return null;
+
+  const searchParams = request.nextUrl.searchParams;
+  if (!hasSessionQueryParams(searchParams)) return null;
+
+  const sessionIds = parseSessionIdsFromSearchParams(searchParams);
+  const existingCookie = request.cookies.get(CALENDAR_FILTERS_COOKIE)?.value;
+  const existing = parseFiltersFromCookie(existingCookie);
+  const program = resolveProgramForSessionQuery(
+    pathname,
+    sessionIds,
+    existing.selectedProgram
+  );
+  const merged = applySessionIdsToFilters(existing, sessionIds, program);
+
+  const ua = request.headers.get("user-agent") ?? "";
+  const preserveQueryForPreview = isSocialPreviewCrawler(ua);
+
+  const response = preserveQueryForPreview
+    ? NextResponse.next()
+    : NextResponse.redirect(
+        new URL(resolveCleanCalendarPath(pathname, program), request.url)
+      );
+
+  response.cookies.set(CALENDAR_FILTERS_COOKIE, JSON.stringify(merged), {
+    path: "/",
+    maxAge: CALENDAR_FILTERS_MAX_AGE,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
+  return response;
+}
+
 export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+  const isChatApiPath = pathname === "/chat/api" || pathname.startsWith("/chat/api/");
+
+  const sessionRedirect = handleSessionQueryRedirect(request);
+  if (sessionRedirect) return sessionRedirect;
+
   // Allow /chat/api POST from our page (Referer/Origin) to reduce mobile false-positives
   if (isLikelyRealBrowser(request, pathname)) return NextResponse.next();
   if (isBot(request)) {
-    if (pathname === "/chat/api" || pathname.startsWith("/chat/api/")) {
+    if (isChatApiPath) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
-    // /chat page: redirect to homepage
-    return NextResponse.redirect(new URL("/", request.url));
   }
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/chat", "/chat/:path*"],
+  matcher: [
+    "/",
+    "/list",
+    "/:program",
+    "/:program/list",
+    "/chat",
+    "/chat/:path*",
+  ],
 };
