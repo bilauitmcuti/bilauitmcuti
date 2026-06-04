@@ -374,9 +374,20 @@ export function FeedbackFormPage({
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-0 px-3 sm:px-6">
-              <Button type="button" className="w-full sm:w-auto h-[38px]" onClick={() => router.push("/sponsor")}>
-                Sponsor
-              </Button>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <Button type="button" className="w-full sm:w-auto h-[38px]" onClick={() => router.push("/sponsor")}>
+                  Sponsor
+                </Button>
+                <Button variant="secondary" asChild className="w-full sm:w-auto h-[38px]">
+                  <a
+                    href="https://github.com/sponsors/shahrulestar"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Github Sponsor
+                  </a>
+                </Button>
+              </div>
             </CardContent>
           </Card>
 

@@ -10,6 +10,23 @@ export function getTodayISO(now: Date = new Date()): string {
   }).format(now);
 }
 
+/** Short weekday + day/month for calendar PWA header (SSR-safe). */
+export function getMalaysiaDateHeaderParts(now: Date = new Date()): {
+  dayShort: string;
+  dateLabel: string;
+} {
+  const dayShort = new Intl.DateTimeFormat("en-MY", {
+    weekday: "short",
+    timeZone: MALAYSIA_TIME_ZONE,
+  }).format(now);
+  const dateLabel = new Intl.DateTimeFormat("en-MY", {
+    day: "numeric",
+    month: "short",
+    timeZone: MALAYSIA_TIME_ZONE,
+  }).format(now);
+  return { dayShort, dateLabel };
+}
+
 /** Human-readable Malaysia date/time for AI prompts. */
 export function getMalaysiaNowFormatted(now: Date = new Date()): string {
   const datePart = new Intl.DateTimeFormat("en-GB", {

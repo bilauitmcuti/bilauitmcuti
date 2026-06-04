@@ -31,7 +31,7 @@ interface WorkersAiTierLimits {
 
 const TIER_LIMITS: Record<WorkersAiModelTier, WorkersAiTierLimits> = {
   dev: {
-    maxOutputTokens: 3072,
+    maxOutputTokens: 4096,
     maxSystemChars: 12_000,
     maxHistoryMessages: 8,
     maxMessageChars: CHAT_MAX_MESSAGE_LENGTH,

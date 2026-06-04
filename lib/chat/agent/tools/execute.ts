@@ -242,7 +242,9 @@ async function executeGetPublicHolidays(
 ): Promise<string> {
   const parsed = parseToolArgs(args);
   const query = String(parsed.query ?? ctx.message);
-  const ph = await buildPublicHolidayChatContext(query, ctx.todayISO);
+  const ph = await buildPublicHolidayChatContext(query, ctx.todayISO, {
+    sessionIds: ctx.contextSessionIds,
+  });
   const parts: string[] = [];
   if (ph.block) parts.push(ph.block);
   if (!ph.block) {

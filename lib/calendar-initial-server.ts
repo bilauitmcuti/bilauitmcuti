@@ -2,7 +2,12 @@ import { parseFiltersFromCookie } from "@/lib/cookie-utils";
 import {
   calendarProgramQueryForRoute,
   fetchCalendarSession,
+  fetchLectureWeeks,
 } from "@/lib/calendar-api";
+import {
+  buildDateToWeekNumberMap,
+  mergeLectureWeekRecords,
+} from "@/lib/lecture-weeks-resolve";
 import { resolveSessionsForProgram } from "@/lib/calendar-session-resolve";
 import { fetchMetaCachedEntireForRsc } from "@/lib/calendar-server-meta";
 import type { CalendarSnapshot } from "@/lib/calendar-store";
@@ -82,6 +87,33 @@ export interface InitialCalendarLoadResult {
   programUsed: ProgramValue | null;
   /** `${program}|${sorted session ids}` — matches client `loadKey` when SSR and client agree. */
   hydrateKey: string | null;
+  /** ISO date → lecture week number for header badge SSR (empty when unavailable). */
+  lectureWeekByDate: Record<string, number> | null;
+}
+
+async function loadLectureWeekDateMapForSessions(
+  sessionIds: SessionId[]
+): Promise<Record<string, number> | null> {
+  if (sessionIds.length === 0) return null;
+  try {
+    const responses = await Promise.all(
+      sessionIds.map((id) =>
+        fetchLectureWeeks(id).catch(() => ({ weeks: [] }))
+      )
+    );
+    const records = responses.map((res) => {
+      const map = buildDateToWeekNumberMap(res.weeks);
+      const rec: Record<string, number> = {};
+      map.forEach((weekNum, date) => {
+        rec[date] = weekNum;
+      });
+      return rec;
+    });
+    const merged = mergeLectureWeekRecords(records);
+    return Object.keys(merged).length > 0 ? merged : null;
+  } catch {
+    return null;
+  }
 }
 
 function buildHydrateKey(program: ProgramValue, sessionIds: SessionId[]): string {
@@ -134,28 +166,42 @@ export async function loadInitialCalendarSnapshot(params: {
         snapshot: { ...baseSnapshot, sessions: {} },
         programUsed: program,
         hydrateKey,
+        lectureWeekByDate: null,
       };
     }
 
+    const [lectureWeekByDate, sessionResults] = await Promise.all([
+      loadLectureWeekDateMapForSessions(targets),
+      Promise.all(
+        targets.map(async (sid) => {
+          const g = sid.startsWith("A-") ? "A" : "B";
+          const acts = await fetchCalendarSession({
+            sessionId: sid,
+            group: g,
+            program: g === "B" ? (programQ ?? "All") : undefined,
+          });
+          return [sid, { activities: acts }] as const;
+        })
+      ),
+    ]);
+
     const merges: Record<string, { activities: Activity[] }> = {};
-    await Promise.all(
-      targets.map(async (sid) => {
-        const g = sid.startsWith("A-") ? "A" : "B";
-        const acts = await fetchCalendarSession({
-          sessionId: sid,
-          group: g,
-          program: g === "B" ? (programQ ?? "All") : undefined,
-        });
-        merges[sid] = { activities: acts };
-      })
-    );
+    for (const [sid, payload] of sessionResults) {
+      merges[sid] = payload;
+    }
 
     return {
       snapshot: { ...baseSnapshot, sessions: merges },
       programUsed: program,
       hydrateKey,
+      lectureWeekByDate,
     };
   } catch {
-    return { snapshot: null, programUsed: null, hydrateKey: null };
+    return {
+      snapshot: null,
+      programUsed: null,
+      hydrateKey: null,
+      lectureWeekByDate: null,
+    };
   }
 }

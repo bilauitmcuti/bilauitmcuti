@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import * as data from "@/lib/data";
 import {
   formatPublicHolidayBlock,
   formatPublicHolidayLine,
@@ -6,7 +7,9 @@ import {
   needsPublicHolidayContext,
   parseDateFromMessage,
   parseDateRangeFromMessage,
+  resolvePrimaryPublicHolidayYear,
   resolvePublicHolidayQueryIntent,
+  resolvePublicHolidayYears,
   resolveStateSlugFromMessage,
   resolveStateSlugsFromMessage,
 } from "./public-holiday-context";
@@ -61,6 +64,45 @@ describe("parseDateRangeFromMessage", () => {
     );
     expect(range.start).toBe("2026-05-01");
     expect(range.end).toBe("2026-12-31");
+  });
+});
+
+describe("resolvePublicHolidayYears", () => {
+  it("includes explicit year from the message", () => {
+    expect(resolvePublicHolidayYears("cuti umum 2027", "2026-06-01")).toEqual([2027]);
+  });
+
+  it("includes both years when session label spans 2026 and 2027", () => {
+    vi.spyOn(data, "getSessionOptions").mockReturnValue([
+      { id: "A-20272", label: "Group A: Sep 2026 - Feb 2027", group: "A" },
+    ]);
+    vi.spyOn(data, "getSessionActivityDateRange").mockReturnValue(null);
+    expect(
+      resolvePublicHolidayYears("senarai cuti umum", "2026-09-01", ["A-20272"])
+    ).toEqual([2026, 2027]);
+    vi.restoreAllMocks();
+  });
+
+  it("adds next calendar year for upcoming-only questions near year end", () => {
+    expect(
+      resolvePublicHolidayYears("next public holiday in Selangor", "2026-11-15")
+    ).toEqual([2026, 2027]);
+  });
+
+  it("uses today year when no year or session hint", () => {
+    expect(resolvePublicHolidayYears("cuti umum Selangor", "2026-03-01")).toEqual([2026]);
+  });
+});
+
+describe("resolvePrimaryPublicHolidayYear", () => {
+  it("prefers explicit message year", () => {
+    expect(resolvePrimaryPublicHolidayYear([2026, 2027], "holidays 2027", "2026-03-01")).toBe(
+      2027
+    );
+  });
+
+  it("uses today year when it is in the resolved set", () => {
+    expect(resolvePrimaryPublicHolidayYear([2026, 2027], "cuti umum", "2026-09-01")).toBe(2026);
   });
 });
 

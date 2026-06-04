@@ -22,3 +22,24 @@ export function getLectureWeekNumberForDate(
 ): number | null {
   return map.get(dateStr) ?? null;
 }
+
+export function lectureWeekMapFromRecord(
+  rec: Record<string, number> | null | undefined
+): Map<string, number> | null {
+  if (!rec) return null;
+  const entries = Object.entries(rec);
+  if (entries.length === 0) return null;
+  return new Map(entries);
+}
+
+export function mergeLectureWeekRecords(
+  records: Record<string, number>[]
+): Record<string, number> {
+  const merged: Record<string, number> = {};
+  for (const rec of records) {
+    for (const [date, weekNum] of Object.entries(rec)) {
+      merged[date] = weekNum;
+    }
+  }
+  return merged;
+}

@@ -4,6 +4,12 @@ import {
   type PublicHolidaysResponse,
 } from "@/lib/calendar-api";
 import { normalizeDateString, toComparableDateValue, toDateFormat } from "@/lib/chat/dates";
+import {
+  getSessionActivityDateRange,
+  getSessionOptions,
+  parseSessionLabelDateRange,
+  type SessionId,
+} from "@/lib/data";
 
 const PUBLIC_HOLIDAY_HINTS = [
   "public holiday",
@@ -213,6 +219,104 @@ export function resolveStateSlugsFromMessage(message: string): string[] {
   return found;
 }
 
+const MIN_PUBLIC_HOLIDAY_YEAR = 2020;
+const MAX_PUBLIC_HOLIDAY_YEAR = 2035;
+const MAX_PUBLIC_HOLIDAY_YEARS_FETCH = 3;
+
+function addCalendarYearsInRange(startISO: string, endISO: string, years: Set<number>): void {
+  const startY = parseInt(startISO.slice(0, 4), 10);
+  const endY = parseInt(endISO.slice(0, 4), 10);
+  if (!Number.isFinite(startY) || !Number.isFinite(endY)) return;
+  for (let y = startY; y <= endY; y++) {
+    if (y >= MIN_PUBLIC_HOLIDAY_YEAR && y <= MAX_PUBLIC_HOLIDAY_YEAR) years.add(y);
+  }
+}
+
+function addYearsFromSessionSpan(sessionId: SessionId, years: Set<number>): void {
+  const option = getSessionOptions().find((s) => s.id === sessionId);
+  if (!option) return;
+  const range =
+    getSessionActivityDateRange(sessionId) ?? parseSessionLabelDateRange(option.label);
+  if (!range) return;
+  addCalendarYearsInRange(range.start, range.end, years);
+}
+
+function extractExplicitYearsFromMessage(message: string): number[] {
+  const years: number[] = [];
+  const seen = new Set<number>();
+  for (const match of message.matchAll(/\b(20\d{2})\b/g)) {
+    const y = parseInt(match[1]!, 10);
+    if (y < MIN_PUBLIC_HOLIDAY_YEAR || y > MAX_PUBLIC_HOLIDAY_YEAR) continue;
+    if (seen.has(y)) continue;
+    seen.add(y);
+    years.push(y);
+  }
+  return years;
+}
+
+/** Calendar year(s) to load from API (`year=` query) for this turn. */
+export function resolvePublicHolidayYears(
+  message: string,
+  todayISO: string,
+  sessionIds?: SessionId[]
+): number[] {
+  const years = new Set<number>();
+  const todayYear = parseInt(todayISO.slice(0, 4), 10);
+
+  for (const y of extractExplicitYearsFromMessage(message)) years.add(y);
+
+  if (sessionIds?.length) {
+    for (const sid of sessionIds) addYearsFromSessionSpan(sid, years);
+  }
+
+  const provisionalDefault =
+    years.size > 0 ? Math.min(...years) : todayYear;
+  const intent = resolvePublicHolidayQueryIntent(
+    message,
+    todayISO,
+    provisionalDefault
+  );
+
+  if (intent.singleDate) years.add(parseInt(intent.singleDate.slice(0, 4), 10));
+  if (intent.rangeStartISO) years.add(parseInt(intent.rangeStartISO.slice(0, 4), 10));
+  if (intent.rangeEndISO) years.add(parseInt(intent.rangeEndISO.slice(0, 4), 10));
+
+  if (years.size === 0) {
+    years.add(todayYear);
+    if (intent.wantsNextOnly) years.add(todayYear + 1);
+  } else if (intent.wantsNextOnly) {
+    const maxYear = Math.max(...years);
+    if (maxYear === todayYear) years.add(todayYear + 1);
+  }
+
+  const sorted = [...years]
+    .filter((y) => y >= MIN_PUBLIC_HOLIDAY_YEAR && y <= MAX_PUBLIC_HOLIDAY_YEAR)
+    .sort((a, b) => a - b);
+
+  if (sorted.length <= MAX_PUBLIC_HOLIDAY_YEARS_FETCH) return sorted;
+  const explicit = extractExplicitYearsFromMessage(message);
+  if (explicit.length > 0) {
+    return explicit.slice(0, MAX_PUBLIC_HOLIDAY_YEARS_FETCH).sort((a, b) => a - b);
+  }
+  return sorted.slice(-MAX_PUBLIC_HOLIDAY_YEARS_FETCH);
+}
+
+/** Default year for parsing dates in the user message when the year is omitted. */
+export function resolvePrimaryPublicHolidayYear(
+  years: number[],
+  message: string,
+  todayISO: string
+): number {
+  const explicit = extractExplicitYearsFromMessage(message);
+  if (explicit.length === 1) return explicit[0]!;
+  if (explicit.length > 1) return explicit[explicit.length - 1]!;
+
+  const todayYear = parseInt(todayISO.slice(0, 4), 10);
+  if (years.includes(todayYear)) return todayYear;
+  if (years.length === 0) return todayYear;
+  return years[years.length - 1]!;
+}
+
 export function resolvePublicHolidayQueryIntent(
   message: string,
   todayISO: string,
@@ -223,14 +327,12 @@ export function resolvePublicHolidayQueryIntent(
   const stateSlug = stateSlugs.length === 1 ? stateSlugs[0]! : null;
   const singleDate = parseDateFromMessage(message, defaultYear);
   const { start, end } = parseDateRangeFromMessage(message, todayISO, defaultYear);
+  const hasNextPhrase = /\b(next|upcoming|seterusnya|akan datang)\b/i.test(lower);
   const wantsList =
-    /\b(list|senarai|show|nama|semua|all\b|full)\b/i.test(lower) ||
-    /\b(public holidays?|cuti umum)\b/i.test(lower);
-  const wantsNextOnly =
-    /\b(next|upcoming|seterusnya|akan datang)\b/i.test(lower) &&
-    !wantsList &&
-    !start &&
-    !end;
+    !hasNextPhrase &&
+    (/\b(list|senarai|show|nama|semua|all\b|full)\b/i.test(lower) ||
+      /\b(public holidays?|cuti umum)\b/i.test(lower));
+  const wantsNextOnly = hasNextPhrase && !wantsList && !start && !end;
 
   return {
     stateSlug,
@@ -484,20 +586,32 @@ export interface PublicHolidayChatContext {
   directive: string;
 }
 
+export interface BuildPublicHolidayChatContextOptions {
+  sessionIds?: SessionId[];
+}
+
 export async function buildPublicHolidayChatContext(
   message: string,
-  todayISO: string
+  todayISO: string,
+  options?: BuildPublicHolidayChatContextOptions
 ): Promise<PublicHolidayChatContext> {
   const empty = {
     block: "=== MALAYSIA PUBLIC HOLIDAYS ===\n(public holiday data unavailable)",
     directive: "",
   };
   try {
-    const data = await fetchPublicHolidays({ coverage: "all" });
-    if (data.holidays.length === 0) return empty;
+    const years = resolvePublicHolidayYears(message, todayISO, options?.sessionIds);
+    const primaryYear = resolvePrimaryPublicHolidayYear(years, message, todayISO);
+    const datasets = await Promise.all(
+      years.map((year) => fetchPublicHolidays({ coverage: "all", year }))
+    );
+    const blocks = datasets
+      .filter((data) => data.holidays.length > 0)
+      .map((data) => formatPublicHolidayBlock(data, message, todayISO));
+    if (blocks.length === 0) return empty;
     return {
-      block: formatPublicHolidayBlock(data, message, todayISO),
-      directive: getPublicHolidayUnderstandingDirective(message, todayISO, data.year),
+      block: blocks.join("\n\n"),
+      directive: getPublicHolidayUnderstandingDirective(message, todayISO, primaryYear),
     };
   } catch {
     return empty;

@@ -544,10 +544,7 @@ export async function POST(request: NextRequest) {
       if (incomplete) {
         const bumpedBudget = {
           ...modelBudget,
-          maxTokens: Math.min(
-            maxOutputTokens,
-            Math.max(modelBudget.maxTokens, Math.floor(modelBudget.maxTokens * 1.5), 2048)
-          ),
+          maxTokens: maxOutputTokens,
         };
         let retryReply: string;
         if (useAgentPath && agentMode === "tools") {

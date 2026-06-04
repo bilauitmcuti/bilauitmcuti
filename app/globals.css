@@ -3,6 +3,7 @@
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant standalone (@media (display-mode: standalone));
 
 /* Disable page transition animations for instant navigation */
 html {

@@ -4,40 +4,45 @@ import { getModelResponseBudget } from "@/lib/chat/ai-retry";
 describe("getModelResponseBudget", () => {
   const ceiling = 4096;
 
-  it("caps simple calendar questions", () => {
+  it("allows enough tokens for simple calendar questions (e.g. full-year public holidays)", () => {
     const budget = getModelResponseBudget("When is the next break?", true, false, ceiling);
-    expect(budget.maxTokens).toBe(512);
+    expect(budget.maxTokens).toBe(3072);
     expect(budget.temperature).toBe(0.1);
   });
 
-  it("caps table/compare requests", () => {
-    const budget = getModelResponseBudget("Compare sessions in a table", true, true, ceiling);
-    expect(budget.maxTokens).toBe(2048);
+  it("does not cap Bila cuti umum year questions at 512", () => {
+    const budget = getModelResponseBudget("Bila cuti umum 2027", true, false, ceiling);
+    expect(budget.maxTokens).toBeGreaterThanOrEqual(3072);
   });
 
-  it("raises cap for list/schedule questions", () => {
+  it("uses full tier cap for table/compare requests", () => {
+    const budget = getModelResponseBudget("Compare sessions in a table", true, true, ceiling);
+    expect(budget.maxTokens).toBe(4096);
+  });
+
+  it("uses full tier cap for list/schedule questions", () => {
     const budget = getModelResponseBudget(
       "Senarai semua minggu kuliah 1-14",
       true,
       false,
       ceiling
     );
-    expect(budget.maxTokens).toBe(3072);
+    expect(budget.maxTokens).toBe(4096);
   });
 
-  it("caps detailed calendar questions higher than simple", () => {
+  it("uses full tier cap for detailed calendar questions", () => {
     const budget = getModelResponseBudget("Explain all breaks in detail", true, false, ceiling);
-    expect(budget.maxTokens).toBe(3072);
+    expect(budget.maxTokens).toBe(4096);
   });
 
-  it("raises cap for long user messages", () => {
+  it("uses full tier cap for long user messages", () => {
     const long = "a".repeat(400);
     const budget = getModelResponseBudget(long, true, false, ceiling);
-    expect(budget.maxTokens).toBe(3072);
+    expect(budget.maxTokens).toBe(4096);
   });
 
-  it("caps research prompts", () => {
+  it("allows generous tokens for research prompts", () => {
     const budget = getModelResponseBudget("What faculties are at UiTM?", false, false, ceiling);
-    expect(budget.maxTokens).toBe(2048);
+    expect(budget.maxTokens).toBe(3072);
   });
 });

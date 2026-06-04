@@ -38,14 +38,14 @@ async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Short questions — keep responses fast. */
-const TOKEN_CAP_SIMPLE = 512;
-const TOKEN_CAP_CALENDAR = 1024;
-const TOKEN_CAP_LIST_SCHEDULE = 3072;
-const TOKEN_CAP_TABLE_COMPARE = 2048;
-const TOKEN_CAP_DETAIL = 3072;
-const TOKEN_CAP_LONG_INPUT = 3072;
-const TOKEN_CAP_RESEARCH = 2048;
+/** Per-turn ceilings (capped by tier maxOutputTokens in lib/ai.ts). */
+const TOKEN_CAP_SIMPLE = 3072;
+const TOKEN_CAP_CALENDAR = 4096;
+const TOKEN_CAP_LIST_SCHEDULE = 4096;
+const TOKEN_CAP_TABLE_COMPARE = 4096;
+const TOKEN_CAP_DETAIL = 4096;
+const TOKEN_CAP_LONG_INPUT = 4096;
+const TOKEN_CAP_RESEARCH = 3072;
 
 function capTokens(requested: number, ceiling: number): number {
   return Math.min(requested, ceiling);

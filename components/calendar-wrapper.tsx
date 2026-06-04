@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { SharedCalendarLayout } from './shared-calendar-layout';
 import { parseFiltersFromCookie } from '@/lib/cookie-utils';
 import { loadInitialCalendarSnapshot } from '@/lib/calendar-initial-server';
-import { getTodayISO } from '@/lib/chat/dates';
+import { getMalaysiaDateHeaderParts, getTodayISO } from '@/lib/chat/dates';
 import type { ViewMode } from '@/app/page';
 
 interface CalendarWrapperProps {
@@ -18,7 +18,10 @@ export async function CalendarWrapper({ viewMode, programFromRoute }: CalendarWr
   const cookieStore = await cookies();
   const cookieString = cookieStore.get('calendar-filters')?.value || null;
   const initialFilters = parseFiltersFromCookie(cookieString);
-  const initialCurrentDate = getTodayISO();
+  const now = new Date();
+  const initialCurrentDate = getTodayISO(now);
+  const { dayShort: initialDayShort, dateLabel: initialDateLabel } =
+    getMalaysiaDateHeaderParts(now);
   const initialCalendar = await loadInitialCalendarSnapshot({
     programFromRoute,
     cookieValue: cookieString,
@@ -31,6 +34,9 @@ export async function CalendarWrapper({ viewMode, programFromRoute }: CalendarWr
       programFromRoute={programFromRoute}
       initialFilters={initialFilters}
       initialCurrentDate={initialCurrentDate}
+      initialDayShort={initialDayShort}
+      initialDateLabel={initialDateLabel}
+      initialLectureWeekByDate={initialCalendar.lectureWeekByDate}
       initialCalendarSnapshot={initialCalendar.snapshot}
       initialCalendarHydration={
         initialCalendar.programUsed != null && initialCalendar.hydrateKey != null

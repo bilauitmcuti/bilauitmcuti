@@ -343,6 +343,10 @@ export default function ChatPage() {
   const [disclaimerIndex, setDisclaimerIndex] = useState(0);
   const [disclaimerFade, setDisclaimerFade] = useState<"in" | "out">("in");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const hasScrolledRef = useRef(false);
+  const wasStreamingRef = useRef(false);
+  const streamingAssistantMessageRef = useRef<HTMLDivElement>(null);
+  const scrollAssistantMessageToTopRef = useRef<() => void>(() => {});
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const turnstileRef = useRef<TurnstileWidgetHandle>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -422,6 +426,16 @@ export default function ChatPage() {
     return null;
   }, [messages]);
 
+  const assistantScrollTargetId = useMemo(() => {
+    const streaming = messages.find(
+      (m) => m.role === "assistant" && m.isComplete === false
+    );
+    if (streaming) return streaming.id;
+    const last = messages[messages.length - 1];
+    if (last?.role === "assistant") return last.id;
+    return null;
+  }, [messages]);
+
   const showThinkingUi = useMemo(
     () =>
       isLoading &&
@@ -466,9 +480,46 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
 
+  const scrollAssistantMessageToTop = useCallback(() => {
+    if (hasScrolledRef.current) return;
+    streamingAssistantMessageRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+    hasScrolledRef.current = true;
+  }, []);
+
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
+    scrollAssistantMessageToTopRef.current = scrollAssistantMessageToTop;
+  }, [scrollAssistantMessageToTop]);
+
+  useLayoutEffect(() => {
+    const isStreaming = messages.some(
+      (m) => m.role === "assistant" && m.isComplete === false
+    );
+
+    if (wasStreamingRef.current && !isStreaming) {
+      hasScrolledRef.current = false;
+    }
+    wasStreamingRef.current = isStreaming;
+
+    if (messages.length === 0) {
+      hasScrolledRef.current = false;
+      return;
+    }
+
+    const last = messages[messages.length - 1];
+
+    if (last.role === "user") {
+      hasScrolledRef.current = false;
+      scrollToBottom();
+      return;
+    }
+
+    if (isStreaming || last.role === "assistant") {
+      scrollAssistantMessageToTop();
+    }
+  }, [messages, scrollToBottom, scrollAssistantMessageToTop]);
 
   useEffect(() => {
     adjustTextareaHeight();
@@ -578,7 +629,7 @@ export default function ChatPage() {
 
             await consumeChatStream(res, {
               onToken: () => {
-                /* Wait for done — no partial text while the model runs */
+                scrollAssistantMessageToTopRef.current();
               },
               onDone: (payload) => {
                 content = payload.reply;
@@ -1030,7 +1081,15 @@ export default function ChatPage() {
                 msg.content.trim().length > 0;
 
               return (
-              <div key={msg.id} className="space-y-1">
+              <div
+                key={msg.id}
+                ref={
+                  msg.id === assistantScrollTargetId
+                    ? streamingAssistantMessageRef
+                    : undefined
+                }
+                className="space-y-1"
+              >
                 <div
                   className={`flex ${
                     msg.role === "user" ? "justify-end" : "justify-start"

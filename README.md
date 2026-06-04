@@ -3,6 +3,8 @@
 # Bila UiTM Cuti
 Academic calendar for UiTM students. **Live:** [bilauitmcuti.com](https://bilauitmcuti.com)
 
+[![Github Sponsor](https://img.shields.io/badge/Github_Sponsor-shahrulestar-ea4aaa?style=for-the-badge&logo=github-sponsors&logoColor=white)](https://github.com/sponsors/shahrulestar)
+
 ## What this is
 Bila UiTM Cuti is a simple web app to check UiTM academic calendar, semester dates, and holidays in one place. Not affiliated with UiTM. It’s built for the “just tell me the date” moment, so you don’t have to juggle multiple PDFs.
 

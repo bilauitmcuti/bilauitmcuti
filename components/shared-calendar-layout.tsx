@@ -44,6 +44,9 @@ interface SharedCalendarLayoutProps {
   programFromRoute: string;
   initialFilters?: FilterStates; // Optional: passed from server component that reads cookies
   initialCurrentDate?: string; // Optional: passed from server component with Malaysia timezone date
+  initialDayShort?: string;
+  initialDateLabel?: string;
+  initialLectureWeekByDate?: Record<string, number> | null;
   /** RSC-fetched meta + activities; hydrates client store before first paint */
   initialCalendarSnapshot?: CalendarSnapshot | null;
   /** Program + load key used when building the snapshot (avoids wrong hydration skip after program change). */
@@ -58,6 +61,9 @@ export function SharedCalendarLayout({
   programFromRoute,
   initialFilters: initialFiltersFromProps,
   initialCurrentDate,
+  initialDayShort,
+  initialDateLabel,
+  initialLectureWeekByDate = null,
   initialCalendarSnapshot = null,
   initialCalendarHydration = null,
 }: SharedCalendarLayoutProps) {
@@ -521,6 +527,9 @@ export function SharedCalendarLayout({
           selectedSessions={selectedSessions}
           programGroup={programGroup}
           initialCurrentDate={initialCurrentDate}
+          initialDayShort={initialDayShort}
+          initialDateLabel={initialDateLabel}
+          initialLectureWeekByDate={initialLectureWeekByDate}
         />
         <PwaPromptAlert />
 

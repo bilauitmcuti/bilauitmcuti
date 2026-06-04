@@ -127,7 +127,9 @@ export async function buildDataContextForTurn(
   }
 
   if (route.topics.includes("public_holiday")) {
-    const phCtx = await buildPublicHolidayChatContext(message, todayISO);
+    const phCtx = await buildPublicHolidayChatContext(message, todayISO, {
+      sessionIds: contextSessionIds,
+    });
     publicHolidayDirective = phCtx.directive;
     if (phCtx.block) parts.push(phCtx.block);
   }

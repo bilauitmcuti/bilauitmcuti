@@ -27,11 +27,6 @@ yarn-error.log*
 # vercel
 .vercel
 
-# local AI/editor tooling (not required for app runtime)
-.cursor/
-.agents/
-skills-lock.json
-
 # typescript
 *.tsbuildinfo
 next-env.d.ts
