@@ -48,6 +48,7 @@ export const SUGGESTIONS_GROUP_B = [
   "Cuti Semester bermula bila?",
   "Cuti Krismas atau tahun baharu bila?",
   "Entrance Survey bila?",
+  "Exit Survey bila?",
   "MDS dan Edu 5.0@UiTM bila?",
   "MDS (Minggu Destini Siswa) bila?",
   "Pendaftaran online pelajar sepenuh masa bila?",
