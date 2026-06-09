@@ -83,7 +83,7 @@ function EngagementPromptBody({
         know how we can make it better.
       </p>
 
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-2">
         <StarRating
           rating={rating}
           onRatingChange={onRatingChange}
@@ -95,64 +95,77 @@ function EngagementPromptBody({
               : "items-center text-center md:items-start md:text-left"
           }
         />
-      </div>
 
-      <div
-        className={cn(
-          "grid transition-[grid-template-rows] duration-200 ease-out",
-          requiresFeedback ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-        )}
-      >
-        <div className="-m-1 overflow-hidden p-1">
-          <div className="flex flex-col gap-2 pt-1">
-            <Textarea
-              id="feedback-reason"
-              value={feedbackReason}
-              onChange={(event) =>
-                onFeedbackReasonChange(
-                  event.target.value.slice(0, MAX_FEEDBACK_REASON_LENGTH)
-                )
-              }
-              maxLength={MAX_FEEDBACK_REASON_LENGTH}
-              rows={6}
-              placeholder="Write your feedback..."
-              disabled={isSubmittingFeedback}
-              className="resize-none bg-background text-sm shadow-none placeholder:text-sm dark:bg-[#2A2A2A]"
-              data-vaul-no-drag=""
-            />
-            <Button
-              type="button"
-              variant="default"
-              className="h-[38px] w-full"
-              disabled={!canSubmitLowRating}
-              onClick={onSubmitLowRatingFeedback}
-            >
-              {isSubmittingFeedback ? "Sending…" : "Send feedback"}
-            </Button>
+        <div className="grid">
+          <div
+            className={cn(
+              "col-start-1 row-start-1 grid transition-[grid-template-rows,opacity] duration-200 ease-out",
+              requiresFeedback
+                ? "z-10 grid-rows-[1fr] opacity-100"
+                : "pointer-events-none z-0 grid-rows-[0fr] opacity-0"
+            )}
+          >
+            <div className="min-h-0 overflow-hidden">
+              <div className="flex flex-col gap-2">
+                <Textarea
+                  id="feedback-reason"
+                  value={feedbackReason}
+                  onChange={(event) =>
+                    onFeedbackReasonChange(
+                      event.target.value.slice(0, MAX_FEEDBACK_REASON_LENGTH)
+                    )
+                  }
+                  maxLength={MAX_FEEDBACK_REASON_LENGTH}
+                  rows={6}
+                  placeholder="Write your feedback..."
+                  disabled={isSubmittingFeedback}
+                  className="resize-none bg-background text-sm shadow-none placeholder:text-sm focus-visible:ring-inset dark:bg-[#2A2A2A]"
+                  data-vaul-no-drag=""
+                />
+                <Button
+                  type="button"
+                  variant="default"
+                  className="h-[38px] w-full"
+                  disabled={!canSubmitLowRating}
+                  onClick={onSubmitLowRatingFeedback}
+                >
+                  {isSubmittingFeedback ? "Sending…" : "Send feedback"}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div
+            className={cn(
+              "col-start-1 row-start-1 grid transition-[grid-template-rows,opacity] duration-200 ease-out",
+              requiresFeedback
+                ? "pointer-events-none z-0 grid-rows-[0fr] opacity-0"
+                : "z-10 grid-rows-[1fr] opacity-100"
+            )}
+          >
+            <div className="min-h-0 overflow-hidden">
+              <div className="flex flex-col gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-[38px] w-full"
+                  onClick={onFeedback}
+                >
+                  Send feedback
+                </Button>
+                <Button
+                  type="button"
+                  variant="default"
+                  className="h-[38px] w-full"
+                  onClick={onShare}
+                >
+                  Share with friends
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-
-      {!requiresFeedback ? (
-        <div className="flex flex-col gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            className="h-[38px] w-full"
-            onClick={onFeedback}
-          >
-            Send feedback
-          </Button>
-          <Button
-            type="button"
-            variant="default"
-            className="h-[38px] w-full"
-            onClick={onShare}
-          >
-            Share with friends
-          </Button>
-        </div>
-      ) : null}
     </div>
   );
 }
