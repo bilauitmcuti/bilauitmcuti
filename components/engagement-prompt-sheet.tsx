@@ -16,9 +16,11 @@ import {
   DrawerContent,
   DrawerTitle,
   drawerBodyClassName,
-  responsiveDrawerContentClassName,
+  drawerBodyFlexClassName,
+  drawerScrollRegionClassName,
   responsiveDialogTitleClassName,
   responsiveDrawerBodyClassName,
+  responsiveKeyboardDrawerContentClassName,
 } from "@/components/ui/drawer";
 import { Textarea } from "@/components/ui/textarea";
 import { StarRating } from "@/components/star-rating";
@@ -54,6 +56,7 @@ function EngagementPromptBody({
   requiresFeedback,
   feedbackReason,
   isSubmittingFeedback,
+  compactFeedbackInput,
   onRatingChange,
   onFeedbackReasonChange,
   onSubmitLowRatingFeedback,
@@ -66,6 +69,7 @@ function EngagementPromptBody({
   requiresFeedback: boolean;
   feedbackReason: string;
   isSubmittingFeedback: boolean;
+  compactFeedbackInput?: boolean;
   onRatingChange: (value: number) => void;
   onFeedbackReasonChange: (value: string) => void;
   onSubmitLowRatingFeedback: () => void;
@@ -116,11 +120,16 @@ function EngagementPromptBody({
                     )
                   }
                   maxLength={MAX_FEEDBACK_REASON_LENGTH}
-                  rows={6}
+                  rows={compactFeedbackInput ? 3 : 6}
                   placeholder="Write your feedback..."
                   disabled={isSubmittingFeedback}
                   className="resize-none bg-background text-sm shadow-none placeholder:text-sm focus-visible:ring-inset dark:bg-[#2A2A2A]"
                   data-vaul-no-drag=""
+                  onFocus={(event) => {
+                    requestAnimationFrame(() => {
+                      event.currentTarget.scrollIntoView({ block: "nearest" });
+                    });
+                  }}
                 />
                 <Button
                   type="button"
@@ -300,6 +309,10 @@ export function EngagementPromptSheet({
       onRatingComplete();
       trackZarazEvent(ZARAZ_EVENTS.engagementRating, { rating });
       setRequiresFeedback(false);
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      onOpenChange(false);
     } catch {
       if (latestSubmittedRatingRef.current === rating) {
         toast.error(
@@ -314,6 +327,7 @@ export function EngagementPromptSheet({
     isSubmittingFeedback,
     onRatingComplete,
     rating,
+    onOpenChange,
     ratingDisabled,
     requiresFeedback,
   ]);
@@ -347,22 +361,37 @@ export function EngagementPromptSheet({
 
   if (isMobileSheet) {
     return (
-      <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className={responsiveDrawerContentClassName}>
-          <div className={cn(drawerBodyClassName, responsiveDrawerBodyClassName)}>
-            <DrawerTitle>Enjoying Bila UiTM Cuti?</DrawerTitle>
-            <EngagementPromptBody
-              rating={rating}
-              ratingDisabled={ratingDisabled}
-              requiresFeedback={requiresFeedback}
-              feedbackReason={feedbackReason}
-              isSubmittingFeedback={isSubmittingFeedback}
-              onRatingChange={handleRatingChange}
-              onFeedbackReasonChange={setFeedbackReason}
-              onSubmitLowRatingFeedback={handleSubmitLowRatingFeedback}
-              onFeedback={handleFeedback}
-              onShare={handleShare}
-            />
+      <Drawer open={open} onOpenChange={onOpenChange} repositionInputs fixed>
+        <DrawerContent className={responsiveKeyboardDrawerContentClassName}>
+          <div
+            className={cn(
+              drawerBodyClassName,
+              drawerBodyFlexClassName,
+              responsiveDrawerBodyClassName,
+              "min-h-0 gap-0"
+            )}
+          >
+            <div data-vaul-no-drag="" className="w-full shrink-0">
+              <DrawerTitle>Enjoying Bila UiTM Cuti?</DrawerTitle>
+            </div>
+            <div
+              data-vaul-no-drag=""
+              className={cn(drawerScrollRegionClassName, "w-full min-w-0")}
+            >
+              <EngagementPromptBody
+                rating={rating}
+                ratingDisabled={ratingDisabled}
+                requiresFeedback={requiresFeedback}
+                feedbackReason={feedbackReason}
+                isSubmittingFeedback={isSubmittingFeedback}
+                compactFeedbackInput
+                onRatingChange={handleRatingChange}
+                onFeedbackReasonChange={setFeedbackReason}
+                onSubmitLowRatingFeedback={handleSubmitLowRatingFeedback}
+                onFeedback={handleFeedback}
+                onShare={handleShare}
+              />
+            </div>
           </div>
         </DrawerContent>
       </Drawer>

@@ -41,6 +41,12 @@ export const responsiveDrawerContentClassName = cn(
   responsiveShellBgClassName
 )
 
+/** Same as responsive shell but without min-h-30vh so vaul can shrink above the mobile keyboard. */
+export const responsiveKeyboardDrawerContentClassName = cn(
+  responsiveDrawerContentClassName,
+  "data-[vaul-drawer-direction=bottom]:!min-h-0"
+)
+
 /** Body layout for responsive drawer/dialog pairs (mention picker, engagement prompt). */
 export const responsiveDrawerBodyClassName = cn(
   "gap-3 text-center md:text-left",

@@ -50,11 +50,13 @@ import {
   DrawerDescription,
   DrawerTitle,
   drawerBodyClassName,
-  responsiveDrawerContentClassName,
+  drawerBodyFlexClassName,
+  drawerScrollRegionClassName,
   responsiveDrawerDescriptionClassName,
   responsiveDialogDescriptionClassName,
   responsiveDialogTitleClassName,
   responsiveDrawerBodyClassName,
+  responsiveKeyboardDrawerContentClassName,
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import {
@@ -1253,14 +1255,26 @@ export default function ChatPage() {
               className="chat-input relative z-10 w-full resize-none bg-transparent px-4 pt-3 pb-1 text-sm leading-relaxed placeholder:text-muted-foreground focus:outline-none disabled:opacity-50"
             />
             {isMobileMentionPicker ? (
-              <Drawer open={isMentionOpen} onOpenChange={setIsMentionOpen}>
-                <DrawerContent className={responsiveDrawerContentClassName}>
-                  <div className={cn(drawerBodyClassName, responsiveDrawerBodyClassName)}>
-                    <DrawerTitle>Mention Session Calendar</DrawerTitle>
-                    <DrawerDescription className={responsiveDrawerDescriptionClassName}>
-                      Select a session to insert into your message.
-                    </DrawerDescription>
-                    <div className="w-full space-y-2 text-left">
+              <Drawer open={isMentionOpen} onOpenChange={setIsMentionOpen} repositionInputs fixed>
+                <DrawerContent className={responsiveKeyboardDrawerContentClassName}>
+                  <div
+                    className={cn(
+                      drawerBodyClassName,
+                      drawerBodyFlexClassName,
+                      responsiveDrawerBodyClassName,
+                      "min-h-0 gap-0"
+                    )}
+                  >
+                    <div data-vaul-no-drag="" className="w-full shrink-0">
+                      <DrawerTitle>Mention Session Calendar</DrawerTitle>
+                      <DrawerDescription className={responsiveDrawerDescriptionClassName}>
+                        Select a session to insert into your message.
+                      </DrawerDescription>
+                    </div>
+                    <div
+                      data-vaul-no-drag=""
+                      className={cn(drawerScrollRegionClassName, "w-full min-w-0 space-y-2 text-left")}
+                    >
                       {mentionItems.length > 0 ? (
                         mentionItems.map((item, index) => (
                           <button

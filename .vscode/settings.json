@@ -1,0 +1,6 @@
+{
+    "git.defaultBranchName": "main",
+    "git.autofetch": true,
+    "scm.graph.showIncomingChanges": true,
+    "scm.graph.showOutgoingChanges": true
+}
