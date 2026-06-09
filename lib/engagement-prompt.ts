@@ -7,7 +7,7 @@ export const ENGAGEMENT_STORAGE_KEYS = {
 } as const;
 
 /** Max star-rating submissions (engagement drawer/dialog) before stars are disabled. */
-export const MAX_ENGAGEMENT_RATING_ATTEMPTS = 2;
+export const MAX_ENGAGEMENT_RATING_ATTEMPTS = 1;
 
 export type EngagementActionType =
   | "grid_cell_open"

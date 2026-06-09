@@ -103,7 +103,7 @@ function EngagementPromptBody({
           requiresFeedback ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
         )}
       >
-        <div className="overflow-hidden">
+        <div className="-m-1 overflow-hidden p-1">
           <div className="flex flex-col gap-2 pt-1">
             <Textarea
               id="feedback-reason"
