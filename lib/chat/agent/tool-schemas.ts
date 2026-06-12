@@ -4,7 +4,7 @@ const TOOL_DEFINITIONS: Record<ChatToolName, WorkersAiToolSchema> = {
   search_calendar_activities: {
     name: "search_calendar_activities",
     description:
-      "Find official UiTM academic calendar rows by activity name or keywords. Returns authoritative dates for matched events. Examples: query \"cuti semester\", \"peperiksaan akhir\", \"yuran\", \"penangguhan\". Do NOT use for lecture week numbers (Week 1..N) — use get_lecture_weeks instead.",
+      "Find official UiTM academic calendar rows by activity name, keywords, or abbreviations (e.g. cuti semester, peperiksaan akhir, yuran, SuFO, MDS, RPGT). Returns authoritative dates when matched; on partial match returns closest official names plus a calendar excerpt. Do NOT use for lecture week numbers (Week 1..N) — use get_lecture_weeks instead.",
     parameters: {
       type: "object",
       properties: {
@@ -19,13 +19,17 @@ const TOOL_DEFINITIONS: Record<ChatToolName, WorkersAiToolSchema> = {
   get_academic_calendar: {
     name: "get_academic_calendar",
     description:
-      "Get the academic calendar activity list for the user's selected program and session(s). Use for schedule overview or when search returns nothing.",
+      "Get the academic calendar for the user's selected program and session(s). Use for schedule overview or when search needs more context. Returns full dated rows by default; set mode=names_only for a compact list of official activity names only.",
     parameters: {
       type: "object",
       properties: {
         include_secondary_group: {
           type: "boolean",
           description: "Include Group A/B reference calendar when user asks about the other group",
+        },
+        mode: {
+          type: "string",
+          description: "full (default): dated calendar rows; names_only: official activity names without dates",
         },
       },
     },

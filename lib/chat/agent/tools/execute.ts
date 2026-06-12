@@ -1,7 +1,10 @@
 import {
+  formatClosestActivitiesBlock,
   formatMatchedActivitiesBlock,
-  matchActivitiesInMessage,
+  searchActivitiesInMessage,
   flattenActivitiesWithSession,
+  HIGH_CONFIDENCE_MATCH_SCORE,
+  WEAK_CANDIDATE_MIN_SCORE,
 } from "@/lib/chat/activity-match";
 import {
   computeQuickReferenceForSessions,
@@ -45,6 +48,41 @@ function formatToolMiss(params: {
     "Exact rows: none in this scope.",
     `Next: ${params.suggest}`,
     "You may still answer explain/opinion/justification questions with general UiTM guidance — label uncertainty; do not invent dates.",
+  ].join("\n");
+}
+
+function formatSearchPartialResult(params: {
+  searched: string;
+  scope: string;
+  closestBlock: string;
+  calendarExcerpt: string;
+}): string {
+  const parts = [
+    "=== SEARCH RESULT (no exact single match — use closest rows + calendar below) ===",
+    `Searched: ${params.searched}`,
+    `Scope: ${params.scope}`,
+  ];
+  if (params.closestBlock) parts.push(params.closestBlock);
+  if (params.calendarExcerpt) parts.push(params.calendarExcerpt);
+  parts.push(
+    "Answer using the closest official activity name above if it fits the user's words. If still unclear, name the top candidates and state uncertainty. Copy dates only from these rows."
+  );
+  return parts.filter(Boolean).join("\n\n");
+}
+
+function formatActivityNamesList(
+  sessionIds: import("@/lib/data").SessionId[],
+  program: string,
+  group: "A" | "B"
+): string {
+  const flat = flattenActivitiesWithSession(sessionIds, (sid) =>
+    getFilteredActivitiesForSession(sid, program, group)
+  );
+  const names = [...new Set(flat.map(({ activity }) => activity.name))];
+  const lines = names.slice(0, 80).map((n) => `- ${n}`);
+  return [
+    "=== OFFICIAL ACTIVITY NAMES (browse — use search_calendar_activities with full name for dates) ===",
+    ...lines,
   ].join("\n");
 }
 
@@ -104,6 +142,7 @@ function executeSearchCalendarActivities(
 ): string {
   const parsed = parseToolArgs(args);
   const query = String(parsed.query ?? ctx.message).trim();
+  const searchText = query || ctx.message;
 
   if (ctx.activityMatches.length > 0 && !parsed.query) {
     const human = formatMatchedActivitiesBlock(ctx.activityMatches);
@@ -115,15 +154,18 @@ function executeSearchCalendarActivities(
   const flatPool = flattenActivitiesWithSession(ctx.contextSessionIds, (sid) =>
     getFilteredActivitiesForSession(sid, ctx.program, ctx.primaryGroup)
   );
-  const matches = matchActivitiesInMessage(query || ctx.message, flatPool);
-  if (matches.length > 0) {
-    const human = formatMatchedActivitiesBlock(matches);
+
+  const strongMatches = searchActivitiesInMessage(searchText, flatPool, {
+    minScore: HIGH_CONFIDENCE_MATCH_SCORE,
+  });
+  if (strongMatches.length > 0) {
+    const human = formatMatchedActivitiesBlock(strongMatches);
     return truncateToolOutput(
-      formatStructuredToolOutput(matchedActivitiesToRows(matches), human)
+      formatStructuredToolOutput(matchedActivitiesToRows(strongMatches), human)
     );
   }
 
-  const dateScope = resolveDateScope(query || ctx.message, ctx.todayISO);
+  const dateScope = resolveDateScope(searchText, ctx.todayISO);
   if (dateScope) {
     const scoped = filterActivitiesByDateScope(ctx.primaryActivities, dateScope);
     const lines: string[] = [
@@ -148,28 +190,54 @@ function executeSearchCalendarActivities(
     return truncateToolOutput(lines.join("\n"));
   }
 
-  return formatToolMiss({
-    tool: "search_calendar_activities",
-    searched: query || ctx.message,
-    scope: sessionScopeLine(ctx),
-    suggest: "call get_academic_calendar for full session calendar, or rephrase the official activity name",
+  const weakCandidates = searchActivitiesInMessage(searchText, flatPool, {
+    maxResults: 5,
+    minScore: WEAK_CANDIDATE_MIN_SCORE,
+  }).filter((m) => m.score < HIGH_CONFIDENCE_MATCH_SCORE);
+
+  const closestBlock = formatClosestActivitiesBlock(weakCandidates);
+  const calendarExcerpt = executeGetAcademicCalendar(args, ctx, {
+    forceFullCalendar: true,
+    mode: "full",
   });
+
+  return truncateToolOutput(
+    formatSearchPartialResult({
+      searched: searchText,
+      scope: sessionScopeLine(ctx),
+      closestBlock,
+      calendarExcerpt,
+    })
+  );
 }
 
 function executeGetAcademicCalendar(
   args: Record<string, unknown>,
-  ctx: AgentTurnContext
+  ctx: AgentTurnContext,
+  internal?: { forceFullCalendar?: boolean; mode?: "names_only" | "full" }
 ): string {
   const parsed = parseToolArgs(args);
   const includeSecondary =
     parsed.include_secondary_group === true || ctx.includeSecondary;
+  const mode =
+    internal?.mode ??
+    (parsed.mode === "names_only" || parsed.mode === "full"
+      ? (parsed.mode as "names_only" | "full")
+      : "full");
+  const useIntentFilter = internal?.forceFullCalendar ? false : ctx.useIntentFilter;
+
+  if (mode === "names_only") {
+    return truncateToolOutput(
+      formatActivityNamesList(ctx.contextSessionIds, ctx.program, ctx.primaryGroup)
+    );
+  }
 
   const primary = formatPrimaryCalendarContext(
     ctx.contextSessionIds,
     ctx.program,
     ctx.primaryGroup,
     ctx.contextIntent,
-    { useIntentFilter: ctx.useIntentFilter }
+    { useIntentFilter }
   );
   let out = [
     `=== SESSION LIST (GROUP ${ctx.primaryGroup}) ===`,

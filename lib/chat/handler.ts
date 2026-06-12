@@ -487,6 +487,20 @@ export async function POST(request: NextRequest) {
       );
     };
 
+    const resolveAgentReplyWithFallback = async (
+      agentReply: string,
+      toolsUsed: string[],
+      onToken: (token: string) => void | Promise<void>,
+      legacyPrompt: string
+    ): Promise<string> => {
+      if (!legacyPrompt.trim() || agentReply.trim()) return agentReply;
+      logger.warn("Chat agent empty reply, using legacy context fallback", {
+        correlationId,
+        toolsUsed,
+      });
+      return runLegacyLlm(legacyPrompt, onToken);
+    };
+
     const runLlm = async (
       onToken: (token: string) => void | Promise<void>
     ): Promise<string> => {
@@ -509,14 +523,12 @@ export async function POST(request: NextRequest) {
           agentMode,
           toolsUsed: agentResult.toolsUsed,
         });
-        rawReply = agentResult.reply;
-        if (!rawReply.trim() && legacyFallbackPromptWithCompletion.trim()) {
-          logger.warn("Chat agent empty reply, using legacy context fallback", {
-            correlationId,
-            toolsUsed: agentResult.toolsUsed,
-          });
-          rawReply = await runLegacyLlm(legacyFallbackPromptWithCompletion, onToken);
-        }
+        rawReply = await resolveAgentReplyWithFallback(
+          agentResult.reply,
+          agentResult.toolsUsed,
+          onToken,
+          legacyFallbackPromptWithCompletion
+        );
       } else if (wantStream) {
         rawReply = await streamAiWithRetry(
           sanitizedMessage,
@@ -553,13 +565,12 @@ export async function POST(request: NextRequest) {
             onToken,
             emitTokensToClient: streamTokensToClient,
           });
-          rawReply = agentRetry.reply;
-          if (!rawReply.trim() && legacyFallbackPromptWithCompletion.trim()) {
-            rawReply = await runLegacyLlm(
-              legacyFallbackPromptWithCompletion + DATE_VALIDATION_RETRY_NUDGE,
-              onToken
-            );
-          }
+          rawReply = await resolveAgentReplyWithFallback(
+            agentRetry.reply,
+            agentRetry.toolsUsed,
+            onToken,
+            legacyFallbackPromptWithCompletion + DATE_VALIDATION_RETRY_NUDGE
+          );
         } else if (wantStream) {
           rawReply = await streamAiWithRetry(
             sanitizedMessage,
@@ -599,14 +610,12 @@ export async function POST(request: NextRequest) {
             onToken,
             emitTokensToClient: streamTokensToClient,
           });
-          retryReply = agentCompletion.reply;
-          if (!retryReply.trim() && legacyFallbackPromptWithCompletion.trim()) {
-            retryReply = await runLegacyLlm(
-              legacyFallbackPromptWithCompletion + REPLY_COMPLETION_RETRY_NUDGE,
-              onToken,
-              bumpedBudget
-            );
-          }
+          retryReply = await resolveAgentReplyWithFallback(
+            agentCompletion.reply,
+            agentCompletion.toolsUsed,
+            onToken,
+            legacyFallbackPromptWithCompletion + REPLY_COMPLETION_RETRY_NUDGE
+          );
         } else if (wantStream) {
           retryReply = await streamAiWithRetry(
             sanitizedMessage,

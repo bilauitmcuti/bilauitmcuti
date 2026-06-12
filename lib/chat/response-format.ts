@@ -29,6 +29,7 @@ export const CHAT_ANSWER_MODE_POLICY = `ANSWER STRATEGY (internal — never writ
 export const CHAT_GRACEFUL_FALLBACK_POLICY = `WHEN TOOL DATA IS MISSING OR PARTIAL:
 - Do not hard-refuse in-scope UiTM questions.
 - For missing exact dates: say the exact date is not in retrieved data; offer related context from tools or general guidance.
+- When tool output includes CLOSEST MATCHES or a full calendar excerpt: choose the best official activity name, state dates from that row, or name 1–2 candidates and explain ambiguity.
 - For explain/opinion questions: answer using available tool snippets and reasonable UiTM student context; mark uncertainty where needed.
 - Only decline when the question is clearly outside UiTM / student calendar scope or unsafe.`;
 

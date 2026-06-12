@@ -983,7 +983,7 @@ function buildAgentModelRunInput(
 }
 
 export const AGENT_SYNTHESIS_NUDGE =
-  "Write your complete final answer for the student now based on the conversation and any tool results above. Use tool output as the source of truth for dates and official events. If exact data was not found, say so clearly and still give helpful general UiTM student guidance — never leave the reply empty.";
+  "Write your complete final answer for the student now using the tool results above. Copy dates only from official calendar rows in tool output. If the user used a short name or abbreviation, map it to the closest official activity name from CLOSEST MATCHES or the calendar list before answering. If no exact row fits, name the nearest official candidates, state what is uncertain, and answer the question as directly as the tool evidence allows.";
 
 function appendAgentSynthesisNudge(
   messages: AgentChatMessage[],
