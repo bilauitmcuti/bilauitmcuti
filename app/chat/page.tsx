@@ -1108,7 +1108,10 @@ export default function ChatPage() {
                     </ContextMenu>
                   ) : (
                     <div className="w-full px-1 py-1 text-sm leading-relaxed text-foreground">
-                      <FormattedMessage content={msg.content} />
+                      <FormattedMessage
+                        content={msg.content}
+                        isComplete={msg.isComplete !== false}
+                      />
                     </div>
                   )}
                 </div>
