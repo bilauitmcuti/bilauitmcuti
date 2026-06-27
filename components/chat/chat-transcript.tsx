@@ -14,12 +14,13 @@ import {
   MessageScrollerViewport,
 } from "@/components/ui/message-scroller";
 import { ChatMessageRow } from "@/components/chat/chat-message-row";
+import { ChatScrollSync } from "@/components/chat/chat-scroll-sync";
 import type { ChatMessageItem } from "@/components/chat/chat-utils";
 
 interface ChatTranscriptProps {
   messages: ChatMessageItem[];
   isLoading: boolean;
-  showThinkingUi: boolean;
+  showLoadingMarker: boolean;
   loadingPhrase: string;
   lastUserMsgId: string | null;
   copiedId: string | null;
@@ -39,7 +40,7 @@ interface ChatTranscriptProps {
 export function ChatTranscript({
   messages,
   isLoading,
-  showThinkingUi,
+  showLoadingMarker,
   loadingPhrase,
   lastUserMsgId,
   copiedId,
@@ -56,7 +57,8 @@ export function ChatTranscript({
   onDelete,
 }: ChatTranscriptProps) {
   return (
-    <MessageScrollerProvider autoScroll>
+    <MessageScrollerProvider autoScroll defaultScrollPosition="end">
+      <ChatScrollSync messages={messages} />
       <MessageScroller className="flex-1 min-h-0">
         <MessageScrollerViewport onScroll={onViewportScroll}>
           <MessageScrollerContent
@@ -80,7 +82,7 @@ export function ChatTranscript({
               <ChatMessageRow
                 key={msg.id}
                 message={msg}
-                scrollAnchor={msg.role === "user"}
+                scrollAnchor={false}
                 isLastUserMessage={msg.id === lastUserMsgId}
                 copiedId={copiedId}
                 reaction={reactions[msg.id]}
@@ -90,10 +92,12 @@ export function ChatTranscript({
                 onDelete={onDelete}
               />
             ))}
-            {showThinkingUi && loadingPhrase ? (
-              <MessageScrollerItem>
+            {showLoadingMarker && loadingPhrase ? (
+              <MessageScrollerItem messageId="__loading__">
                 <Marker role="status">
-                  <MarkerContent className="shimmer">{loadingPhrase}</MarkerContent>
+                  <MarkerContent className="shimmer text-sm text-muted-foreground">
+                    {loadingPhrase}
+                  </MarkerContent>
                 </Marker>
               </MessageScrollerItem>
             ) : null}

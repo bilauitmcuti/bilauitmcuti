@@ -373,17 +373,26 @@ export default function ChatPage() {
     return null;
   }, [messages]);
 
-  const showThinkingUi = useMemo(
-    () =>
-      isLoading &&
-      showThinkingIndicator &&
-      !messages.some((m) => m.role === "assistant" && m.isComplete === false),
-    [isLoading, showThinkingIndicator, messages]
-  );
+  const showLoadingMarker = useMemo(() => {
+    const isAwaitingAssistant = messages.some(
+      (m) => m.role === "assistant" && m.isComplete === false
+    );
+    const hasStreamingContent = messages.some(
+      (m) =>
+        m.role === "assistant" &&
+        m.isComplete === false &&
+        m.content.trim().length > 0
+    );
 
-  // Rotate loading phrases while the delayed thinking indicator is visible
+    return (
+      isLoading &&
+      ((showThinkingIndicator && !isAwaitingAssistant) ||
+        (isAwaitingAssistant && !hasStreamingContent))
+    );
+  }, [isLoading, showThinkingIndicator, messages]);
+
   useEffect(() => {
-    if (!showThinkingIndicator) {
+    if (!showLoadingMarker) {
       setLoadingPhrase("");
       return;
     }
@@ -392,7 +401,7 @@ export default function ChatPage() {
       setLoadingPhrase((prev) => getRandomLoadingPhrase(prev));
     }, 3000);
     return () => clearInterval(interval);
-  }, [showThinkingIndicator]);
+  }, [showLoadingMarker]);
 
   useEffect(() => () => clearThinkingDelay(), [clearThinkingDelay]);
 
@@ -516,11 +525,10 @@ export default function ChatPage() {
                 },
               ];
             });
-            clearThinkingDelay();
-            setShowThinkingIndicator(false);
-
             await consumeChatStream(res, {
               onToken: (token) => {
+                clearThinkingDelay();
+                setShowThinkingIndicator(false);
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantId
@@ -928,7 +936,7 @@ export default function ChatPage() {
           <ChatTranscript
             messages={messages}
             isLoading={isLoading}
-            showThinkingUi={showThinkingUi}
+            showLoadingMarker={showLoadingMarker}
             loadingPhrase={loadingPhrase}
             lastUserMsgId={lastUserMsgId}
             copiedId={copiedId}

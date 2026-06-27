@@ -44,7 +44,7 @@ export const LOADING_PHRASES = [
 
 export const FETCH_TIMEOUT_MS = 60_000;
 export const RETRY_DELAYS_MS = [400, 800, 1600];
-/** Show three-dot thinking UI only if the response takes longer than this (ms). */
+/** Show loading marker only if the response takes longer than this (ms). */
 export const LOADING_INDICATOR_DELAY_MS = 450;
 export const CHAT_TURNSTILE_COOKIE = "chat_turnstile_verified";
 export const MAX_CHAT_MESSAGE_LENGTH = CHAT_MAX_MESSAGE_LENGTH;
