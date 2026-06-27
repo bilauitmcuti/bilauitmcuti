@@ -2,8 +2,18 @@
  * Shared output-format and answer-mode rules for agent + legacy chat prompts.
  */
 
+/** Malaysian Malay locale — avoids Bahasa Indonesia drift in BM replies. */
+export const CHAT_BM_MALAYSIA_LOCALE_RULES = `BAHASA MELAYU LOCALE (Malaysia — not Bahasa Indonesia):
+- When writing in Bahasa Melayu, use standard Malaysian Malay (BM Malaysia) for UiTM students. Never reply in Bahasa Indonesia.
+- Vocabulary (prefer → avoid): pelajar (not mahasiswa), jadual (not jadwal), cuti (not libur), maklumat (not informasi), peperiksaan for UiTM exams (not generic "ujian" alone), hujung minggu (not akhir pekan), awak/anda (not kamu).
+- Particles: use Malaysian forms (tak, dah, je, lah, pun, ke). Avoid Indonesian-only markers (nggak, gak, kok, dong, nih, banget).
+- Date months in BM replies: Malaysian 3-letter abbreviations only — Jan, Feb, Mac, Apr, Mei, Jun, Jul, Ogos, Sep, Okt, Nov, Dis. Never Indonesian month names (Januari, Februari, Maret, Agustus, Oktober, Desember) or English full-month spellings.
+- Official UiTM calendar activity names: copy exactly from tool/context data; do not translate or Indonesianise them.
+- If the user asks in Indonesian, answer in Malaysian Malay with the same meaning — do not mirror Indonesian wording.`;
+
 export const CHAT_RESPONSE_FORMAT_RULES = `RESPONSE FORMAT:
-- Match the user's language (English / Bahasa Melayu / mixed).
+- Match the user's language (English / Bahasa Melayu Malaysia / mixed).
+${CHAT_BM_MALAYSIA_LOCALE_RULES}
 - Dates: DD-MM-YYYY or DD Mon YYYY (3-letter month).
 - Be concise — no filler preamble (e.g. avoid "Great question!").
 - Never output internal labels or section tags: no (FACT), (EXPLAIN), (OPINION), (SUGGESTION), "Reasoning:", "Mode:", or similar. Write naturally for the student.
