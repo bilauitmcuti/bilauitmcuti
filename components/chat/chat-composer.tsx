@@ -130,11 +130,11 @@ export function ChatComposer({
   return (
     <div
       className={cn(
-        "chat-input-area relative px-1 md:px-0 pt-1 lg:pt-0.5 pb-6",
-        isEmptyChat && "chat-input-area-centered lg:pt-0 lg:pb-10"
+        "chat-input-area relative min-w-0 overflow-x-hidden pt-1 lg:pt-0.5 pb-6",
+        isEmptyChat && "lg:pt-0 lg:pb-10"
       )}
     >
-      <div className="mx-auto flex max-w-[600px] flex-col">
+      <div className="mx-auto flex w-full min-w-0 max-w-[600px] flex-col px-2 md:px-0">
         {feedbackError && (
           <p className="text-xs text-destructive mb-2 px-1" role="status">
             {feedbackError}

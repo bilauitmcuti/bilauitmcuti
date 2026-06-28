@@ -309,11 +309,11 @@ export function CalendarControls({
 
   return (
       <div 
-        className={`${positionClass} ${bgClass} -mx-4 sm:-mx-6 lg:-mx-4 px-4 sm:px-6 lg:px-4 transition-none overflow-visible ${stabilityClass}`} 
+        className={`${positionClass} -mx-4 sm:-mx-6 lg:-mx-4 px-4 sm:px-6 lg:px-4 transition-none relative overflow-visible ${stabilityClass}`} 
         suppressHydrationWarning
       >
         <div 
-          className={`flex flex-row items-center justify-between gap-4 pt-8 w-full px-0 min-h-14 pb-1 ${bgClass} transition-none`} 
+          className={`flex flex-row items-center justify-between gap-4 pt-8 w-full px-0 min-h-14 pb-6 -mb-6 scroll-fade-b scroll-fade-6 calendar-controls-scroll-fade ${bgClass} transition-none`} 
           suppressHydrationWarning
           style={{ transition: 'none' }}
         >
@@ -714,7 +714,6 @@ export function CalendarControls({
           </div>
         </div>
       </div>
-      <div className="calendar-controls-fade" />
     </div>
   );
 }

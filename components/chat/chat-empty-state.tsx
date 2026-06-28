@@ -29,7 +29,7 @@ export function ChatEmptyState({
   onTurnstileToken,
 }: ChatEmptyStateProps) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center px-4 pb-6 lg:flex-none lg:pb-0">
+    <div className="flex min-w-0 flex-1 flex-col items-center justify-center overflow-x-hidden px-4 pb-6 lg:flex-none lg:pb-0">
       <Empty className="mx-auto max-w-[600px] border-none p-0">
         <EmptyHeader>
           <EmptyTitle
