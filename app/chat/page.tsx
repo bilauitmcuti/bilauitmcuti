@@ -1000,12 +1000,6 @@ export default function ChatPage() {
     return "How can I help you today?";
   }, [isEmptyChat, isDesktopViewport]);
 
-  const handleChatBack = useCallback(() => {
-    const target = resolveChatBackPath(selectedProgram);
-    clearChatReturnPath();
-    router.push(target);
-  }, [router, selectedProgram]);
-
   return (
     <div className="relative flex flex-col h-dvh overflow-x-hidden bg-background text-foreground" data-nosnippet>
       {/* Header - overlays on top of chat area */}
