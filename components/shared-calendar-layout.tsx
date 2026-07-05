@@ -31,6 +31,7 @@ import { setFiltersToCookie, type FilterStates } from '@/lib/cookie-utils';
 import type { ViewMode } from '@/app/page';
 import { parseSessionIdsFromHydrateKey } from '@/lib/calendar-initial-server';
 import { replaceCalendarHistoryUrl } from '@/lib/share-url';
+import { consumeChatStoreResync } from '@/lib/session-query';
 import {
   areSessionListsEqual,
   getGroupFromProgram,
@@ -70,18 +71,29 @@ export function SharedCalendarLayout({
 }: SharedCalendarLayoutProps) {
   const pathname = usePathname();
   const hydrationVersion = initialCalendarSnapshot?.version ?? 0;
-  const routeHydrationKey = `${pathname}|${initialCalendarHydration?.hydrateKey ?? ''}|${initialCalendarSnapshot?.version ?? 0}`;
 
-  // Resync singleton store on route transitions (e.g. /chat → program route). pathname in deps
-  // ensures reassignment when Router Cache reuses the same snapshot ref after chat bumped store version.
+  // Apply RSC snapshot when props change or client store version drifted (e.g. after /chat).
+  // Do not key on pathname — that wiped client-fetched activities without retriggering CalendarDataGate.
   useMemo(() => {
-    assignCalendarStoreSnapshot(initialCalendarSnapshot ?? EMPTY_CALENDAR_SNAPSHOT);
-    return routeHydrationKey;
-  }, [routeHydrationKey, initialCalendarSnapshot]);
+    const clientVersion = getSnapshot().version;
+    if (initialCalendarSnapshot != null) {
+      assignCalendarStoreSnapshot(initialCalendarSnapshot);
+    } else if (clientVersion !== hydrationVersion) {
+      assignCalendarStoreSnapshot(EMPTY_CALENDAR_SNAPSHOT);
+    }
+    return null;
+  }, [initialCalendarSnapshot, initialCalendarHydration?.hydrateKey, hydrationVersion]);
 
   useLayoutEffect(() => {
-    notifyCalendarStoreListeners();
-  }, [routeHydrationKey, initialCalendarSnapshot]);
+    let didResync = false;
+    if (consumeChatStoreResync()) {
+      assignCalendarStoreSnapshot(initialCalendarSnapshot ?? EMPTY_CALENDAR_SNAPSHOT);
+      didResync = true;
+    }
+    if (didResync || initialCalendarSnapshot) {
+      notifyCalendarStoreListeners();
+    }
+  }, [initialCalendarSnapshot, initialCalendarHydration?.hydrateKey]);
 
   useSyncExternalStore(
     subscribe,

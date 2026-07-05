@@ -19,6 +19,7 @@ import {
   CHAT_RETURN_PATH_KEY,
   clearChatReturnPath,
   isValidChatReturnPath,
+  markChatStoreResync,
   readChatCalendarContext,
   resolveChatBackPath,
   resolveProgramFromCalendarPath,
@@ -305,6 +306,7 @@ export default function ChatPage() {
       },
     });
 
+    markChatStoreResync();
     clearChatReturnPath();
     router.push(target);
   }, [router, selectedProgram, selectedSessions, sessionsByProgram]);

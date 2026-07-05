@@ -153,15 +153,6 @@ export function CalendarDataGate({
     onSessionsCorrectedRef.current = onSessionsCorrected;
   }, [onSessionsCorrected]);
 
-  useEffect(() => {
-    if (
-      lastFetchedProgramRef.current !== undefined &&
-      lastFetchedProgramRef.current !== selectedProgram
-    ) {
-      lastFetchedProgramRef.current = undefined;
-    }
-  }, [selectedProgram]);
-
   const loadKey = useMemo(() => {
     const sessionsPart = [...selectedSessions].sort().join(",");
     return `${selectedProgram}|${sessionsPart}`;
@@ -258,7 +249,7 @@ export function CalendarDataGate({
         let sessionsToFetch: SessionId[];
         if (retryNonce > 0) {
           sessionsToFetch = [...targets];
-        } else if (programChanged || !hydrationProgramOk) {
+        } else if (programChanged) {
           sessionsToFetch = [...targets];
         } else {
           sessionsToFetch = targets.filter(

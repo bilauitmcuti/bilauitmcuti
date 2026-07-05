@@ -172,6 +172,8 @@ export function applySessionIdsToFilters(
 
 export const CHAT_RETURN_PATH_KEY = "chatReturnPath";
 export const CHAT_RETURN_CONTEXT_KEY = "chatReturnContext";
+/** Set before navigating back from chat; calendar layout forces store resync when RSC cache reuses snapshot ref. */
+export const CHAT_STORE_RESYNC_KEY = "chatStoreResync";
 
 export interface ChatReturnContext {
   selectedProgram: ProgramValue;
@@ -234,6 +236,29 @@ export function clearChatReturnPath(): void {
   } catch {
     // Ignore storage errors.
   }
+}
+
+export function markChatStoreResync(): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(CHAT_STORE_RESYNC_KEY, "1");
+  } catch {
+    // Ignore storage errors.
+  }
+}
+
+/** Returns true once per chat-back navigation; clears the flag. */
+export function consumeChatStoreResync(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    if (sessionStorage.getItem(CHAT_STORE_RESYNC_KEY) === "1") {
+      sessionStorage.removeItem(CHAT_STORE_RESYNC_KEY);
+      return true;
+    }
+  } catch {
+    // Ignore storage errors.
+  }
+  return false;
 }
 
 /** Derive grid vs list from a calendar pathname (homepage or program route). */
