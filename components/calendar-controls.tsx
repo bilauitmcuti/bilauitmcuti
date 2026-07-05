@@ -42,6 +42,7 @@ import { getSnapshot, subscribe } from '@/lib/calendar-store';
 import type { SessionId } from '@/lib/data';
 import { getLabelForProgramValue, getRoutePath } from '@/lib/route-utils';
 import { replaceCalendarHistoryUrl } from '@/lib/share-url';
+import { saveChatCalendarContext } from '@/lib/session-query';
 import type { ViewMode } from '@/app/page';
 import type { ProgramValue } from '@/lib/route-utils';
 import { sessionSubmenuItemClass } from '@/lib/session-submenu-item-class';
@@ -206,6 +207,14 @@ export function CalendarControls({
     },
     [onViewModeChange, router, selectedProgram, recordEngagementAction]
   );
+
+  const handleOpenChat = useCallback(() => {
+    saveChatCalendarContext(pathname, {
+      selectedProgram: selectedProgram as ProgramValue,
+      selectedSessions,
+    });
+    router.push('/chat');
+  }, [pathname, router, selectedProgram, selectedSessions]);
 
   // Memoize filtered program options to avoid recalculation
   const groupAOptions = useMemo(() => programOptions.filter(p => p.group === 'A'), [programOptions]);
@@ -539,7 +548,7 @@ export function CalendarControls({
               variant="ghost"
               size="icon"
               onMouseEnter={() => router.prefetch('/chat')}
-              onClick={() => router.push('/chat')}
+              onClick={handleOpenChat}
               className={`${iconBaseClass} ${iconInactiveClass}`}
               title="Chat"
               suppressHydrationWarning

@@ -169,3 +169,85 @@ export function applySessionIdsToFilters(
     selectedProgram: program,
   };
 }
+
+export const CHAT_RETURN_PATH_KEY = "chatReturnPath";
+export const CHAT_RETURN_CONTEXT_KEY = "chatReturnContext";
+
+export interface ChatReturnContext {
+  selectedProgram: ProgramValue;
+  selectedSessions: SessionId[];
+}
+
+/** Calendar routes valid as chat back targets (homepage + program grid/list). */
+export function isValidChatReturnPath(pathname: string): boolean {
+  if (!pathname || !pathname.startsWith("/")) return false;
+  return isCalendarPath(pathname);
+}
+
+export function saveChatReturnPath(pathname: string): void {
+  if (typeof window === "undefined") return;
+  if (!isValidChatReturnPath(pathname)) return;
+  try {
+    sessionStorage.setItem(CHAT_RETURN_PATH_KEY, pathname);
+  } catch {
+    // Ignore storage errors (private mode / quota).
+  }
+}
+
+/** Persist calendar program + sessions when opening chat (avoids stale cookie/localStorage). */
+export function saveChatCalendarContext(
+  pathname: string,
+  context: ChatReturnContext
+): void {
+  saveChatReturnPath(pathname);
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(CHAT_RETURN_CONTEXT_KEY, JSON.stringify(context));
+  } catch {
+    // Ignore storage errors (private mode / quota).
+  }
+}
+
+export function readChatCalendarContext(): ChatReturnContext | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(CHAT_RETURN_CONTEXT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as ChatReturnContext;
+    if (!parsed?.selectedProgram || !isProgramValue(parsed.selectedProgram)) {
+      return null;
+    }
+    if (!Array.isArray(parsed.selectedSessions) || parsed.selectedSessions.length === 0) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function clearChatReturnPath(): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.removeItem(CHAT_RETURN_PATH_KEY);
+    sessionStorage.removeItem(CHAT_RETURN_CONTEXT_KEY);
+  } catch {
+    // Ignore storage errors.
+  }
+}
+
+/** Resolve chat back navigation: stored calendar path first, then program fallback. */
+export function resolveChatBackPath(fallbackProgram: ProgramValue): string {
+  if (typeof window !== "undefined") {
+    try {
+      const stored = sessionStorage.getItem(CHAT_RETURN_PATH_KEY);
+      if (stored && isValidChatReturnPath(stored)) return stored;
+    } catch {
+      // Ignore storage errors.
+    }
+  }
+  if (fallbackProgram !== "All") {
+    return getRoutePath(fallbackProgram, "grid");
+  }
+  return "/";
+}
