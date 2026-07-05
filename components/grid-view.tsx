@@ -1234,7 +1234,6 @@ export const GridView = memo(function GridView({
             {drawerDateKey ? (
               <>
                 <div
-                  data-vaul-no-drag=""
                   className="w-full shrink-0 px-4 pt-0"
                 >
                   <div className="flex w-full items-center justify-between gap-2">
@@ -1270,7 +1269,6 @@ export const GridView = memo(function GridView({
                 </div>
                 <div
                   ref={setDrawerSwipeAreaRef}
-                  data-vaul-no-drag=""
                   data-grid-activity-drawer-swipe=""
                   className={cn(drawerScrollRegionClassName, 'w-full min-w-0 px-4')}
                 >
