@@ -14,14 +14,9 @@ import {
 } from "@/lib/data";
 import type { SessionId } from "@/lib/data";
 import { getFiltersFromCookie, setFiltersToCookie } from "@/lib/cookie-utils";
-import { getRoutePath, isProgramValue, type ProgramValue } from "@/lib/route-utils";
+import { isProgramValue, type ProgramValue } from "@/lib/route-utils";
 import {
-  CHAT_RETURN_PATH_KEY,
-  clearChatReturnPath,
-  isValidChatReturnPath,
   readChatCalendarContext,
-  resolveChatBackPath,
-  resolveProgramFromCalendarPath,
 } from "@/lib/session-query";
 import {
   areSessionListsEqual,
@@ -139,11 +134,6 @@ export default function ChatPage() {
     try {
       const filters = getFiltersFromCookie();
       const calendarContext = readChatCalendarContext();
-      const returnPath = sessionStorage.getItem(CHAT_RETURN_PATH_KEY);
-      const programFromReturnPath =
-        returnPath && isValidChatReturnPath(returnPath)
-          ? resolveProgramFromCalendarPath(returnPath)
-          : ("All" as ProgramValue);
 
       const raw =
         localStorage.getItem("sessionIdsByProgram") ??
@@ -163,8 +153,6 @@ export default function ChatPage() {
       let nextProgram: ProgramValue;
       if (calendarContext) {
         nextProgram = calendarContext.selectedProgram;
-      } else if (programFromReturnPath !== "All") {
-        nextProgram = programFromReturnPath;
       } else if (filters.selectedProgram && isProgramValue(filters.selectedProgram)) {
         nextProgram = filters.selectedProgram;
       } else if (storedProgram && isProgramValue(storedProgram)) {
@@ -272,9 +260,12 @@ export default function ChatPage() {
   }, [selectedProgram, selectedSessions, sessionsByProgram]);
 
   useEffect(() => {
-    router.prefetch(getRoutePath(selectedProgram, "grid"));
-    router.prefetch(getRoutePath(selectedProgram, "list"));
-  }, [router, selectedProgram]);
+    router.prefetch("/");
+  }, [router]);
+
+  const handleChatBack = useCallback(() => {
+    router.push("/");
+  }, [router]);
 
   // Sync selectedSessions when program changes using per-program memory.
   useEffect(() => {
@@ -964,12 +955,6 @@ export default function ChatPage() {
     }
     return "How can I help you today?";
   }, [isEmptyChat, isDesktopViewport]);
-
-  const handleChatBack = useCallback(() => {
-    const target = resolveChatBackPath(selectedProgram);
-    clearChatReturnPath();
-    router.push(target);
-  }, [router, selectedProgram]);
 
   return (
     <div className="relative flex flex-col h-dvh overflow-x-hidden bg-background text-foreground" data-nosnippet>

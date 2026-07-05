@@ -170,7 +170,6 @@ export function applySessionIdsToFilters(
   };
 }
 
-export const CHAT_RETURN_PATH_KEY = "chatReturnPath";
 export const CHAT_RETURN_CONTEXT_KEY = "chatReturnContext";
 
 export interface ChatReturnContext {
@@ -178,28 +177,8 @@ export interface ChatReturnContext {
   selectedSessions: SessionId[];
 }
 
-/** Calendar routes valid as chat back targets (homepage + program grid/list). */
-export function isValidChatReturnPath(pathname: string): boolean {
-  if (!pathname || !pathname.startsWith("/")) return false;
-  return isCalendarPath(pathname);
-}
-
-export function saveChatReturnPath(pathname: string): void {
-  if (typeof window === "undefined") return;
-  if (!isValidChatReturnPath(pathname)) return;
-  try {
-    sessionStorage.setItem(CHAT_RETURN_PATH_KEY, pathname);
-  } catch {
-    // Ignore storage errors (private mode / quota).
-  }
-}
-
 /** Persist calendar program + sessions when opening chat (avoids stale cookie/localStorage). */
-export function saveChatCalendarContext(
-  pathname: string,
-  context: ChatReturnContext
-): void {
-  saveChatReturnPath(pathname);
+export function saveChatCalendarContext(context: ChatReturnContext): void {
   if (typeof window === "undefined") return;
   try {
     sessionStorage.setItem(CHAT_RETURN_CONTEXT_KEY, JSON.stringify(context));
@@ -224,30 +203,4 @@ export function readChatCalendarContext(): ChatReturnContext | null {
   } catch {
     return null;
   }
-}
-
-export function clearChatReturnPath(): void {
-  if (typeof window === "undefined") return;
-  try {
-    sessionStorage.removeItem(CHAT_RETURN_PATH_KEY);
-    sessionStorage.removeItem(CHAT_RETURN_CONTEXT_KEY);
-  } catch {
-    // Ignore storage errors.
-  }
-}
-
-/** Resolve chat back navigation: stored calendar path first, then program fallback. */
-export function resolveChatBackPath(fallbackProgram: ProgramValue): string {
-  if (typeof window !== "undefined") {
-    try {
-      const stored = sessionStorage.getItem(CHAT_RETURN_PATH_KEY);
-      if (stored && isValidChatReturnPath(stored)) return stored;
-    } catch {
-      // Ignore storage errors.
-    }
-  }
-  if (fallbackProgram !== "All") {
-    return getRoutePath(fallbackProgram, "grid");
-  }
-  return "/";
 }

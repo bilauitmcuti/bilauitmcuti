@@ -22,6 +22,7 @@ import {
   notifyCalendarStoreListeners,
   getSnapshot,
   subscribe,
+  EMPTY_CALENDAR_SNAPSHOT,
 } from '@/lib/calendar-store';
 import type { CalendarSnapshot } from '@/lib/calendar-store';
 import { DEFAULT_FILTER_STATES, getGroupFromSession, getSessionForCurrentDate } from '@/lib/data';
@@ -67,29 +68,32 @@ export function SharedCalendarLayout({
   initialCalendarSnapshot = null,
   initialCalendarHydration = null,
 }: SharedCalendarLayoutProps) {
+  const pathname = usePathname();
   const hydrationVersion = initialCalendarSnapshot?.version ?? 0;
-  // Apply RSC payload synchronously so children read the right getSnapshot(); do not emit here
-  // (emit would update useSyncExternalStore subscribers during this render — React forbids that).
+
+  // Apply RSC snapshot when props change or client store version drifted (e.g. after /chat).
+  // Do not key on pathname — that wiped client-fetched activities without retriggering CalendarDataGate.
   useMemo(() => {
-    if (initialCalendarSnapshot) {
+    const clientVersion = getSnapshot().version;
+    if (initialCalendarSnapshot != null) {
       assignCalendarStoreSnapshot(initialCalendarSnapshot);
+    } else if (clientVersion !== hydrationVersion) {
+      assignCalendarStoreSnapshot(EMPTY_CALENDAR_SNAPSHOT);
     }
-    return 0;
-  }, [initialCalendarSnapshot, initialCalendarHydration?.hydrateKey]);
+    return null;
+  }, [initialCalendarSnapshot, initialCalendarHydration?.hydrateKey, hydrationVersion]);
 
   useLayoutEffect(() => {
     if (initialCalendarSnapshot) {
       notifyCalendarStoreListeners();
     }
-  }, [initialCalendarSnapshot]);
+  }, [initialCalendarSnapshot, initialCalendarHydration?.hydrateKey]);
 
   useSyncExternalStore(
     subscribe,
     () => getSnapshot().version,
     () => hydrationVersion
   );
-
-  const pathname = usePathname();
   const router = useRouter();
   const isHomepage = pathname === '/' || pathname === '/list';
 

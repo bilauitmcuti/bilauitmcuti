@@ -9,6 +9,8 @@ import { buildCalendarPageMetadata } from '@/lib/calendar-seo-metadata';
 import { PageSeoBlock } from '@/components/page-seo-block';
 import type { Metadata } from 'next';
 
+export const dynamic = 'force-dynamic';
+
 
 interface ProgramPageProps {
   params: Promise<{
