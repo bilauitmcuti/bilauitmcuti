@@ -80,11 +80,49 @@ describe("version-store", () => {
       });
     });
 
-    it("reads meta tag once and caches the value for the page session", () => {
+    it("prefers client bundle over meta when they differ (direct /chat vs cached HTML)", () => {
+      vi.stubGlobal("process", {
+        ...process,
+        env: { ...process.env, NEXT_PUBLIC_BUILD_ID: "build-client" },
+      });
+
+      expect(getDocumentLoadedBuildId()).toBe("build-client");
+    });
+
+    it("freezes the first resolved build id for the page session", () => {
+      vi.stubGlobal("process", {
+        ...process,
+        env: { ...process.env, NEXT_PUBLIC_BUILD_ID: "build-a" },
+      });
+
       expect(getDocumentLoadedBuildId()).toBe("build-a");
 
+      vi.stubGlobal("process", {
+        ...process,
+        env: { ...process.env, NEXT_PUBLIC_BUILD_ID: "build-b" },
+      });
       metaContent = "build-b";
       expect(getDocumentLoadedBuildId()).toBe("build-a");
+    });
+
+    it("falls back to meta tag when client bundle and bootstrap are empty", () => {
+      vi.stubGlobal("process", {
+        ...process,
+        env: { ...process.env, NEXT_PUBLIC_BUILD_ID: "" },
+      });
+      vi.stubGlobal("window", { __APP_BUILD_ID__: "" });
+
+      expect(getDocumentLoadedBuildId()).toBe("build-a");
+    });
+
+    it("falls back to window bootstrap before meta", () => {
+      vi.stubGlobal("process", {
+        ...process,
+        env: { ...process.env, NEXT_PUBLIC_BUILD_ID: "" },
+      });
+      vi.stubGlobal("window", { __APP_BUILD_ID__: "build-bootstrap" });
+
+      expect(getDocumentLoadedBuildId()).toBe("build-bootstrap");
     });
   });
 
@@ -123,7 +161,10 @@ describe("version-store", () => {
 
     beforeEach(() => {
       resetVersionStoreForTests();
-      vi.stubGlobal("process", { ...process, env: { ...process.env, NODE_ENV: "production" } });
+      vi.stubGlobal("process", {
+        ...process,
+        env: { ...process.env, NODE_ENV: "production", NEXT_PUBLIC_BUILD_ID: "build-a" },
+      });
       vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({ buildId: "build-a" }),

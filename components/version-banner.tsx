@@ -1,16 +1,22 @@
-﻿"use client";
+"use client";
 
 import { useSyncExternalStore } from "react";
 import {
   getVersionSnapshot,
   subscribe,
+  type VersionSnapshot,
 } from "@/lib/version-store";
+
+const SERVER_VERSION_SNAPSHOT: VersionSnapshot = {
+  isVisible: false,
+  countdown: 5,
+};
 
 export function VersionBanner() {
   const { isVisible, countdown } = useSyncExternalStore(
     subscribe,
     getVersionSnapshot,
-    () => ({ isVisible: false, countdown: 5 })
+    () => SERVER_VERSION_SNAPSHOT
   );
 
   if (!isVisible) return null;

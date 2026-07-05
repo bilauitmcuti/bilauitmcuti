@@ -36,15 +36,39 @@ export function getVersionSnapshot(): VersionSnapshot {
   return snapshot;
 }
 
-/** Freeze the build ID from the initial HTML once per page load. */
+declare global {
+  interface Window {
+    /** Set synchronously in root layout before React hydrates. */
+    __APP_BUILD_ID__?: string;
+  }
+}
+
+/**
+ * Resolve the build ID for the JS bundle actually running in this tab.
+ * Prefer the client bundle over the SSR meta tag — meta can disagree on a
+ * direct /chat full load (edge-cached HTML) while client nav reuses a frozen id.
+ */
+function readLoadedBuildIdFromPage(): string {
+  if (typeof document === "undefined") return "";
+
+  const fromClient = process.env.NEXT_PUBLIC_BUILD_ID?.trim() || "";
+  if (fromClient) return fromClient;
+
+  const fromBootstrap =
+    typeof window !== "undefined" ? window.__APP_BUILD_ID__?.trim() || "" : "";
+  if (fromBootstrap) return fromBootstrap;
+
+  return (
+    document.querySelector('meta[name="app-build-id"]')?.getAttribute("content")?.trim() ??
+    ""
+  );
+}
+
+/** Freeze the loaded build ID once per full page load (survives client navigations). */
 export function getDocumentLoadedBuildId(): string {
   if (documentLoadedBuildId !== null) return documentLoadedBuildId;
-  if (typeof document === "undefined") return "";
-  const fromMeta =
-    document.querySelector('meta[name="app-build-id"]')?.getAttribute("content")?.trim() ?? "";
-  const buildId = fromMeta || process.env.NEXT_PUBLIC_BUILD_ID?.trim() || "";
-  documentLoadedBuildId = buildId;
-  return buildId;
+  documentLoadedBuildId = readLoadedBuildIdFromPage();
+  return documentLoadedBuildId;
 }
 
 export type VersionCheckResult = "skip" | "acknowledged" | "same" | "new";
@@ -152,7 +176,7 @@ function onVisibilityChange(): void {
   }
 }
 
-/** Idempotent ÔÇö safe to call from every VersionBanner mount. */
+/** Idempotent — safe to call from every VersionProvider mount. */
 export function startVersionPolling(): void {
   if (process.env.NODE_ENV !== "production") return;
   if (typeof document === "undefined") return;
