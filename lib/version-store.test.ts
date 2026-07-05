@@ -7,6 +7,7 @@ import {
   notifyNewBuildForTests,
   resetVersionStoreForTests,
   startVersionPolling,
+  stopVersionPolling,
 } from "@/lib/version-store";
 
 describe("version-store", () => {
@@ -185,6 +186,18 @@ describe("version-store", () => {
 
       expect(addEventListener).toHaveBeenCalledTimes(1);
       expect(addEventListener).toHaveBeenCalledWith("visibilitychange", expect.any(Function));
+    });
+
+    it("stopVersionPolling clears listener and hides banner", () => {
+      startVersionPolling();
+      notifyNewBuildForTests("build-b");
+
+      expect(getVersionSnapshot().isVisible).toBe(true);
+
+      stopVersionPolling();
+
+      expect(getVersionSnapshot().isVisible).toBe(false);
+      expect(removeEventListener).toHaveBeenCalledWith("visibilitychange", expect.any(Function));
     });
   });
 });

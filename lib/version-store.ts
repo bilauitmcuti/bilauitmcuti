@@ -192,6 +192,21 @@ export function startVersionPolling(): void {
   }
 }
 
+/** Stop polling and hide any visible update banner (e.g. on `/chat`). */
+export function stopVersionPolling(): void {
+  clearPoll();
+  stopCountdown();
+  if (pollingStarted && typeof document !== "undefined") {
+    document.removeEventListener("visibilitychange", onVisibilityChange);
+  }
+  pollingStarted = false;
+  pendingBuildId = null;
+  if (snapshot.isVisible) {
+    snapshot = { ...EMPTY_SNAPSHOT };
+    emit();
+  }
+}
+
 /** Test-only reset for isolated unit tests. */
 export function resetVersionStoreForTests(): void {
   snapshot = { ...EMPTY_SNAPSHOT };
