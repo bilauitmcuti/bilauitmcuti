@@ -272,9 +272,42 @@ export default function ChatPage() {
   }, [selectedProgram, selectedSessions, sessionsByProgram]);
 
   useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem(CHAT_RETURN_PATH_KEY);
+      if (stored && isValidChatReturnPath(stored)) {
+        router.prefetch(stored);
+      }
+    } catch {
+      // Ignore storage errors.
+    }
     router.prefetch(getRoutePath(selectedProgram, "grid"));
     router.prefetch(getRoutePath(selectedProgram, "list"));
   }, [router, selectedProgram]);
+
+  const handleChatBack = useCallback(() => {
+    const context = readChatCalendarContext();
+    const target = resolveChatBackPath(context?.selectedProgram ?? selectedProgram);
+    const program =
+      context?.selectedProgram ?? resolveProgramFromCalendarPath(target);
+    const sessions = context?.selectedSessions ?? selectedSessions;
+
+    const filters = getFiltersFromCookie();
+    const sessionMemoryKey = getSessionMemoryKey(program);
+    setFiltersToCookie({
+      ...filters,
+      selectedProgram: program,
+      sessionId: sessions[0],
+      sessionIds: sessions,
+      sessionIdsByProgram: {
+        ...(filters.sessionIdsByProgram ?? {}),
+        ...sessionsByProgram,
+        [sessionMemoryKey]: sessions,
+      },
+    });
+
+    clearChatReturnPath();
+    router.push(target);
+  }, [router, selectedProgram, selectedSessions, sessionsByProgram]);
 
   // Sync selectedSessions when program changes using per-program memory.
   useEffect(() => {
@@ -965,12 +998,6 @@ export default function ChatPage() {
     return "How can I help you today?";
   }, [isEmptyChat, isDesktopViewport]);
 
-  const handleChatBack = useCallback(() => {
-    const target = resolveChatBackPath(selectedProgram);
-    clearChatReturnPath();
-    router.push(target);
-  }, [router, selectedProgram]);
-
   return (
     <div className="relative flex flex-col h-dvh overflow-x-hidden bg-background text-foreground" data-nosnippet>
       {/* Header - overlays on top of chat area */}
@@ -979,7 +1006,7 @@ export default function ChatPage() {
           <button
             onClick={handleChatBack}
             className="flex items-center justify-center w-9 h-9 rounded-full bg-secondary hover:bg-secondary/80 dark:bg-[#2A2A2A] dark:hover:bg-[#333] transition-colors"
-            aria-label="Back to home"
+            aria-label="Back to calendar"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>

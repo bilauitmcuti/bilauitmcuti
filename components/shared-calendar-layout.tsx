@@ -22,6 +22,7 @@ import {
   notifyCalendarStoreListeners,
   getSnapshot,
   subscribe,
+  EMPTY_CALENDAR_SNAPSHOT,
 } from '@/lib/calendar-store';
 import type { CalendarSnapshot } from '@/lib/calendar-store';
 import { DEFAULT_FILTER_STATES, getGroupFromSession, getSessionForCurrentDate } from '@/lib/data';
@@ -67,29 +68,26 @@ export function SharedCalendarLayout({
   initialCalendarSnapshot = null,
   initialCalendarHydration = null,
 }: SharedCalendarLayoutProps) {
+  const pathname = usePathname();
   const hydrationVersion = initialCalendarSnapshot?.version ?? 0;
-  // Apply RSC payload synchronously so children read the right getSnapshot(); do not emit here
-  // (emit would update useSyncExternalStore subscribers during this render — React forbids that).
+  const routeHydrationKey = `${pathname}|${initialCalendarHydration?.hydrateKey ?? ''}|${initialCalendarSnapshot?.version ?? 0}`;
+
+  // Resync singleton store on route transitions (e.g. /chat → program route). pathname in deps
+  // ensures reassignment when Router Cache reuses the same snapshot ref after chat bumped store version.
   useMemo(() => {
-    if (initialCalendarSnapshot) {
-      assignCalendarStoreSnapshot(initialCalendarSnapshot);
-    }
-    return 0;
-  }, [initialCalendarSnapshot, initialCalendarHydration?.hydrateKey]);
+    assignCalendarStoreSnapshot(initialCalendarSnapshot ?? EMPTY_CALENDAR_SNAPSHOT);
+    return routeHydrationKey;
+  }, [routeHydrationKey, initialCalendarSnapshot]);
 
   useLayoutEffect(() => {
-    if (initialCalendarSnapshot) {
-      notifyCalendarStoreListeners();
-    }
-  }, [initialCalendarSnapshot]);
+    notifyCalendarStoreListeners();
+  }, [routeHydrationKey, initialCalendarSnapshot]);
 
   useSyncExternalStore(
     subscribe,
     () => getSnapshot().version,
     () => hydrationVersion
   );
-
-  const pathname = usePathname();
   const router = useRouter();
   const isHomepage = pathname === '/' || pathname === '/list';
 

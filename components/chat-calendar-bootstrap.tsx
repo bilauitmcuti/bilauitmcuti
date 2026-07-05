@@ -4,6 +4,10 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { fetchMetaCached, type MetaResponse } from "@/lib/calendar-api";
 import { getSnapshot, setMeta } from "@/lib/calendar-store";
+import {
+  CHAT_RETURN_PATH_KEY,
+  isValidChatReturnPath,
+} from "@/lib/session-query";
 
 const FALLBACK_META: MetaResponse = {
   defaultSession: "B-20263",
@@ -44,6 +48,17 @@ export function ChatCalendarBootstrap() {
       }
 
       if (!cancelled) {
+        try {
+          const stored =
+            typeof window !== "undefined"
+              ? sessionStorage.getItem(CHAT_RETURN_PATH_KEY)
+              : null;
+          if (stored && isValidChatReturnPath(stored)) {
+            router.prefetch(stored);
+          }
+        } catch {
+          // Ignore storage errors.
+        }
         router.prefetch("/");
         router.prefetch("/list");
       }

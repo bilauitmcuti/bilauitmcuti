@@ -11,7 +11,8 @@ export interface CalendarSnapshot {
 
 const FALLBACK_DEFAULT_SESSION = "B-20263";
 
-const emptySnapshot: CalendarSnapshot = {
+/** Safe fallback when RSC snapshot is null — keeps useSyncExternalStore server/client aligned. */
+export const EMPTY_CALENDAR_SNAPSHOT: CalendarSnapshot = {
   version: 0,
   sessionOptions: [],
   programOptions: [],
@@ -19,7 +20,7 @@ const emptySnapshot: CalendarSnapshot = {
   sessions: {},
 };
 
-let snapshot: CalendarSnapshot = { ...emptySnapshot, sessions: {} };
+let snapshot: CalendarSnapshot = { ...EMPTY_CALENDAR_SNAPSHOT, sessions: {} };
 
 const listeners = new Set<() => void>();
 

@@ -236,8 +236,16 @@ export function clearChatReturnPath(): void {
   }
 }
 
-/** Resolve chat back navigation: stored calendar path first, then program fallback. */
-export function resolveChatBackPath(fallbackProgram: ProgramValue): string {
+/** Derive grid vs list from a calendar pathname (homepage or program route). */
+export function resolveViewModeFromCalendarPath(pathname: string): "grid" | "list" {
+  if (pathname === "/list") return "list";
+  const segments = pathname.split("/").filter(Boolean);
+  if (segments.length === 2 && segments[1] === "list") return "list";
+  return "grid";
+}
+
+/** Resolve chat back navigation: stored calendar path first, then context/fallback. */
+export function resolveChatBackPath(fallbackProgram: ProgramValue = "All"): string {
   if (typeof window !== "undefined") {
     try {
       const stored = sessionStorage.getItem(CHAT_RETURN_PATH_KEY);
@@ -246,6 +254,12 @@ export function resolveChatBackPath(fallbackProgram: ProgramValue): string {
       // Ignore storage errors.
     }
   }
+
+  const context = readChatCalendarContext();
+  if (context) {
+    return getRoutePath(context.selectedProgram, "grid");
+  }
+
   if (fallbackProgram !== "All") {
     return getRoutePath(fallbackProgram, "grid");
   }
