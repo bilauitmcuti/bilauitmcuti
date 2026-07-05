@@ -5,6 +5,7 @@ import {
   buildSessionQueryString,
   CHAT_RETURN_CONTEXT_KEY,
   parseSessionIdsFromSearchParams,
+  navigateBackFromChat,
   resolveChatReturnPath,
   resolveCleanCalendarPath,
   resolveProgramForSessionQuery,
@@ -122,5 +123,58 @@ describe("resolveChatReturnPath", () => {
 
     setReturnPath("https://evil.com/list");
     expect(resolveChatReturnPath()).toBe("/");
+  });
+});
+
+describe("navigateBackFromChat", () => {
+  const store = new Map<string, string>();
+
+  beforeEach(() => {
+    store.clear();
+    vi.stubGlobal("window", { history: { length: 2 } });
+    vi.stubGlobal("sessionStorage", {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        store.set(key, value);
+      },
+      clear: () => {
+        store.clear();
+      },
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("uses history.back when opened from calendar", () => {
+    store.set(
+      CHAT_RETURN_CONTEXT_KEY,
+      JSON.stringify({
+        selectedProgram: "Diploma",
+        selectedSessions: ["B-20263"],
+        returnPath: "/diploma/list",
+        openedFromCalendar: true,
+      })
+    );
+    const router = { back: vi.fn(), push: vi.fn() };
+    navigateBackFromChat(router);
+    expect(router.back).toHaveBeenCalledOnce();
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it("pushes return path when chat was not opened from calendar", () => {
+    store.set(
+      CHAT_RETURN_CONTEXT_KEY,
+      JSON.stringify({
+        selectedProgram: "All",
+        selectedSessions: ["B-20263"],
+        returnPath: "/list",
+      })
+    );
+    const router = { back: vi.fn(), push: vi.fn() };
+    navigateBackFromChat(router);
+    expect(router.back).not.toHaveBeenCalled();
+    expect(router.push).toHaveBeenCalledWith("/list");
   });
 });

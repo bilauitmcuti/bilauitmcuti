@@ -61,7 +61,6 @@ GitHub Actions workflow (`.github/workflows/ci.yml`) runs on push/PR:
 ## Health & Readiness
 
 - `GET /api/health` — returns `{ status, ai }`. 503 if Workers AI binding is not available at runtime.
-- `GET /api/version` — returns build ID.
 
 ## Cloudflare Pages deployment
 

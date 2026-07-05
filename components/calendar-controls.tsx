@@ -213,6 +213,7 @@ export function CalendarControls({
       selectedProgram: selectedProgram as ProgramValue,
       selectedSessions,
       returnPath: pathname,
+      openedFromCalendar: true,
     });
     router.push('/chat');
   }, [router, selectedProgram, selectedSessions, pathname]);

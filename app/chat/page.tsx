@@ -18,6 +18,7 @@ import { isProgramValue, type ProgramValue } from "@/lib/route-utils";
 import {
   readChatCalendarContext,
   resolveChatReturnPath,
+  navigateBackFromChat,
 } from "@/lib/session-query";
 import {
   areSessionListsEqual,
@@ -261,11 +262,12 @@ export default function ChatPage() {
   }, [selectedProgram, selectedSessions, sessionsByProgram]);
 
   useEffect(() => {
+    if (!hasHydratedRef.current) return;
     router.prefetch(resolveChatReturnPath());
-  }, [router]);
+  }, [router, selectedProgram, selectedSessions, sessionsByProgram]);
 
   const handleChatBack = useCallback(() => {
-    router.push(resolveChatReturnPath());
+    navigateBackFromChat(router);
   }, [router]);
 
   // Sync selectedSessions when program changes using per-program memory.

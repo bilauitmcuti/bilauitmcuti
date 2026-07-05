@@ -17,7 +17,6 @@ const ROUTE_FILES = [
   "app/api/v1/calendar/route.ts",
   "app/api/v1/lecture-weeks/route.ts",
   "app/api/v1/meta/route.ts",
-  "app/api/version/route.ts",
   "app/chat/api/route.ts",
   "app/contact/api/route.ts",
   "app/engagement/api/route.ts",

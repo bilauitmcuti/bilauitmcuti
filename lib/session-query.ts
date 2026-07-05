@@ -1,4 +1,9 @@
 import type { FilterStates } from "@/lib/cookie-utils";
+import {
+  assignCalendarStoreSnapshot,
+  EMPTY_CALENDAR_SNAPSHOT,
+  notifyCalendarStoreListeners,
+} from "@/lib/calendar-store";
 import { isGroupASessionId } from "@/lib/group-a-sessions";
 import { type SessionId } from "@/lib/data";
 import {
@@ -177,12 +182,52 @@ export interface ChatReturnContext {
   selectedSessions: SessionId[];
   /** Calendar route the user was on before opening chat (for Back navigation). */
   returnPath?: string;
+  /** Set when chat was opened from the in-app calendar (enables safe history.back()). */
+  openedFromCalendar?: boolean;
+}
+
+export interface ChatBackRouter {
+  back: () => void;
+  push: (href: string) => void;
 }
 
 function isValidChatReturnPath(pathname: string): boolean {
   if (!pathname.startsWith("/")) return false;
   if (pathname.includes("?") || pathname.includes("#")) return false;
   return isCalendarPath(pathname);
+}
+
+export function readChatOpenedFromCalendar(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const raw = sessionStorage.getItem(CHAT_RETURN_CONTEXT_KEY);
+    if (!raw) return false;
+    const parsed = JSON.parse(raw) as Partial<ChatReturnContext>;
+    return parsed.openedFromCalendar === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Leave `/chat`: prefer history.back() when opened from calendar (restores cached page),
+ * otherwise reset the shared calendar store and router.push the saved return path.
+ */
+export function navigateBackFromChat(router: ChatBackRouter): void {
+  const returnPath = resolveChatReturnPath();
+  const useHistoryBack =
+    typeof window !== "undefined" &&
+    window.history.length > 1 &&
+    readChatOpenedFromCalendar();
+
+  if (useHistoryBack) {
+    router.back();
+    return;
+  }
+
+  assignCalendarStoreSnapshot(EMPTY_CALENDAR_SNAPSHOT);
+  notifyCalendarStoreListeners();
+  router.push(returnPath);
 }
 
 /** Safe Back destination for `/chat`; falls back to `/` when missing or invalid. */

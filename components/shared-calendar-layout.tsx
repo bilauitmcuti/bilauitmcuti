@@ -84,10 +84,8 @@ export function SharedCalendarLayout({
   }, [initialCalendarSnapshot, initialCalendarHydration?.hydrateKey, hydrationVersion]);
 
   useLayoutEffect(() => {
-    if (initialCalendarSnapshot) {
-      notifyCalendarStoreListeners();
-    }
-  }, [initialCalendarSnapshot, initialCalendarHydration?.hydrateKey]);
+    notifyCalendarStoreListeners();
+  }, [initialCalendarSnapshot, initialCalendarHydration?.hydrateKey, hydrationVersion, pathname]);
 
   useSyncExternalStore(
     subscribe,
