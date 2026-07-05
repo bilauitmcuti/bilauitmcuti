@@ -7,7 +7,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "build": "next build",
+    "build": "next build --webpack",
     "build:pages": "next-on-pages",
     "dev": "next dev",
     "lint": "eslint .",
