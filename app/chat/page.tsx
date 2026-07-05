@@ -14,15 +14,9 @@ import {
 } from "@/lib/data";
 import type { SessionId } from "@/lib/data";
 import { getFiltersFromCookie, setFiltersToCookie } from "@/lib/cookie-utils";
-import { getRoutePath, isProgramValue, type ProgramValue } from "@/lib/route-utils";
+import { isProgramValue, type ProgramValue } from "@/lib/route-utils";
 import {
-  CHAT_RETURN_PATH_KEY,
-  clearChatReturnPath,
-  isValidChatReturnPath,
-  markChatStoreResync,
   readChatCalendarContext,
-  resolveChatBackPath,
-  resolveProgramFromCalendarPath,
 } from "@/lib/session-query";
 import {
   areSessionListsEqual,
@@ -140,11 +134,6 @@ export default function ChatPage() {
     try {
       const filters = getFiltersFromCookie();
       const calendarContext = readChatCalendarContext();
-      const returnPath = sessionStorage.getItem(CHAT_RETURN_PATH_KEY);
-      const programFromReturnPath =
-        returnPath && isValidChatReturnPath(returnPath)
-          ? resolveProgramFromCalendarPath(returnPath)
-          : ("All" as ProgramValue);
 
       const raw =
         localStorage.getItem("sessionIdsByProgram") ??
@@ -164,8 +153,6 @@ export default function ChatPage() {
       let nextProgram: ProgramValue;
       if (calendarContext) {
         nextProgram = calendarContext.selectedProgram;
-      } else if (programFromReturnPath !== "All") {
-        nextProgram = programFromReturnPath;
       } else if (filters.selectedProgram && isProgramValue(filters.selectedProgram)) {
         nextProgram = filters.selectedProgram;
       } else if (storedProgram && isProgramValue(storedProgram)) {
@@ -273,43 +260,12 @@ export default function ChatPage() {
   }, [selectedProgram, selectedSessions, sessionsByProgram]);
 
   useEffect(() => {
-    try {
-      const stored = sessionStorage.getItem(CHAT_RETURN_PATH_KEY);
-      if (stored && isValidChatReturnPath(stored)) {
-        router.prefetch(stored);
-      }
-    } catch {
-      // Ignore storage errors.
-    }
-    router.prefetch(getRoutePath(selectedProgram, "grid"));
-    router.prefetch(getRoutePath(selectedProgram, "list"));
-  }, [router, selectedProgram]);
+    router.prefetch("/");
+  }, [router]);
 
   const handleChatBack = useCallback(() => {
-    const context = readChatCalendarContext();
-    const target = resolveChatBackPath(context?.selectedProgram ?? selectedProgram);
-    const program =
-      context?.selectedProgram ?? resolveProgramFromCalendarPath(target);
-    const sessions = context?.selectedSessions ?? selectedSessions;
-
-    const filters = getFiltersFromCookie();
-    const sessionMemoryKey = getSessionMemoryKey(program);
-    setFiltersToCookie({
-      ...filters,
-      selectedProgram: program,
-      sessionId: sessions[0],
-      sessionIds: sessions,
-      sessionIdsByProgram: {
-        ...(filters.sessionIdsByProgram ?? {}),
-        ...sessionsByProgram,
-        [sessionMemoryKey]: sessions,
-      },
-    });
-
-    markChatStoreResync();
-    clearChatReturnPath();
-    router.push(target);
-  }, [router, selectedProgram, selectedSessions, sessionsByProgram]);
+    router.push("/");
+  }, [router]);
 
   // Sync selectedSessions when program changes using per-program memory.
   useEffect(() => {
@@ -1008,7 +964,7 @@ export default function ChatPage() {
           <button
             onClick={handleChatBack}
             className="flex items-center justify-center w-9 h-9 rounded-full bg-secondary hover:bg-secondary/80 dark:bg-[#2A2A2A] dark:hover:bg-[#333] transition-colors"
-            aria-label="Back to calendar"
+            aria-label="Back to home"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>

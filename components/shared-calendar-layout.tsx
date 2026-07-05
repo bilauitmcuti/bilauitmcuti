@@ -31,7 +31,6 @@ import { setFiltersToCookie, type FilterStates } from '@/lib/cookie-utils';
 import type { ViewMode } from '@/app/page';
 import { parseSessionIdsFromHydrateKey } from '@/lib/calendar-initial-server';
 import { replaceCalendarHistoryUrl } from '@/lib/share-url';
-import { consumeChatStoreResync } from '@/lib/session-query';
 import {
   areSessionListsEqual,
   getGroupFromProgram,
@@ -85,12 +84,7 @@ export function SharedCalendarLayout({
   }, [initialCalendarSnapshot, initialCalendarHydration?.hydrateKey, hydrationVersion]);
 
   useLayoutEffect(() => {
-    let didResync = false;
-    if (consumeChatStoreResync()) {
-      assignCalendarStoreSnapshot(initialCalendarSnapshot ?? EMPTY_CALENDAR_SNAPSHOT);
-      didResync = true;
-    }
-    if (didResync || initialCalendarSnapshot) {
+    if (initialCalendarSnapshot) {
       notifyCalendarStoreListeners();
     }
   }, [initialCalendarSnapshot, initialCalendarHydration?.hydrateKey]);

@@ -209,12 +209,12 @@ export function CalendarControls({
   );
 
   const handleOpenChat = useCallback(() => {
-    saveChatCalendarContext(pathname, {
+    saveChatCalendarContext({
       selectedProgram: selectedProgram as ProgramValue,
       selectedSessions,
     });
     router.push('/chat');
-  }, [pathname, router, selectedProgram, selectedSessions]);
+  }, [router, selectedProgram, selectedSessions]);
 
   // Memoize filtered program options to avoid recalculation
   const groupAOptions = useMemo(() => programOptions.filter(p => p.group === 'A'), [programOptions]);
