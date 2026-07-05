@@ -1,3 +1,5 @@
+> **Base branch:** Target **`preview`** for feature work. Use **`main`** only when promoting `preview` → `main`.
+
 ## Summary
 
 <!-- What does this PR change, and why? Keep it short. -->
