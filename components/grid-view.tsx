@@ -376,30 +376,28 @@ interface GridViewProps {
 }
 
 function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT, onDateClick, selectedDate, showRegistration, showLecture, showSemesterPendek, showKuliahIntersesi, showExamination, showOthersExams, showBreak, showCountdown, selectedStates = [], initialCurrentDate, tooltipOpenKey, hoveredDateStr, setTooltipOpenKey, setHoveredDateStr, calendarDataVersion, suppressHoverDuringScrollRef, lectureWeekByDate, useDayActivityDrawer, onOpenActivityDrawer }: { month: number; year: number; selectedProgram: string; selectedSessions: SessionId[]; showKKT: boolean; onDateClick: (date: string) => void; selectedDate: string | null; showRegistration: boolean; showLecture: boolean; showSemesterPendek: boolean; showKuliahIntersesi: boolean; showExamination: boolean; showOthersExams: boolean; showBreak: boolean; showCountdown: boolean; selectedStates?: string[]; initialCurrentDate?: string; tooltipOpenKey: string | null; hoveredDateStr: string | null; setTooltipOpenKey: React.Dispatch<React.SetStateAction<string | null>>; setHoveredDateStr: React.Dispatch<React.SetStateAction<string | null>>; calendarDataVersion: number; suppressHoverDuringScrollRef: React.MutableRefObject<boolean>; lectureWeekByDate: Map<string, number> | null; useDayActivityDrawer: boolean; onOpenActivityDrawer: (dateStr: string) => void }) {
-  const [hasHoverCapability, setHasHoverCapability] = useState(false);
-  const [hasTouchInput, setHasTouchInput] = useState(false);
+  /** Desktop grid: hover tooltips. Mobile/tablet: parent sets useDayActivityDrawer for tap → drawer. */
+  const isDesktopHoverMode = !useDayActivityDrawer;
+  const tooltipCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearTooltipCloseTimer = () => {
+    if (tooltipCloseTimerRef.current) {
+      clearTimeout(tooltipCloseTimerRef.current);
+      tooltipCloseTimerRef.current = null;
+    }
+  };
+
+  const scheduleTooltipClose = () => {
+    clearTooltipCloseTimer();
+    tooltipCloseTimerRef.current = setTimeout(() => {
+      setTooltipOpenKey(null);
+      tooltipCloseTimerRef.current = null;
+    }, 150);
+  };
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const hoverMq = window.matchMedia('(hover: hover) and (pointer: fine)');
-    const touchMq = window.matchMedia('(hover: none), (pointer: coarse)');
-    const syncCapability = () => {
-      const touchCapable = touchMq.matches || (navigator.maxTouchPoints ?? 0) > 0;
-      setHasTouchInput(touchCapable);
-      setHasHoverCapability(hoverMq.matches);
-    };
-
-    syncCapability();
-    hoverMq.addEventListener('change', syncCapability);
-    touchMq.addEventListener('change', syncCapability);
-    return () => {
-      hoverMq.removeEventListener('change', syncCapability);
-      touchMq.removeEventListener('change', syncCapability);
-    };
+    return () => clearTooltipCloseTimer();
   }, []);
-
-  const isDesktopHoverMode = hasHoverCapability && !hasTouchInput && !useDayActivityDrawer;
 
   useEffect(() => {
     if (isDesktopHoverMode) return;
@@ -742,7 +740,8 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
           const dateStr = day ? `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` : null;
           const tooltip = getTooltip(day);
           const isSelected = selectedDate === dateStr;
-          const isHighlighted = (hoveredDateStr === dateStr || tooltipOpenKey === dateStr);
+          const isHighlighted =
+            hoveredDateStr === dateStr || tooltipOpenKey === dateStr;
           
           if (!day) {
             return (
@@ -787,7 +786,8 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
               }}
               onMouseEnter={() => {
                 if (suppressHoverDuringScrollRef.current) return;
-                if (isDesktopHoverMode && dateStr) {
+                if (isDesktopHoverMode && dateStr && uniqueDayActivities.length > 0) {
+                  clearTooltipCloseTimer();
                   setHoveredDateStr(dateStr);
                   setTooltipOpenKey(dateStr);
                 }
@@ -796,7 +796,7 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
                 if (suppressHoverDuringScrollRef.current) return;
                 if (isDesktopHoverMode) {
                   setHoveredDateStr(null);
-                  setTooltipOpenKey(null);
+                  scheduleTooltipClose();
                 }
               }}
               onMouseDown={(e) => {
@@ -827,25 +827,35 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
           return (
             <div key={index} suppressHydrationWarning>
               <Tooltip
+                disableHoverablePopup={false}
                 open={tooltipOpenKey === dateStr}
                 onOpenChange={(open) => {
-                  if (!isDesktopHoverMode) return;
                   if (suppressHoverDuringScrollRef.current) return;
+                  if (isDesktopHoverMode) {
+                    if (open) setTooltipOpenKey(dateStr);
+                    return;
+                  }
                   setTooltipOpenKey(open ? dateStr : null);
                 }}
-                delayDuration={0}
               >
-                <TooltipTrigger asChild>
-                  {calendarCell}
-                </TooltipTrigger>
+                <TooltipTrigger render={calendarCell} delay={0} closeDelay={0} />
                 {dateStr && uniqueDayActivities.length > 0 ? (
-                  <TooltipContent suppressHydrationWarning
+                  <TooltipContent
+                    suppressHydrationWarning
                     data-mini-calendar-tooltip={dateStr}
                     side="top"
-                    className="flex w-auto max-w-[300px] flex-col items-start gap-2 overflow-hidden px-3 py-2 sm:max-w-[330px] mx-2 rounded-lg shadow-lg border border-border bg-popover text-popover-foreground [&[data-side='top']]:before:content-none"
+                    className="mx-2 flex w-auto max-w-[300px] flex-col items-start gap-2 overflow-hidden rounded-lg border border-border bg-popover px-3 py-2 text-popover-foreground shadow-lg sm:max-w-[330px]"
                     sideOffset={8}
-                    collisionPadding={12}
-                    style={{ pointerEvents: 'auto' } as React.CSSProperties & { '--radix-tooltip-content-transform-origin'?: string }}
+                    style={{ pointerEvents: 'auto' } as React.CSSProperties}
+                    onPointerEnter={() => {
+                      if (!isDesktopHoverMode) return;
+                      clearTooltipCloseTimer();
+                      setTooltipOpenKey(dateStr);
+                    }}
+                    onPointerLeave={() => {
+                      if (!isDesktopHoverMode) return;
+                      scheduleTooltipClose();
+                    }}
                   >
                     <GridDayActivitiesPanel
                       dateStr={dateStr}
@@ -1171,7 +1181,7 @@ export const GridView = memo(function GridView({
   }, []);
 
   return (
-    <TooltipProvider>
+    <TooltipProvider delay={0} closeDelay={100} timeout={250}>
       <div className="space-y-8 transition-none" style={{ transition: 'none' }}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 auto-rows-max transition-none" style={{ transition: 'none' }}>
           {months.map(({ month, year }) => (
@@ -1239,8 +1249,8 @@ export const GridView = memo(function GridView({
                     >
                       <ChevronLeft className="h-4 w-4" />
                     </Button>
-                    <DrawerTitle asChild className="min-w-0 flex-1">
-                      <h2>{formatDateLabel(drawerDateKey)}</h2>
+                    <DrawerTitle className="min-w-0 flex-1">
+                      {formatDateLabel(drawerDateKey)}
                     </DrawerTitle>
                     <Button
                       type="button"

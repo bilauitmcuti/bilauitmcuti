@@ -331,12 +331,15 @@ export function CalendarControls({
               if (!open) setActiveSubmenu(null);
             }}
           >
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className={`inline-flex shrink-0 cursor-pointer items-center justify-between gap-1.5 px-2.5 text-sm font-medium whitespace-nowrap outline-none select-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${calendarControlClusterSurface} h-[38px] w-fit min-w-0 max-w-[180px] overflow-hidden sm:max-w-[260px] md:max-w-[300px] ${textClass}`}
-                suppressHydrationWarning
-              >
+            <DropdownMenuTrigger
+              render={
+                <button
+                  type="button"
+                  className={`inline-flex shrink-0 cursor-pointer items-center justify-between gap-1.5 px-2.5 text-sm font-medium whitespace-nowrap outline-none select-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${calendarControlClusterSurface} h-[38px] w-fit min-w-0 max-w-[180px] overflow-hidden sm:max-w-[260px] md:max-w-[300px] ${textClass}`}
+                  suppressHydrationWarning
+                />
+              }
+            >
                 <span className="block min-w-0 flex-1 truncate text-left font-medium text-sm">
                   {currentProgramLabel}
                 </span>
@@ -345,7 +348,6 @@ export function CalendarControls({
                 ) : (
                   <ChevronDown className="size-4 shrink-0" strokeWidth={2} aria-hidden />
                 )}
-              </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="min-w-[260px] overflow-visible pt-4 pb-4 pl-3 pr-3 bg-popover dark:bg-[#2A2A2A]" align="start">
               <div className="-mx-1 px-1">
@@ -388,7 +390,6 @@ export function CalendarControls({
                       </DropdownMenuSubTrigger>
                       <DropdownMenuPortal>
                         <DropdownMenuSubContent
-                          collisionPadding={{ top: 8, right: 28, bottom: 8, left: 8 }}
                           className="min-w-[200px] bg-popover dark:bg-[#2A2A2A]"
                         >
                           {getSessionOptionsForGroup('A').map((sess) => {
@@ -443,7 +444,6 @@ export function CalendarControls({
                     </DropdownMenuSubTrigger>
                     <DropdownMenuPortal>
                       <DropdownMenuSubContent
-                        collisionPadding={{ top: 8, right: 28, bottom: 8, left: 8 }}
                         className="min-w-[220px] bg-popover dark:bg-[#2A2A2A]"
                       >
                         {getSessionOptionsForGroup('B').map((sess) => {
@@ -540,16 +540,18 @@ export function CalendarControls({
               setIsOpen(open);
               if (open) recordEngagementAction('settings_open');
             }}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={`${iconBaseClass} ${iconInactiveClass} aria-expanded:!bg-transparent aria-expanded:!text-muted-foreground`}
-                  title="Settings"
-                  suppressHydrationWarning
-                >
+              <PopoverTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={`${iconBaseClass} ${iconInactiveClass} aria-expanded:!bg-transparent aria-expanded:!text-muted-foreground`}
+                    title="Settings"
+                    suppressHydrationWarning
+                  />
+                }
+              >
                   <Settings className="h-6 w-6" strokeWidth={2} />
-                </Button>
               </PopoverTrigger>
               <PopoverContent 
                 className="h-auto w-[260px] sm:w-[300px] gap-3 pt-4 pb-4 pl-3 pr-3 z-50 bg-popover dark:bg-[#2A2A2A] transition-none"

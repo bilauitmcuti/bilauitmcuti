@@ -76,12 +76,14 @@ export function ChatMessageRow({
         <Message align="end">
           <MessageContent>
             <ContextMenu>
-              <ContextMenuTrigger asChild>
-                <Bubble align="end" className="cursor-context-menu select-none">
+              <ContextMenuTrigger
+                render={
+                  <Bubble align="end" className="cursor-context-menu select-none" />
+                }
+              >
                   <BubbleContent className="rounded-br-md whitespace-pre-wrap">
                     {message.content}
                   </BubbleContent>
-                </Bubble>
               </ContextMenuTrigger>
               <ContextMenuContent className="w-fit max-w-[200px]">
                 {isLastUserMessage && (
