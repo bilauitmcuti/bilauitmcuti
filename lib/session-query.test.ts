@@ -1,9 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import {
   buildCalendarAbsoluteUrl,
   buildCalendarUrlPath,
   buildSessionQueryString,
+  CHAT_RETURN_CONTEXT_KEY,
   parseSessionIdsFromSearchParams,
+  resolveChatReturnPath,
   resolveCleanCalendarPath,
   resolveProgramForSessionQuery,
 } from "./session-query";
@@ -63,5 +65,62 @@ describe("session query URL helpers", () => {
       resolveCleanCalendarPath("/", "Foundation/Professional", "grid")
     ).toBe("/foundation-professional");
     expect(resolveCleanCalendarPath("/", "All", "grid")).toBe("/");
+  });
+});
+
+describe("resolveChatReturnPath", () => {
+  const store = new Map<string, string>();
+
+  beforeEach(() => {
+    store.clear();
+    vi.stubGlobal("window", {});
+    vi.stubGlobal("sessionStorage", {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        store.set(key, value);
+      },
+      clear: () => {
+        store.clear();
+      },
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function setReturnPath(returnPath: unknown) {
+    store.set(
+      CHAT_RETURN_CONTEXT_KEY,
+      JSON.stringify({
+        selectedProgram: "All",
+        selectedSessions: ["B-20263"],
+        returnPath,
+      })
+    );
+  }
+
+  it("returns valid calendar paths", () => {
+    setReturnPath("/list");
+    expect(resolveChatReturnPath()).toBe("/list");
+
+    setReturnPath("/diploma/list");
+    expect(resolveChatReturnPath()).toBe("/diploma/list");
+  });
+
+  it("falls back to / when missing, corrupt, or invalid", () => {
+    expect(resolveChatReturnPath()).toBe("/");
+
+    store.set(CHAT_RETURN_CONTEXT_KEY, "{not-json");
+    expect(resolveChatReturnPath()).toBe("/");
+
+    setReturnPath("/chat");
+    expect(resolveChatReturnPath()).toBe("/");
+
+    setReturnPath("/api/v1/calendar");
+    expect(resolveChatReturnPath()).toBe("/");
+
+    setReturnPath("https://evil.com/list");
+    expect(resolveChatReturnPath()).toBe("/");
   });
 });

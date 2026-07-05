@@ -212,9 +212,10 @@ export function CalendarControls({
     saveChatCalendarContext({
       selectedProgram: selectedProgram as ProgramValue,
       selectedSessions,
+      returnPath: pathname,
     });
     router.push('/chat');
-  }, [router, selectedProgram, selectedSessions]);
+  }, [router, selectedProgram, selectedSessions, pathname]);
 
   // Memoize filtered program options to avoid recalculation
   const groupAOptions = useMemo(() => programOptions.filter(p => p.group === 'A'), [programOptions]);

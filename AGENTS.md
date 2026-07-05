@@ -126,7 +126,7 @@ Create in **Caching → Cache Rules** (order matters — most specific first):
 
 | # | Name | Expression | Action |
 |---|------|------------|--------|
-| 1 | `bypass_dynamic` | `(http.request.uri.path starts_with "/api/" or http.request.uri.path starts_with "/chat/")` | **Bypass cache** |
+| 1 | `bypass_dynamic` | `(http.request.uri.path starts_with "/api/" or http.request.uri.path eq "/chat" or http.request.uri.path starts_with "/chat/")` | **Bypass cache** |
 | 2 | `cache_next_static` | `(http.request.uri.path starts_with "/_next/static/")` | Eligible for cache, edge TTL **override 1 year** |
 | 3 | `cache_public_assets` | `(http.request.uri.path.extension in {"ico" "png" "webp" "json" "js" "woff" "woff2"})` | Eligible for cache, edge TTL **7 days** |
 | 4 | `cache_sw_short` | `(http.request.uri.path eq "/sw.js")` | Eligible for cache, edge TTL **5 minutes** |
