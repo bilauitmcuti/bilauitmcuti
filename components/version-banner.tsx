@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 import {
   getVersionSnapshot,
-  startVersionPolling,
   subscribe,
 } from "@/lib/version-store";
 
@@ -13,10 +12,6 @@ export function VersionBanner() {
     getVersionSnapshot,
     () => ({ isVisible: false, countdown: 5 })
   );
-
-  useEffect(() => {
-    startVersionPolling();
-  }, []);
 
   if (!isVisible) return null;
 

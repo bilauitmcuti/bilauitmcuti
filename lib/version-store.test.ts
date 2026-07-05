@@ -6,6 +6,7 @@ import {
   getVersionSnapshot,
   notifyNewBuildForTests,
   resetVersionStoreForTests,
+  startVersionPolling,
 } from "@/lib/version-store";
 
 describe("version-store", () => {
@@ -114,5 +115,35 @@ describe("version-store", () => {
 
   it("exports stable session storage key", () => {
     expect(BUILD_ACK_KEY).toBe("app-build-ack");
+  });
+
+  describe("startVersionPolling", () => {
+    const addEventListener = vi.fn();
+    const removeEventListener = vi.fn();
+
+    beforeEach(() => {
+      resetVersionStoreForTests();
+      vi.stubGlobal("process", { ...process, env: { ...process.env, NODE_ENV: "production" } });
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ buildId: "build-a" }),
+      }));
+      vi.stubGlobal("document", {
+        visibilityState: "visible",
+        addEventListener,
+        removeEventListener,
+        querySelector: () => ({
+          getAttribute: () => "build-a",
+        }),
+      });
+    });
+
+    it("registers visibility listener only once across repeated calls", () => {
+      startVersionPolling();
+      startVersionPolling();
+
+      expect(addEventListener).toHaveBeenCalledTimes(1);
+      expect(addEventListener).toHaveBeenCalledWith("visibilitychange", expect.any(Function));
+    });
   });
 });
