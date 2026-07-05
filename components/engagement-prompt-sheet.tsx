@@ -109,7 +109,6 @@ function EngagementPromptBody({
                   placeholder={LOW_RATING_FEEDBACK_PLACEHOLDER}
                   disabled={isSubmittingFeedback}
                   className="resize-none bg-background text-sm shadow-none placeholder:text-sm focus-visible:ring-inset dark:bg-[#2A2A2A]"
-                  data-vaul-no-drag=""
                 />
                 <Button
                   type="button"
