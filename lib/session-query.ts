@@ -175,6 +175,28 @@ export const CHAT_RETURN_CONTEXT_KEY = "chatReturnContext";
 export interface ChatReturnContext {
   selectedProgram: ProgramValue;
   selectedSessions: SessionId[];
+  /** Calendar route the user was on before opening chat (for Back navigation). */
+  returnPath?: string;
+}
+
+function isValidChatReturnPath(pathname: string): boolean {
+  if (!pathname.startsWith("/")) return false;
+  if (pathname.includes("?") || pathname.includes("#")) return false;
+  return isCalendarPath(pathname);
+}
+
+/** Safe Back destination for `/chat`; falls back to `/` when missing or invalid. */
+export function resolveChatReturnPath(): string {
+  if (typeof window === "undefined") return "/";
+  try {
+    const raw = sessionStorage.getItem(CHAT_RETURN_CONTEXT_KEY);
+    if (!raw) return "/";
+    const parsed = JSON.parse(raw) as Partial<ChatReturnContext>;
+    const candidate = typeof parsed.returnPath === "string" ? parsed.returnPath : "/";
+    return isValidChatReturnPath(candidate) ? candidate : "/";
+  } catch {
+    return "/";
+  }
 }
 
 /** Persist calendar program + sessions when opening chat (avoids stale cookie/localStorage). */
