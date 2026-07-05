@@ -45,6 +45,10 @@ import { replaceCalendarHistoryUrl } from '@/lib/share-url';
 import type { ViewMode } from '@/app/page';
 import type { ProgramValue } from '@/lib/route-utils';
 import { sessionSubmenuItemClass } from '@/lib/session-submenu-item-class';
+import {
+  activateSubmenu,
+  handleSubmenuOpenChange,
+} from '@/lib/program-dropdown-submenu';
 
 import { SessionSubmenuItemLabel } from '@/components/session-submenu-item-label';
 import { useEngagementPrompt } from '@/components/engagement-prompt';
@@ -364,10 +368,14 @@ export function CalendarControls({
                     <DropdownMenuSub
                       key={option.value}
                       open={activeSubmenu === option.value}
-                      onOpenChange={(open) => setActiveSubmenu(open ? option.value : null)}
+                      onOpenChange={(open) =>
+                        handleSubmenuOpenChange(option.value, open, setActiveSubmenu)
+                      }
                     >
                       <DropdownMenuSubTrigger
                         className="relative w-full max-w-full min-w-0 cursor-pointer items-center justify-between gap-0 rounded-md px-2 py-1.5"
+                        onPointerDown={() => activateSubmenu(option.value, setActiveSubmenu)}
+                        onFocus={() => activateSubmenu(option.value, setActiveSubmenu)}
                         onSelect={(event) => {
                           keepDropdownOpenRef.current = true;
                           event.preventDefault();
@@ -397,6 +405,7 @@ export function CalendarControls({
                             return (
                               <DropdownMenuItem
                                 key={sess.id}
+                                closeOnClick={false}
                                 className={sessionSubmenuItemClass(isSelected)}
                                 onSelect={(event) => {
                                   keepDropdownOpenRef.current = true;
@@ -426,10 +435,14 @@ export function CalendarControls({
                   <div className="text-xs font-semibold text-muted-foreground mb-2 px-2">GROUP B</div>
                   <DropdownMenuSub
                     open={activeSubmenu === 'group-b-sessions'}
-                    onOpenChange={(open) => setActiveSubmenu(open ? 'group-b-sessions' : null)}
+                    onOpenChange={(open) =>
+                      handleSubmenuOpenChange('group-b-sessions', open, setActiveSubmenu)
+                    }
                   >
                     <DropdownMenuSubTrigger
                       className="cursor-pointer items-start"
+                      onPointerDown={() => activateSubmenu('group-b-sessions', setActiveSubmenu)}
+                      onFocus={() => activateSubmenu('group-b-sessions', setActiveSubmenu)}
                       onSelect={(event) => {
                         keepDropdownOpenRef.current = true;
                         event.preventDefault();
@@ -451,6 +464,7 @@ export function CalendarControls({
                           return (
                             <DropdownMenuItem
                               key={sess.id}
+                              closeOnClick={false}
                               className={sessionSubmenuItemClass(isSelected)}
                               onSelect={(event) => {
                                 keepDropdownOpenRef.current = true;

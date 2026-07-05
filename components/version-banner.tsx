@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const INITIAL_BUILD_ID = process.env.NEXT_PUBLIC_BUILD_ID;
+const BUILD_ACK_KEY = "app-build-ack";
 
 interface VersionResponse {
   buildId?: string;
@@ -10,10 +10,20 @@ interface VersionResponse {
 /** Production only; longer interval to cut noise and server load. */
 const POLL_INTERVAL_MS = 60_000;
 
+function getLoadedBuildId(): string {
+  if (typeof document === "undefined") return "";
+  return (
+    document.querySelector('meta[name="app-build-id"]')?.getAttribute("content")?.trim() ??
+    process.env.NEXT_PUBLIC_BUILD_ID?.trim() ??
+    ""
+  );
+}
+
 export function VersionBanner() {
   const [isVisible, setIsVisible] = useState(false);
   const [countdown, setCountdown] = useState(5);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pendingBuildIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "production") return;
@@ -30,7 +40,11 @@ export function VersionBanner() {
         const res = await fetch("/api/version", { cache: "no-store" });
         if (!res.ok) return;
         const { buildId } = (await res.json()) as VersionResponse;
-        if (buildId && buildId !== INITIAL_BUILD_ID) {
+        const loadedBuildId = getLoadedBuildId();
+        if (!loadedBuildId || !buildId) return;
+        if (sessionStorage.getItem(BUILD_ACK_KEY) === buildId) return;
+        if (buildId !== loadedBuildId) {
+          pendingBuildIdRef.current = buildId;
           setIsVisible(true);
           clearPoll();
         }
@@ -57,6 +71,7 @@ export function VersionBanner() {
 
     document.addEventListener("visibilitychange", onVisibilityChange);
     if (document.visibilityState === "visible") {
+      void checkVersion();
       startPoll();
     }
 
@@ -70,6 +85,14 @@ export function VersionBanner() {
     if (!isVisible) return;
 
     if (countdown <= 0) {
+      const buildId = pendingBuildIdRef.current;
+      if (buildId) {
+        try {
+          sessionStorage.setItem(BUILD_ACK_KEY, buildId);
+        } catch {
+          // storage unavailable, still reload
+        }
+      }
       window.location.reload();
       return;
     }

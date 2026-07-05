@@ -5,6 +5,11 @@ import type { SessionId } from "@/lib/data";
 import { getSessionOptionsForGroup } from "@/lib/data";
 import type { ProgramValue } from "@/lib/route-utils";
 import { sessionSubmenuItemClass } from "@/lib/session-submenu-item-class";
+import {
+  activateSubmenu,
+  handleSubmenuOpenChange,
+  type SubmenuSetter,
+} from "@/lib/program-dropdown-submenu";
 import { SessionSubmenuItemLabel } from "@/components/session-submenu-item-label";
 import { SuggestionCarousel } from "@/components/chat/suggestion-carousel";
 import { Button } from "@/components/ui/button";
@@ -73,7 +78,7 @@ interface ChatComposerProps {
   onMentionSelect: (item: MentionItem) => void;
   onMentionOpenChange: (open: boolean) => void;
   onDropdownOpenChange: (open: boolean) => void;
-  onActiveSubmenuChange: (submenu: string | null) => void;
+  onActiveSubmenuChange: SubmenuSetter;
   onSessionToggle: (programValue: ProgramValue, sessionId: SessionId, group: "A" | "B") => void;
   onProgramSelect: (program: ProgramValue) => void;
   formatGroupASessionTriggerLabel: (
@@ -282,11 +287,13 @@ export function ChatComposer({
                             key={opt.value}
                             open={activeSubmenu === opt.value}
                             onOpenChange={(open) =>
-                              onActiveSubmenuChange(open ? opt.value : null)
+                              handleSubmenuOpenChange(opt.value, open, onActiveSubmenuChange)
                             }
                           >
                             <DropdownMenuSubTrigger
                               className="relative w-full max-w-full min-w-0 cursor-pointer items-center justify-between gap-0 rounded-md px-2 py-1.5"
+                              onPointerDown={() => activateSubmenu(opt.value, onActiveSubmenuChange)}
+                              onFocus={() => activateSubmenu(opt.value, onActiveSubmenuChange)}
                               onSelect={(event) => {
                                 keepDropdownOpenRef.current = true;
                                 event.preventDefault();
@@ -319,6 +326,7 @@ export function ChatComposer({
                                   return (
                                     <DropdownMenuItem
                                       key={sess.id}
+                                      closeOnClick={false}
                                       className={sessionSubmenuItemClass(isSelected)}
                                       onSelect={(event) => {
                                         keepDropdownOpenRef.current = true;
@@ -357,11 +365,15 @@ export function ChatComposer({
                       <DropdownMenuSub
                         open={activeSubmenu === "group-b-sessions"}
                         onOpenChange={(open) =>
-                          onActiveSubmenuChange(open ? "group-b-sessions" : null)
+                          handleSubmenuOpenChange("group-b-sessions", open, onActiveSubmenuChange)
                         }
                       >
                         <DropdownMenuSubTrigger
                           className="cursor-pointer items-start"
+                          onPointerDown={() =>
+                            activateSubmenu("group-b-sessions", onActiveSubmenuChange)
+                          }
+                          onFocus={() => activateSubmenu("group-b-sessions", onActiveSubmenuChange)}
                           onSelect={(event) => {
                             keepDropdownOpenRef.current = true;
                             event.preventDefault();
@@ -383,6 +395,7 @@ export function ChatComposer({
                               return (
                                 <DropdownMenuItem
                                   key={sess.id}
+                                  closeOnClick={false}
                                   className={sessionSubmenuItemClass(isSelected)}
                                   onSelect={(event) => {
                                     keepDropdownOpenRef.current = true;

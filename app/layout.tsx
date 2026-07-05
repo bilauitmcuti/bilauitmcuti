@@ -120,6 +120,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={cn(geistSans.variable, geistMono.variable, "font-sans")} suppressHydrationWarning>
       <head>
+        <meta name="app-build-id" content={process.env.NEXT_PUBLIC_BUILD_ID ?? ""} />
         <meta name="theme-color" content="#ffffff" />
         <meta name="application-name" content="Bila UiTM Cuti" />
         <meta property="og:site_name" content="Bila UiTM Cuti" />
