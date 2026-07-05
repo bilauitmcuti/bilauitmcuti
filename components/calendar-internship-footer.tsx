@@ -18,6 +18,8 @@ export function CalendarInternshipFooter() {
         </span>
         <Link
           href={INTERNSHIP_URL}
+          target="_blank"
+          rel="noopener noreferrer"
           className="shrink-0 text-primary underline underline-offset-2 hover:underline"
         >
           Try it now

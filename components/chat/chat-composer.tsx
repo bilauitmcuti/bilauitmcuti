@@ -243,13 +243,16 @@ export function ChatComposer({
                   if (!open) onActiveSubmenuChange(null);
                 }}
               >
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 min-w-0 max-w-[180px] sm:max-w-[260px] md:max-w-[300px] overflow-hidden text-xs text-primary border-none bg-transparent shadow-none px-2 gap-1 rounded-lg font-medium hover:bg-transparent hover:text-primary dark:hover:bg-transparent dark:hover:text-primary aria-expanded:bg-transparent aria-expanded:text-primary"
-                  >
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 min-w-0 max-w-[180px] sm:max-w-[260px] md:max-w-[300px] overflow-hidden text-xs text-primary border-none bg-transparent shadow-none px-2 gap-1 rounded-lg font-medium hover:bg-transparent hover:text-primary dark:hover:bg-transparent dark:hover:text-primary aria-expanded:bg-transparent aria-expanded:text-primary"
+                    />
+                  }
+                >
                     <span className="block min-w-0 flex-1 truncate text-left text-primary">
                       {currentProgramLabel}
                     </span>
@@ -258,7 +261,6 @@ export function ChatComposer({
                     ) : (
                       <ChevronDown className="opacity-50 shrink-0" />
                     )}
-                  </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   className="min-w-[260px] overflow-visible pt-4 pb-4 pl-3 pr-3 bg-popover dark:bg-[#2A2A2A]"
@@ -310,7 +312,6 @@ export function ChatComposer({
                             </DropdownMenuSubTrigger>
                             <DropdownMenuPortal>
                               <DropdownMenuSubContent
-                                collisionPadding={{ top: 8, right: 28, bottom: 8, left: 8 }}
                                 className="min-w-[200px] bg-popover dark:bg-[#2A2A2A]"
                               >
                                 {getSessionOptionsForGroup("A").map((sess) => {
@@ -375,7 +376,6 @@ export function ChatComposer({
                         </DropdownMenuSubTrigger>
                         <DropdownMenuPortal>
                           <DropdownMenuSubContent
-                            collisionPadding={{ top: 8, right: 28, bottom: 8, left: 8 }}
                             className="min-w-[220px] bg-popover dark:bg-[#2A2A2A]"
                           >
                             {getSessionOptionsForGroup("B").map((sess) => {

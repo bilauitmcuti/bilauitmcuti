@@ -81,8 +81,8 @@ export default function AboutPage() {
           <Card className="gap-0 rounded-[10px] shadow-none">
             <CardHeader className="space-y-1 px-3 pb-4 sm:px-6">
               <div>
-                <CardTitle asChild className="text-2xl font-semibold">
-                  <h1>About Bila UiTM Cuti</h1>
+                <CardTitle render={<h1 className="text-2xl font-semibold" />}>
+                  About Bila UiTM Cuti
                 </CardTitle>
                 <CardDescription className="mt-1 text-sm text-foreground">
                   A student-focused web app for checking UiTM academic calendar timelines — registration, lectures,
