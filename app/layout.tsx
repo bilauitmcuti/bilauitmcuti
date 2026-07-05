@@ -9,6 +9,7 @@ import './globals.css'
 import { Geist, Geist_Mono } from "next/font/google"
 import { cn } from "@/lib/utils"
 import { buildSiteNavigationSchemaElements, HOMEPAGE_SEO_DESCRIPTION } from '@/lib/page-seo'
+import { getCalendarFilterBootstrapScript } from '@/lib/cookie-utils'
 
 const geistSans = Geist({
   subsets: ["latin"],
@@ -117,6 +118,10 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const filterBootstrapScript = getCalendarFilterBootstrapScript(
+    process.env.NODE_ENV === "production"
+  );
+
   return (
     <html lang="en" className={cn(geistSans.variable, geistMono.variable, "font-sans")} suppressHydrationWarning>
       <head>
@@ -207,69 +212,7 @@ export default function RootLayout({
                 
                 // Store filter states in data attributes for synchronous access
                 // This prevents flicker when filters are applied - MUST run before React hydration
-                // Default values from data.ts (single source of truth) - inlined to avoid import in script
-                const DEFAULT_FILTER_STATES = {
-                  showKKT: false,
-                  showRegistration: true,
-                  showLecture: true,
-                  showSemesterPendek: false,
-                  showKuliahIntersesi: false,
-                  showExamination: true,
-                  showOthersExams: false,
-                  showBreak: true,
-                };
-                
-                try {
-                  // Properly check if localStorage keys exist using ?? (null coalescing)
-                  // Only use defaults when localStorage key is null (doesn't exist)
-                  const filterValues = {
-                    showRegistration: JSON.parse(localStorage.getItem('showRegistration') ?? JSON.stringify(DEFAULT_FILTER_STATES.showRegistration)),
-                    showLecture: JSON.parse(localStorage.getItem('showLecture') ?? JSON.stringify(DEFAULT_FILTER_STATES.showLecture)),
-                    showSemesterPendek: JSON.parse(localStorage.getItem('showSemesterPendek') ?? JSON.stringify(DEFAULT_FILTER_STATES.showSemesterPendek)),
-                    showKuliahIntersesi: JSON.parse(localStorage.getItem('showKuliahIntersesi') ?? JSON.stringify(DEFAULT_FILTER_STATES.showKuliahIntersesi)),
-                    showExamination: JSON.parse(localStorage.getItem('showExamination') ?? JSON.stringify(DEFAULT_FILTER_STATES.showExamination)),
-                    showOthersExams: JSON.parse(localStorage.getItem('showOthersExams') ?? JSON.stringify(DEFAULT_FILTER_STATES.showOthersExams)),
-                    showBreak: JSON.parse(localStorage.getItem('showBreak') ?? JSON.stringify(DEFAULT_FILTER_STATES.showBreak)),
-                    showKKT: JSON.parse(localStorage.getItem('showKKT') ?? JSON.stringify(DEFAULT_FILTER_STATES.showKKT)),
-                  };
-                  
-                  // Sync to cookie for SSR consistency
-                  try {
-                    const cookieValue = encodeURIComponent(JSON.stringify(filterValues));
-                    const expires = new Date();
-                    expires.setTime(expires.getTime() + (365 * 24 * 60 * 60 * 1000)); // 1 year
-                    const securePart = ${process.env.NODE_ENV === 'production' ? '"; Secure"' : '""'};
-                    document.cookie = 'calendar-filters=' + cookieValue + '; expires=' + expires.toUTCString() + '; path=/; SameSite=Lax' + securePart;
-                  } catch (cookieError) {
-                    if (isDev) console.warn('Failed to sync filters to cookie:', cookieError);
-                  }
-                  
-                  // Store as data attribute for synchronous access during component initialization
-                  const filters = {
-                    showRegistration: JSON.stringify(filterValues.showRegistration),
-                    showLecture: JSON.stringify(filterValues.showLecture),
-                    showSemesterPendek: JSON.stringify(filterValues.showSemesterPendek),
-                    showKuliahIntersesi: JSON.stringify(filterValues.showKuliahIntersesi),
-                    showExamination: JSON.stringify(filterValues.showExamination),
-                    showOthersExams: JSON.stringify(filterValues.showOthersExams),
-                    showBreak: JSON.stringify(filterValues.showBreak),
-                    showKKT: JSON.stringify(filterValues.showKKT),
-                  };
-                  document.documentElement.setAttribute('data-filters', JSON.stringify(filters));
-                } catch (e) {
-                  // Fallback: set default values if localStorage fails
-                  const defaultFilters = {
-                    showRegistration: JSON.stringify(DEFAULT_FILTER_STATES.showRegistration),
-                    showLecture: JSON.stringify(DEFAULT_FILTER_STATES.showLecture),
-                    showSemesterPendek: JSON.stringify(DEFAULT_FILTER_STATES.showSemesterPendek),
-                    showKuliahIntersesi: JSON.stringify(DEFAULT_FILTER_STATES.showKuliahIntersesi),
-                    showExamination: JSON.stringify(DEFAULT_FILTER_STATES.showExamination),
-                    showOthersExams: JSON.stringify(DEFAULT_FILTER_STATES.showOthersExams),
-                    showBreak: JSON.stringify(DEFAULT_FILTER_STATES.showBreak),
-                    showKKT: JSON.stringify(DEFAULT_FILTER_STATES.showKKT),
-                  };
-                  document.documentElement.setAttribute('data-filters', JSON.stringify(defaultFilters));
-                }
+                ${filterBootstrapScript}
               })();
             `,
           }}

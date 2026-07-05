@@ -75,7 +75,7 @@ export function SharedCalendarLayout({
       assignCalendarStoreSnapshot(initialCalendarSnapshot);
     }
     return 0;
-  }, [initialCalendarSnapshot]);
+  }, [initialCalendarSnapshot, initialCalendarHydration?.hydrateKey]);
 
   useLayoutEffect(() => {
     if (initialCalendarSnapshot) {

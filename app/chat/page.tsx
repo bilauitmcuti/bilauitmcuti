@@ -13,12 +13,21 @@ import {
   getGroupFromSession,
 } from "@/lib/data";
 import type { SessionId } from "@/lib/data";
-import { getFiltersFromCookie } from "@/lib/cookie-utils";
+import { getFiltersFromCookie, setFiltersToCookie } from "@/lib/cookie-utils";
 import { getRoutePath, isProgramValue, type ProgramValue } from "@/lib/route-utils";
+import {
+  CHAT_RETURN_PATH_KEY,
+  clearChatReturnPath,
+  isValidChatReturnPath,
+  readChatCalendarContext,
+  resolveChatBackPath,
+  resolveProgramFromCalendarPath,
+} from "@/lib/session-query";
 import {
   areSessionListsEqual,
   getGroupFromProgram,
   getSessionMemoryKey,
+  normalizeSessionsForGroup,
 } from "@/lib/session-memory";
 import { cn } from "@/lib/utils";
 import { trackZarazEvent, ZARAZ_EVENTS } from "@/lib/zaraz";
@@ -90,6 +99,7 @@ export default function ChatPage() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
   const keepDropdownOpenRef = useRef(false);
+  const hasHydratedRef = useRef(false);
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [headerVisible, setHeaderVisible] = useState(true);
@@ -128,6 +138,13 @@ export default function ChatPage() {
     if (typeof window === "undefined") return;
     try {
       const filters = getFiltersFromCookie();
+      const calendarContext = readChatCalendarContext();
+      const returnPath = sessionStorage.getItem(CHAT_RETURN_PATH_KEY);
+      const programFromReturnPath =
+        returnPath && isValidChatReturnPath(returnPath)
+          ? resolveProgramFromCalendarPath(returnPath)
+          : ("All" as ProgramValue);
+
       const raw =
         localStorage.getItem("sessionIdsByProgram") ??
         localStorage.getItem("chatSessionIdsByProgram");
@@ -143,19 +160,51 @@ export default function ChatPage() {
       };
 
       const storedProgram = localStorage.getItem("selectedProgram");
-      const nextProgram: ProgramValue =
-        filters.selectedProgram && isProgramValue(filters.selectedProgram)
-          ? filters.selectedProgram
-          : storedProgram && isProgramValue(storedProgram)
-            ? storedProgram
-            : "All";
+      let nextProgram: ProgramValue;
+      if (calendarContext) {
+        nextProgram = calendarContext.selectedProgram;
+      } else if (programFromReturnPath !== "All") {
+        nextProgram = programFromReturnPath;
+      } else if (filters.selectedProgram && isProgramValue(filters.selectedProgram)) {
+        nextProgram = filters.selectedProgram;
+      } else if (storedProgram && isProgramValue(storedProgram)) {
+        nextProgram = storedProgram;
+      } else {
+        nextProgram = "All";
+      }
 
-      const resolvedSessions = resolveSessionsForProgram(
-        nextProgram,
-        [],
-        mergedMap,
-        dateStr
-      );
+      if (calendarContext) {
+        const group = getGroupFromProgram(calendarContext.selectedProgram);
+        const memKey = getSessionMemoryKey(calendarContext.selectedProgram);
+        const fromContext = normalizeSessionsForGroup(
+          calendarContext.selectedSessions,
+          group
+        );
+        if (fromContext.length > 0) {
+          mergedMap[memKey] = fromContext;
+        }
+      }
+
+      let resolvedSessions: SessionId[];
+      if (calendarContext) {
+        const group = getGroupFromProgram(calendarContext.selectedProgram);
+        const fromContext = normalizeSessionsForGroup(
+          calendarContext.selectedSessions,
+          group
+        );
+        resolvedSessions =
+          fromContext.length > 0
+            ? fromContext
+            : resolveSessionsForProgram(nextProgram, [], mergedMap, dateStr);
+      } else {
+        resolvedSessions = resolveSessionsForProgram(
+          nextProgram,
+          [],
+          mergedMap,
+          dateStr
+        );
+      }
+
       setSessionsByProgram(mergedMap);
       setSelectedProgram(nextProgram);
       setSelectedSessions(resolvedSessions);
@@ -164,7 +213,13 @@ export default function ChatPage() {
     }
   }, []);
 
+  useLayoutEffect(() => {
+    hydrateChatFromHomepageSources();
+    hasHydratedRef.current = true;
+  }, [hydrateChatFromHomepageSources]);
+
   useEffect(() => {
+    if (!hasHydratedRef.current) return;
     hydrateChatFromHomepageSources();
   }, [hydrateChatFromHomepageSources, calendarDataVersion]);
 
@@ -186,7 +241,7 @@ export default function ChatPage() {
   }, [hydrateChatFromHomepageSources]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (!hasHydratedRef.current || typeof window === "undefined") return;
     try {
       localStorage.setItem("sessionIdsByProgram", JSON.stringify(sessionsByProgram));
       localStorage.setItem("chatSessionIdsByProgram", JSON.stringify(sessionsByProgram));
@@ -196,13 +251,25 @@ export default function ChatPage() {
   }, [sessionsByProgram]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (!hasHydratedRef.current || typeof window === "undefined") return;
     try {
       localStorage.setItem("selectedProgram", selectedProgram);
     } catch {
       // Ignore storage errors (private mode / quota).
     }
   }, [selectedProgram]);
+
+  useEffect(() => {
+    if (!hasHydratedRef.current) return;
+    const filters = getFiltersFromCookie();
+    setFiltersToCookie({
+      ...filters,
+      selectedProgram,
+      sessionId: selectedSessions[0],
+      sessionIds: selectedSessions,
+      sessionIdsByProgram: sessionsByProgram,
+    });
+  }, [selectedProgram, selectedSessions, sessionsByProgram]);
 
   useEffect(() => {
     router.prefetch(getRoutePath(selectedProgram, "grid"));
@@ -898,13 +965,19 @@ export default function ChatPage() {
     return "How can I help you today?";
   }, [isEmptyChat, isDesktopViewport]);
 
+  const handleChatBack = useCallback(() => {
+    const target = resolveChatBackPath(selectedProgram);
+    clearChatReturnPath();
+    router.push(target);
+  }, [router, selectedProgram]);
+
   return (
     <div className="relative flex flex-col h-dvh overflow-x-hidden bg-background text-foreground" data-nosnippet>
       {/* Header - overlays on top of chat area */}
       <div className={`chat-header absolute top-0 left-0 right-0 z-10 px-4 md:px-0 ${headerVisible ? "translate-y-0" : "-translate-y-full"}`}>
         <header className="flex items-center gap-3 pt-8 pb-3 mx-auto max-w-[600px] w-full">
           <button
-            onClick={() => router.push(getRoutePath(selectedProgram, "grid"))}
+            onClick={handleChatBack}
             className="flex items-center justify-center w-9 h-9 rounded-full bg-secondary hover:bg-secondary/80 dark:bg-[#2A2A2A] dark:hover:bg-[#333] transition-colors"
             aria-label="Back to home"
           >
