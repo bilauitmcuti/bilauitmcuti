@@ -3,16 +3,17 @@
 import * as React from "react"
 import { Drawer as DrawerPrimitive } from "vaul"
 
+import { useVisualViewportOffset } from "@/lib/use-visual-viewport-offset"
 import { cn } from "@/lib/utils"
 
-/** Shared shell: min 30vh, max 80vh (bottom); flex children use min-h-0 for inner scroll. */
+/** Shared shell: min 30dvh, max 80dvh (bottom); flex children use min-h-0 for inner scroll. */
 export const drawerContentClassName =
-  "flex min-h-[30vh] flex-col [&::after]:hidden overflow-x-hidden"
+  "flex min-h-[30dvh] flex-col [&::after]:hidden overflow-x-hidden"
 
-/** Activity day list drawer — capped at 60vh (bottom). */
+/** Activity day list drawer — capped at 60dvh (bottom). */
 export const activityDrawerContentClassName = cn(
   drawerContentClassName,
-  "data-[vaul-drawer-direction=bottom]:max-h-[60vh]"
+  "data-[vaul-drawer-direction=bottom]:max-h-[60dvh]"
 )
 
 /** Drawer body column that fills the shell (use with a scroll region below a fixed header). */
@@ -41,6 +42,13 @@ export const responsiveDrawerContentClassName = cn(
   responsiveShellBgClassName
 )
 
+/** Responsive shell for drawers with text inputs (engagement prompt, mention picker). */
+export const responsiveKeyboardDrawerContentClassName = responsiveDrawerContentClassName
+
+/** Pins bottom drawer to visible viewport above the mobile keyboard. */
+export const keyboardAwareDrawerContentClassName =
+  "data-[vaul-drawer-direction=bottom]:!bottom-[var(--vv-bottom-offset,0px)] data-[vaul-drawer-direction=bottom]:!max-h-[min(80dvh,calc(100dvh-var(--vv-bottom-offset,0px)))] data-[vaul-drawer-direction=bottom]:!h-auto"
+
 /** Body layout for responsive drawer/dialog pairs (mention picker, engagement prompt). */
 export const responsiveDrawerBodyClassName = cn(
   "gap-3 text-center md:text-left",
@@ -60,6 +68,14 @@ export const responsiveDialogDescriptionClassName =
 export const responsiveDrawerDescriptionClassName =
   responsiveDialogDescriptionClassName
 
+/** Full-width primary action — 38px tall (settings shell, drawers). */
+export const drawerPrimaryButtonClassName =
+  "w-full !h-[38px] justify-center border-border text-center transition-none"
+
+/** Full-width outline action — 38px tall (settings shell, drawers). */
+export const drawerOutlineButtonClassName =
+  "w-full h-[38px] justify-center border-border bg-background text-black shadow-xs transition-all hover:bg-muted hover:text-foreground dark:border-input dark:bg-input/30 dark:text-foreground dark:hover:bg-input/50"
+
 function Drawer({
   handleOnly = true,
   dismissible = true,
@@ -70,6 +86,26 @@ function Drawer({
       data-slot="drawer"
       handleOnly={handleOnly}
       dismissible={dismissible}
+      {...props}
+    />
+  )
+}
+
+function KeyboardAwareDrawer({
+  open,
+  handleOnly = true,
+  dismissible = true,
+  ...props
+}: React.ComponentProps<typeof DrawerPrimitive.Root>) {
+  useVisualViewportOffset(open === true)
+
+  return (
+    <DrawerPrimitive.Root
+      data-slot="drawer"
+      open={open}
+      handleOnly={handleOnly}
+      dismissible={dismissible}
+      repositionInputs={false}
       {...props}
     />
   )
@@ -111,16 +147,20 @@ function DrawerOverlay({
 
 function DrawerContent({
   className,
+  keyboardAware = false,
   children,
   ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Content>) {
+}: React.ComponentProps<typeof DrawerPrimitive.Content> & {
+  keyboardAware?: boolean
+}) {
   return (
     <DrawerPortal data-slot="drawer-portal">
       <DrawerOverlay />
       <DrawerPrimitive.Content
         data-slot="drawer-content"
         className={cn(
-          "group/drawer-content fixed z-50 flex h-auto min-h-[30vh] flex-col border-0 bg-popover text-sm text-popover-foreground shadow-none outline-none ring-0 ring-offset-0 data-[vaul-drawer-direction=bottom]:inset-x-0 data-[vaul-drawer-direction=bottom]:bottom-0 data-[vaul-drawer-direction=bottom]:mt-24 data-[vaul-drawer-direction=bottom]:max-h-[80vh] data-[vaul-drawer-direction=bottom]:rounded-t-xl data-[vaul-drawer-direction=left]:inset-y-0 data-[vaul-drawer-direction=left]:left-0 data-[vaul-drawer-direction=left]:w-3/4 data-[vaul-drawer-direction=left]:rounded-r-xl data-[vaul-drawer-direction=right]:inset-y-0 data-[vaul-drawer-direction=right]:right-0 data-[vaul-drawer-direction=right]:w-3/4 data-[vaul-drawer-direction=right]:rounded-l-xl data-[vaul-drawer-direction=top]:inset-x-0 data-[vaul-drawer-direction=top]:top-0 data-[vaul-drawer-direction=top]:mb-24 data-[vaul-drawer-direction=top]:max-h-[80vh] data-[vaul-drawer-direction=top]:rounded-b-xl data-[vaul-drawer-direction=left]:sm:max-w-sm data-[vaul-drawer-direction=right]:sm:max-w-sm",
+          "group/drawer-content fixed z-50 flex h-auto min-h-[30dvh] flex-col border-0 bg-popover text-sm text-popover-foreground shadow-none outline-none ring-0 ring-offset-0 data-[vaul-drawer-direction=bottom]:inset-x-0 data-[vaul-drawer-direction=bottom]:bottom-0 data-[vaul-drawer-direction=bottom]:mt-24 data-[vaul-drawer-direction=bottom]:max-h-[80dvh] data-[vaul-drawer-direction=bottom]:rounded-t-xl data-[vaul-drawer-direction=left]:inset-y-0 data-[vaul-drawer-direction=left]:left-0 data-[vaul-drawer-direction=left]:w-3/4 data-[vaul-drawer-direction=left]:rounded-r-xl data-[vaul-drawer-direction=right]:inset-y-0 data-[vaul-drawer-direction=right]:right-0 data-[vaul-drawer-direction=right]:w-3/4 data-[vaul-drawer-direction=right]:rounded-l-xl data-[vaul-drawer-direction=top]:inset-x-0 data-[vaul-drawer-direction=top]:top-0 data-[vaul-drawer-direction=top]:mb-24 data-[vaul-drawer-direction=top]:max-h-[80dvh] data-[vaul-drawer-direction=top]:rounded-b-xl data-[vaul-drawer-direction=left]:sm:max-w-sm data-[vaul-drawer-direction=right]:sm:max-w-sm",
+          keyboardAware && keyboardAwareDrawerContentClassName,
           className
         )}
         {...props}
@@ -200,6 +240,7 @@ function DrawerDescription({
 
 export {
   Drawer,
+  KeyboardAwareDrawer,
   DrawerPortal,
   DrawerOverlay,
   DrawerTrigger,

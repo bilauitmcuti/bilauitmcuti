@@ -1,3 +1,12 @@
+import {
+  buildAiGatewayRunOptions,
+  type AiGatewayRunOptions,
+} from "@/lib/ai-gateway";
+import {
+  formatToolsForModel,
+  usesOpenAiFunctionToolFormat,
+  type FlatToolDefinition,
+} from "@/lib/chat/agent/tool-format";
 import { CHAT_MAX_MESSAGE_LENGTH } from "@/lib/chat/limits";
 
 /** Dev / preview / localhost chat model (fast, lower cost). */
@@ -6,13 +15,6 @@ export const MODEL_WORKERS_AI_DEV = "@cf/meta/llama-3.2-3b-instruct" as const;
 /** Production primary chat model. */
 export const MODEL_WORKERS_AI_PRODUCTION =
   "@cf/google/gemma-4-26b-a4b-it" as const;
-
-/**
- * Production backup when primary fails or is unavailable.
- * Cloudflare Workers AI partner id (see Workers AI model catalog).
- */
-export const MODEL_WORKERS_AI_PRODUCTION_BACKUP =
-  "google/gemini-3.1-flash-lite" as const;
 
 /** @deprecated Use MODEL_WORKERS_AI_DEV */
 export const MODEL_WORKERS_AI = MODEL_WORKERS_AI_DEV;
@@ -89,18 +91,15 @@ function isCloudflarePagesPreviewDeploy(): boolean {
 }
 
 /**
- * Production (bilauitmcuti.com): Gemma 4 + Gemini Flash Lite backup.
+ * Production (bilauitmcuti.com): Gemma 4.
  * Local + Pages preview (*.pages.dev, localhost): Llama 3.2 3B.
- * Optional: WORKERS_AI_MODEL, WORKERS_AI_BACKUP_MODEL, WORKERS_AI_USE_DEV_MODEL=1,
+ * Optional: WORKERS_AI_MODEL, WORKERS_AI_USE_DEV_MODEL=1,
  * WORKERS_AI_USE_PRODUCTION_MODEL=1 (strict localhost only — test Gemma locally).
  */
 export function resolveWorkersAiModelTier(requestHost?: string | null): WorkersAiModelTier {
   const override = process.env.WORKERS_AI_MODEL?.trim();
   if (override) {
-    return override === MODEL_WORKERS_AI_PRODUCTION ||
-      override === MODEL_WORKERS_AI_PRODUCTION_BACKUP
-      ? "production"
-      : "dev";
+    return override === MODEL_WORKERS_AI_PRODUCTION ? "production" : "dev";
   }
 
   if (process.env.WORKERS_AI_USE_DEV_MODEL === "1" || process.env.WORKERS_AI_USE_DEV_MODEL === "true") {
@@ -132,7 +131,7 @@ export function resolveWorkersAiModelTier(requestHost?: string | null): WorkersA
   return "dev";
 }
 
-/** Ordered model ids for chat completion (production: primary then backup). */
+/** Ordered model ids for chat completion (production: Gemma only; dev/preview: Llama). */
 export function resolveProductionChatModelChain(requestHost?: string | null): string[] {
   const override = process.env.WORKERS_AI_MODEL?.trim();
   if (override) return [override];
@@ -140,13 +139,27 @@ export function resolveProductionChatModelChain(requestHost?: string | null): st
   const tier = resolveWorkersAiModelTier(requestHost);
   if (tier === "dev") return [MODEL_WORKERS_AI_DEV];
 
-  const backup =
-    process.env.WORKERS_AI_BACKUP_MODEL?.trim() || MODEL_WORKERS_AI_PRODUCTION_BACKUP;
-  return [MODEL_WORKERS_AI_PRODUCTION, backup];
+  return [MODEL_WORKERS_AI_PRODUCTION];
 }
 
 export function resolveWorkersAiModelId(requestHost?: string | null): string {
   return resolveProductionChatModelChain(requestHost)[0]!;
+}
+
+/** Tier limits follow the selected model, not only the host. */
+export function resolveWorkersAiTierForModelId(
+  modelId: string,
+  requestHost?: string | null
+): WorkersAiModelTier {
+  if (
+    modelId.includes("gemma-4") ||
+    modelId.includes("gemma-3") ||
+    modelId.startsWith("google/")
+  ) {
+    return "production";
+  }
+  if (modelId === MODEL_WORKERS_AI_DEV) return "dev";
+  return resolveWorkersAiModelTier(requestHost);
 }
 
 /** Chat UI shows the full reply only after loading; never stream partial tokens to the client. */
@@ -226,6 +239,25 @@ export async function getAiBinding(): Promise<Ai | null> {
   }
 }
 
+function buildChatGatewayMetadata(correlationId?: string): AiGatewayRunOptions["metadata"] {
+  return correlationId
+    ? { correlationId, path: "chat" }
+    : { path: "chat" };
+}
+
+async function runAiWithGateway(
+  ai: Ai,
+  modelId: string,
+  input: Record<string, unknown>,
+  gatewayOpts?: AiGatewayRunOptions
+): Promise<unknown> {
+  const options = await buildAiGatewayRunOptions(gatewayOpts);
+  if (options) {
+    return ai.run(modelId, input, options);
+  }
+  return ai.run(modelId, input);
+}
+
 function truncate(str: string, max: number): string {
   if (str.length <= max) return str;
   return str.slice(0, max) + "...[truncated]";
@@ -263,27 +295,51 @@ function buildMessages(
   return messages;
 }
 
-function extractWorkersAiContent(result: unknown): string {
-  if (typeof result === "string" && result.trim()) return result;
+function normalizeReasoningFallback(reasoning: string): string | null {
+  const trimmed = reasoning.trim();
+  if (!trimmed) return null;
+  if (/^[\[{]/.test(trimmed) && /"name"\s*:/.test(trimmed)) return null;
+  return trimmed;
+}
 
-  if (result && typeof result === "object") {
-    const data = result as WorkersAiTextResponse;
-    if (typeof data.response === "string" && data.response.trim()) return data.response;
-    const message = data.choices?.[0]?.message as
-      | { content?: string | null; reasoning?: string | null }
-      | undefined;
-    if (typeof message?.content === "string" && message.content.trim()) {
-      return message.content.trim();
+function extractWorkersAiContentFromObject(result: unknown): string | null {
+  if (typeof result === "string" && result.trim()) return result.trim();
+
+  if (!result || typeof result !== "object") return null;
+
+  const data = result as WorkersAiTextResponse;
+  if (typeof data.response === "string" && data.response.trim()) return data.response.trim();
+
+  const message = data.choices?.[0]?.message as
+    | { content?: string | null; reasoning?: string | null }
+    | undefined;
+  if (typeof message?.content === "string" && message.content.trim()) {
+    return message.content.trim();
+  }
+  if (message?.content == null || String(message.content).trim() === "") {
+    if (typeof message?.reasoning === "string") {
+      const fromReasoning = normalizeReasoningFallback(message.reasoning);
+      if (fromReasoning) return fromReasoning;
     }
-
-    const geminiCandidates = (result as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })
-      .candidates;
-    const geminiText = geminiCandidates?.[0]?.content?.parts
-      ?.map((p) => (p as { text?: string }).text ?? "")
-      .join("");
-    if (geminiText?.trim()) return geminiText.trim();
   }
 
+  const geminiCandidates = (result as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })
+    .candidates;
+  const geminiText = geminiCandidates?.[0]?.content?.parts
+    ?.map((p) => (p as { text?: string }).text ?? "")
+    .join("");
+  if (geminiText?.trim()) return geminiText.trim();
+
+  return null;
+}
+
+export function tryExtractWorkersAiContent(result: unknown): string | null {
+  return extractWorkersAiContentFromObject(result);
+}
+
+function extractWorkersAiContent(result: unknown): string {
+  const content = extractWorkersAiContentFromObject(result);
+  if (content) return content;
   throw new Error("Empty response from model");
 }
 
@@ -397,6 +453,7 @@ async function workersAiChatCompletion(params: {
   messages: { role: "system" | "user" | "assistant"; content: string }[];
   max_tokens: number;
   temperature: number;
+  correlationId?: string;
 }): Promise<string> {
   const ai = await getAiBinding();
   if (!ai) {
@@ -415,7 +472,11 @@ async function workersAiChatCompletion(params: {
       params.temperature,
       false
     );
-    const result = await ai.run(params.modelId, input);
+    const result = await runAiWithGateway(ai, params.modelId, input, {
+      skipCache: false,
+      cacheTtl: 120,
+      metadata: buildChatGatewayMetadata(params.correlationId),
+    });
     return extractWorkersAiContent(result);
   } catch (firstError) {
     const msg = normalizeAiErrorMessage(firstError).toLowerCase();
@@ -437,6 +498,7 @@ export async function askWorkersAi(
     temperature?: number;
     /** Request Host header — selects production vs dev model on Cloudflare Pages. */
     requestHost?: string | null;
+    correlationId?: string;
   }
 ): Promise<string> {
   const tier = resolveWorkersAiModelTier(options?.requestHost);
@@ -456,6 +518,7 @@ export async function askWorkersAi(
         messages,
         max_tokens,
         temperature,
+        correlationId: options?.correlationId,
       });
     } catch (err) {
       lastError = err;
@@ -478,8 +541,8 @@ function extractStreamDelta(chunk: unknown): string {
 
   const choice = (chunk as {
     choices?: Array<{
-      delta?: { content?: string };
-      message?: { content?: string };
+      delta?: { content?: string; reasoning?: string };
+      message?: { content?: string; reasoning?: string };
     }>;
   }).choices?.[0];
   const deltaContent = choice?.delta?.content;
@@ -487,6 +550,17 @@ function extractStreamDelta(chunk: unknown): string {
 
   const messageContent = choice?.message?.content;
   if (typeof messageContent === "string" && messageContent) return messageContent;
+
+  const deltaReasoning = choice?.delta?.reasoning;
+  if (typeof deltaReasoning === "string") {
+    const fromReasoning = normalizeReasoningFallback(deltaReasoning);
+    if (fromReasoning) return fromReasoning;
+  }
+  const messageReasoning = choice?.message?.reasoning;
+  if (typeof messageReasoning === "string") {
+    const fromReasoning = normalizeReasoningFallback(messageReasoning);
+    if (fromReasoning) return fromReasoning;
+  }
 
   const geminiParts = (
     chunk as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
@@ -566,6 +640,7 @@ async function workersAiChatCompletionStream(params: {
   messages: { role: "system" | "user" | "assistant"; content: string }[];
   max_tokens: number;
   temperature: number;
+  correlationId?: string;
 }): Promise<AsyncGenerator<string>> {
   const ai = await getAiBinding();
   if (!ai) {
@@ -583,7 +658,10 @@ async function workersAiChatCompletionStream(params: {
     params.temperature,
     true
   );
-  const result = await ai.run(params.modelId, input);
+  const result = await runAiWithGateway(ai, params.modelId, input, {
+    skipCache: true,
+    metadata: buildChatGatewayMetadata(params.correlationId),
+  });
   return iterateAiStream(result);
 }
 
@@ -591,6 +669,7 @@ export interface StreamWorkersAiOptions {
   maxTokens?: number;
   temperature?: number;
   requestHost?: string | null;
+  correlationId?: string;
   onToken: (token: string) => void | Promise<void>;
   /** When false, model still runs (and may stream internally) but onToken is not called until the end. */
   emitTokensToClient?: boolean;
@@ -622,6 +701,7 @@ export async function streamWorkersAi(
         messages,
         max_tokens,
         temperature,
+        correlationId: options.correlationId,
       });
       let full = "";
       for await (const token of stream) {
@@ -634,6 +714,7 @@ export async function streamWorkersAi(
           messages,
           max_tokens,
           temperature,
+          correlationId: options.correlationId,
         });
         if (full.trim()) {
           if (emitTokens) await options.onToken(full);
@@ -652,6 +733,7 @@ export async function streamWorkersAi(
           messages,
           max_tokens,
           temperature,
+          correlationId: options.correlationId,
         });
         if (emitTokens) await options.onToken(full);
         return full;
@@ -669,6 +751,7 @@ export async function streamWorkersAi(
 export interface WorkersAiToolCall {
   name: string;
   arguments: Record<string, unknown>;
+  id?: string;
 }
 
 export type AgentChatMessage =
@@ -677,7 +760,7 @@ export type AgentChatMessage =
       content: string;
       tool_calls?: WorkersAiToolCall[];
     }
-  | { role: "tool"; name: string; content: string };
+  | { role: "tool"; name: string; content: string; tool_call_id?: string };
 
 /** Models that support Workers AI traditional function calling in this app. */
 export function supportsFunctionCalling(modelId: string): boolean {
@@ -689,12 +772,28 @@ export function supportsFunctionCalling(modelId: string): boolean {
 export function extractToolCalls(result: unknown): WorkersAiToolCall[] {
   if (!result || typeof result !== "object") return [];
   const r = result as Record<string, unknown>;
-  const raw = r.tool_calls ?? r.toolCalls;
-  if (!Array.isArray(raw)) return [];
+  const rawItems: unknown[] = [];
+
+  const topLevel = r.tool_calls ?? r.toolCalls;
+  if (Array.isArray(topLevel)) rawItems.push(...topLevel);
+
+  const choiceMessage = (
+    r.choices as Array<{ message?: Record<string, unknown> }> | undefined
+  )?.[0]?.message;
+  if (choiceMessage && typeof choiceMessage === "object") {
+    const nested = choiceMessage.tool_calls ?? choiceMessage.toolCalls;
+    if (Array.isArray(nested)) rawItems.push(...nested);
+  }
+
   const calls: WorkersAiToolCall[] = [];
-  for (const item of raw) {
+  const seen = new Set<string>();
+  for (const item of rawItems) {
     const parsed = parseToolCallEntry(item);
-    if (parsed) calls.push(parsed);
+    if (!parsed) continue;
+    const key = `${parsed.id ?? ""}:${parsed.name}:${JSON.stringify(parsed.arguments)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    calls.push(parsed);
   }
   return calls;
 }
@@ -702,6 +801,28 @@ export function extractToolCalls(result: unknown): WorkersAiToolCall[] {
 function parseToolCallEntry(call: unknown): WorkersAiToolCall | null {
   if (!call || typeof call !== "object") return null;
   const c = call as Record<string, unknown>;
+  const id = typeof c.id === "string" ? c.id : undefined;
+
+  const fn = c.function;
+  if (fn && typeof fn === "object") {
+    const f = fn as Record<string, unknown>;
+    const name = typeof f.name === "string" ? f.name : "";
+    if (!name) return null;
+    let args: unknown = f.arguments ?? f.args;
+    if (typeof args === "string") {
+      try {
+        args = JSON.parse(args) as unknown;
+      } catch {
+        args = {};
+      }
+    }
+    const argumentsRecord =
+      args && typeof args === "object" && !Array.isArray(args)
+        ? (args as Record<string, unknown>)
+        : {};
+    return { name, arguments: argumentsRecord, id };
+  }
+
   const name = typeof c.name === "string" ? c.name : "";
   if (!name) return null;
   let args: unknown = c.arguments ?? c.args;
@@ -716,58 +837,230 @@ function parseToolCallEntry(call: unknown): WorkersAiToolCall | null {
     args && typeof args === "object" && !Array.isArray(args)
       ? (args as Record<string, unknown>)
       : {};
-  return { name, arguments: argumentsRecord };
+  return { name, arguments: argumentsRecord, id };
 }
 
-function agentMessageToApi(msg: AgentChatMessage): Record<string, unknown> {
+function ensureToolCallIds(calls: WorkersAiToolCall[]): WorkersAiToolCall[] {
+  return calls.map((call, index) => ({
+    ...call,
+    id: call.id ?? `call_${call.name}_${index}`,
+  }));
+}
+
+function agentMessageToApi(msg: AgentChatMessage, modelId: string): Record<string, unknown> {
   if (msg.role === "tool") {
+    if (usesOpenAiFunctionToolFormat(modelId)) {
+      return {
+        role: "tool",
+        tool_call_id: msg.tool_call_id ?? `call_${msg.name}`,
+        content: msg.content,
+      };
+    }
     return { role: "tool", name: msg.name, content: msg.content };
   }
   const out: Record<string, unknown> = { role: msg.role, content: msg.content };
   if (msg.role === "assistant" && msg.tool_calls?.length) {
-    out.tool_calls = msg.tool_calls.map((tc) => ({
-      name: tc.name,
-      arguments: tc.arguments,
-    }));
+    if (usesOpenAiFunctionToolFormat(modelId)) {
+      out.tool_calls = msg.tool_calls.map((tc, index) => ({
+        id: tc.id ?? `call_${tc.name}_${index}`,
+        type: "function",
+        function: {
+          name: tc.name,
+          arguments: JSON.stringify(tc.arguments),
+        },
+      }));
+    } else {
+      out.tool_calls = msg.tool_calls.map((tc) => ({
+        name: tc.name,
+        arguments: tc.arguments,
+      }));
+    }
   }
   return out;
+}
+
+/** Map agent tool loop messages to Gemini contents (functionCall / functionResponse). */
+export function agentMessagesToGeminiContents(
+  messages: AgentChatMessage[]
+): { role: string; parts: Record<string, unknown>[] }[] {
+  const contents: { role: string; parts: Record<string, unknown>[] }[] = [];
+
+  for (const msg of messages) {
+    if (msg.role === "system") {
+      contents.push({
+        role: "user",
+        parts: [{ text: `Instructions:\n${msg.content}` }],
+      });
+      continue;
+    }
+
+    if (msg.role === "user") {
+      contents.push({
+        role: "user",
+        parts: [{ text: msg.content }],
+      });
+      continue;
+    }
+
+    if (msg.role === "assistant") {
+      const parts: Record<string, unknown>[] = [];
+      if (msg.content.trim()) {
+        parts.push({ text: msg.content });
+      }
+      if (msg.tool_calls?.length) {
+        for (const tc of msg.tool_calls) {
+          parts.push({
+            functionCall: {
+              name: tc.name,
+              args: tc.arguments,
+            },
+          });
+        }
+      }
+      if (parts.length > 0) {
+        contents.push({ role: "model", parts });
+      }
+      continue;
+    }
+
+    if (msg.role === "tool") {
+      let responsePayload: unknown = { output: msg.content };
+      try {
+        responsePayload = JSON.parse(msg.content) as unknown;
+      } catch {
+        /* keep text wrapper */
+      }
+      contents.push({
+        role: "user",
+        parts: [
+          {
+            functionResponse: {
+              name: msg.name,
+              response: responsePayload,
+            },
+          },
+        ],
+      });
+    }
+  }
+
+  return contents;
 }
 
 function buildAgentModelRunInput(
   modelId: string,
   messages: AgentChatMessage[],
-  tools: Array<{ name: string; description: string; parameters: unknown }>,
+  tools: FlatToolDefinition[],
   max_tokens: number,
-  temperature: number
+  temperature: number,
+  stream = false
 ): Record<string, unknown> {
-  const apiMessages = messages.map(agentMessageToApi);
+  const formattedTools = formatToolsForModel(modelId, tools);
+
   if (isGooglePartnerModelId(modelId)) {
-    const textMessages = messages.filter(
-      (m): m is Extract<AgentChatMessage, { role: "system" | "user" | "assistant" }> =>
-        m.role !== "tool"
-    );
     const input: Record<string, unknown> = {
-      contents: messagesToGeminiContents(
-        textMessages.map((m) => ({ role: m.role, content: m.content }))
-      ),
+      contents: agentMessagesToGeminiContents(messages),
       generationConfig: {
         maxOutputTokens: max_tokens,
         temperature,
       },
     };
-    if (tools.length > 0) input.tools = tools;
+    if (formattedTools.length > 0) input.tools = formattedTools;
+    if (stream) input.stream = true;
     return input;
   }
   const input: Record<string, unknown> = {
-    messages: apiMessages,
+    messages: messages.map((m) => agentMessageToApi(m, modelId)),
     max_tokens,
     temperature,
   };
-  if (tools.length > 0) input.tools = tools;
+  if (formattedTools.length > 0) input.tools = formattedTools;
   if (isGemmaThinkingCapableModel(modelId)) {
     input.chat_template_kwargs = { enable_thinking: false, thinking: false };
   }
+  if (stream) input.stream = true;
   return input;
+}
+
+export const AGENT_SYNTHESIS_NUDGE =
+  "Write your complete final answer for the student now using the tool results above. Copy dates only from official calendar rows in tool output. If the user used a short name or abbreviation, map it to the closest official activity name from CLOSEST MATCHES or the calendar list before answering. If no exact row fits, name the nearest official candidates, state what is uncertain, and answer the question as directly as the tool evidence allows.";
+
+function appendAgentSynthesisNudge(
+  messages: AgentChatMessage[],
+  nudge: string
+): AgentChatMessage[] {
+  if (!nudge.trim()) return messages;
+  return [...messages, { role: "user", content: nudge }];
+}
+
+async function runAgentCompletionWithOptionalStream(params: {
+  ai: Ai;
+  modelId: string;
+  messages: AgentChatMessage[];
+  maxTokens: number;
+  temperature: number;
+  correlationId?: string;
+  onToken?: (token: string) => void | Promise<void>;
+  emitTokens?: boolean;
+  synthesisNudge?: string;
+}): Promise<string> {
+  const {
+    ai,
+    modelId,
+    messages,
+    maxTokens,
+    temperature,
+    correlationId,
+    onToken,
+    emitTokens,
+    synthesisNudge = AGENT_SYNTHESIS_NUDGE,
+  } = params;
+  const synthesisMessages = appendAgentSynthesisNudge(messages, synthesisNudge);
+
+  try {
+    const streamInput = buildAgentModelRunInput(
+      modelId,
+      synthesisMessages,
+      [],
+      maxTokens,
+      temperature,
+      true
+    );
+    const streamResult = await runAiWithGateway(ai, modelId, streamInput, {
+      skipCache: false,
+      cacheTtl: 120,
+      metadata: buildChatGatewayMetadata(correlationId),
+    });
+    const stream = await iterateAiStream(streamResult);
+    let full = "";
+    for await (const token of stream) {
+      full += token;
+      if (emitTokens && onToken) await onToken(token);
+    }
+    if (full.trim()) return full.trim();
+  } catch {
+    /* fall through to buffered completion */
+  }
+
+  const input = buildAgentModelRunInput(
+    modelId,
+    synthesisMessages,
+    [],
+    maxTokens,
+    temperature,
+    false
+  );
+  const result = await runAiWithGateway(ai, modelId, input, {
+    skipCache: false,
+    cacheTtl: 120,
+    metadata: buildChatGatewayMetadata(correlationId),
+  });
+  const full = tryExtractWorkersAiContent(result);
+  if (full?.trim()) {
+    if (emitTokens && onToken) await onToken(full);
+    return full;
+  }
+  return "";
 }
 
 export interface RunWorkersAiAgentParams {
@@ -775,8 +1068,9 @@ export interface RunWorkersAiAgentParams {
   systemPrompt: string;
   history?: ChatMessage[];
   preloadMessages?: AgentChatMessage[];
-  tools: Array<{ name: string; description: string; parameters: unknown }>;
+  tools: FlatToolDefinition[];
   requestHost?: string | null;
+  correlationId?: string;
   maxTokens: number;
   temperature: number;
   maxToolSteps: number;
@@ -785,7 +1079,7 @@ export interface RunWorkersAiAgentParams {
   emitTokensToClient?: boolean;
 }
 
-/** Tool-calling agent loop; only models with supportsFunctionCalling are used. */
+/** Tool-calling agent loop; uses the first FC-capable model in the host chain. */
 export async function runWorkersAiAgent(params: RunWorkersAiAgentParams): Promise<string> {
   const ai = await getAiBinding();
   if (!ai) {
@@ -796,14 +1090,18 @@ export async function runWorkersAiAgent(params: RunWorkersAiAgentParams): Promis
     throw err;
   }
 
-  const tier = resolveWorkersAiModelTier(params.requestHost);
-  const limits = getWorkersAiTierLimits(tier);
-  const modelChain = resolveProductionChatModelChain(params.requestHost).filter((id) =>
+  const modelId = resolveProductionChatModelChain(params.requestHost).find((id) =>
     supportsFunctionCalling(id)
   );
-  if (modelChain.length === 0) {
+
+  if (!modelId || !supportsFunctionCalling(modelId)) {
     throw new Error("No function-calling model available in the configured chain");
   }
+
+  const tier = resolveWorkersAiTierForModelId(modelId, params.requestHost);
+  const limits = getWorkersAiTierLimits(tier);
+  const emitTokens =
+    params.emitTokensToClient ?? shouldStreamTokensToClient(params.requestHost);
 
   const workingMessages: AgentChatMessage[] = [
     {
@@ -831,52 +1129,57 @@ export async function runWorkersAiAgent(params: RunWorkersAiAgentParams): Promis
     content: truncate(params.userMessage, limits.maxUserPromptChars),
   });
 
-  let lastError: unknown = null;
-  for (let i = 0; i < modelChain.length; i++) {
-    const modelId = modelChain[i]!;
-    const isLast = i === modelChain.length - 1;
-    try {
-      for (let step = 0; step < params.maxToolSteps; step++) {
-        const input = buildAgentModelRunInput(
-          modelId,
-          workingMessages,
-          params.tools,
-          params.maxTokens,
-          params.temperature
-        );
-        const result = await ai.run(modelId, input);
-        const toolCalls = extractToolCalls(result);
-        if (toolCalls.length === 0) {
-          return extractWorkersAiContent(result);
-        }
-        workingMessages.push({
-          role: "assistant",
-          content: "",
-          tool_calls: toolCalls,
-        });
-        for (const call of toolCalls) {
-          const toolContent = await params.executeTool(call.name, call.arguments);
-          workingMessages.push({
-            role: "tool",
-            name: call.name,
-            content: toolContent,
-          });
-        }
+  for (let step = 0; step < params.maxToolSteps; step++) {
+    const input = buildAgentModelRunInput(
+      modelId,
+      workingMessages,
+      params.tools,
+      params.maxTokens,
+      params.temperature,
+      false
+    );
+    const result = await runAiWithGateway(ai, modelId, input, {
+      skipCache: true,
+      metadata: buildChatGatewayMetadata(params.correlationId),
+    });
+    const toolCalls = ensureToolCallIds(extractToolCalls(result));
+    if (toolCalls.length === 0) {
+      const content = tryExtractWorkersAiContent(result);
+      if (content?.trim()) {
+        if (emitTokens && params.onToken) await params.onToken(content);
+        return content;
       }
-
-      const finalInput = buildAgentModelRunInput(
-        modelId,
-        workingMessages,
-        [],
-        params.maxTokens,
-        params.temperature
-      );
-      const finalResult = await ai.run(modelId, finalInput);
-      return extractWorkersAiContent(finalResult);
-    } catch (err) {
-      lastError = err;
-      if (!shouldTryNextModelInChain(err, isLast)) throw err;
+      break;
+    }
+    workingMessages.push({
+      role: "assistant",
+      content: "",
+      tool_calls: toolCalls,
+    });
+    const toolResults = await Promise.all(
+      toolCalls.map(async (call) => ({
+        call,
+        content: await params.executeTool(call.name, call.arguments),
+      }))
+    );
+    for (const { call, content } of toolResults) {
+      workingMessages.push({
+        role: "tool",
+        name: call.name,
+        tool_call_id: call.id,
+        content,
+      });
     }
   }
-  throw lastError;
+
+  return runAgentCompletionWithOptionalStream({
+    ai,
+    modelId,
+    messages: workingMessages,
+    maxTokens: params.maxTokens,
+    temperature: params.temperature,
+    correlationId: params.correlationId,
+    onToken: params.onToken,
+    emitTokens,
+  });
 }

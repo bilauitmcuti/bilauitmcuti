@@ -30,21 +30,21 @@ export async function parseChatResponse(res: Response): Promise<{
 }
 
 export const LOADING_PHRASES = [
-  "Searching calendar data...",
-  "Checking your schedule...",
-  "Looking up dates...",
-  "Analyzing academic calendar...",
-  "Finding the answer...",
-  "Menyemak jadual akademik...",
-  "Mencari maklumat...",
-  "Menyusun jawapan...",
-  "Reviewing semester info...",
-  "Scanning timetable...",
+  "Processing your request...",
+  "Working on your query...",
+  "Searching for information...",
+  "Analyzing your input...",
+  "Looking for answers...",
+  "Gathering data...",
+  "Compiling response...",
+  "Please wait...",
+  "Retrieving information...",
+  "Checking details...",
 ];
 
 export const FETCH_TIMEOUT_MS = 60_000;
 export const RETRY_DELAYS_MS = [400, 800, 1600];
-/** Show three-dot thinking UI only if the response takes longer than this (ms). */
+/** Show loading marker only if the response takes longer than this (ms). */
 export const LOADING_INDICATOR_DELAY_MS = 450;
 export const CHAT_TURNSTILE_COOKIE = "chat_turnstile_verified";
 export const MAX_CHAT_MESSAGE_LENGTH = CHAT_MAX_MESSAGE_LENGTH;

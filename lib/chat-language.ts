@@ -1,4 +1,5 @@
 import type { ChatMessage } from "@/lib/ai";
+import { CHAT_BM_MALAYSIA_LOCALE_RULES } from "@/lib/chat/response-format";
 
 export type UserLanguageMode = "english" | "malay" | "mixed";
 
@@ -104,8 +105,10 @@ export function getLanguageTurnDirective(
       "LANGUAGE DIRECTIVE (highest priority for this reply):",
       "- The user's latest message is in BAHASA MELAYU. Write your ENTIRE answer in Bahasa Melayu standard (Malaysia).",
       "- Do NOT switch to English-only replies.",
+      "- Do NOT reply in Bahasa Indonesia — use Malaysian Malay only.",
       "- Keep proper nouns and usual abbreviations (UiTM, GT, RPGT, kod kursus).",
       "- Use Malay headers (e.g. \"Kumpulan B (Diploma):\"), not \"Group\" alone.",
+      CHAT_BM_MALAYSIA_LOCALE_RULES,
     ].join("\n");
   }
 
@@ -115,5 +118,7 @@ export function getLanguageTurnDirective(
     "- The user mixed Malay and English. Mirror the same blend in your answer (code-switch naturally).",
     "- Do not translate the whole reply into only English or only Malay unless they asked for translation.",
     "- Match the proportion: mostly English words in their message → mostly English reply; mostly Malay → mostly Malay.",
+    "- For any Bahasa Melayu portion, use Malaysian Malay only — never Bahasa Indonesia.",
+    CHAT_BM_MALAYSIA_LOCALE_RULES,
   ].join("\n");
 }

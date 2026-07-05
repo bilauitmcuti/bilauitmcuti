@@ -6,13 +6,7 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: [
       'lucide-react',
-      '@radix-ui/react-avatar',
-      '@radix-ui/react-context-menu',
-      '@radix-ui/react-dialog',
-      '@radix-ui/react-dropdown-menu',
-      '@radix-ui/react-popover',
-      '@radix-ui/react-select',
-      '@radix-ui/react-tooltip',
+      '@base-ui/react',
     ],
   },
   env: {
@@ -35,6 +29,7 @@ const nextConfig = {
   compress: true,
   poweredByHeader: false,
   reactStrictMode: true,
+  assetPrefix: process.env.NODE_ENV === 'production' ? '/calendar-static' : undefined,
   async redirects() {
     return [
       {

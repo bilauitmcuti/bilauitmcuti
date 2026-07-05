@@ -3,7 +3,7 @@ import type { Metadata, Viewport } from 'next'
 import { ThemeProvider } from '@/components/theme-provider'
 import { ThemeShortcut } from '@/components/theme-shortcut'
 import { VersionBanner } from '@/components/version-banner'
-import { EngagementPromptRoot } from '@/components/engagement-prompt-provider'
+import { EngagementPromptRoot } from '@/components/engagement-prompt'
 import { ZarazPageView } from '@/components/zaraz-page-view'
 import './globals.css'
 import { Geist, Geist_Mono } from "next/font/google"
@@ -107,6 +107,7 @@ export const viewport: Viewport = {
   minimumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
+  interactiveWidget: 'resizes-content',
   // Single themeColor - updated dynamically by theme-toggle when user changes theme (PWA status bar sync)
   themeColor: '#ffffff',
 }

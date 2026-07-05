@@ -34,10 +34,8 @@ export default function NotFound() {
           </p>
         </div>
 
-        <Button asChild variant="outline">
-          <Link href="/">
-            Back to calendar
-          </Link>
+        <Button render={<Link href="/" />} variant="outline">
+          Back to calendar
         </Button>
       </div>
     </main>

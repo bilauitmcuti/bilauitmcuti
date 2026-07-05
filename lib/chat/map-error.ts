@@ -44,7 +44,7 @@ export function mapChatError(error: unknown): { message: string; status: number 
     errMsg.includes("rate limit") ||
     errMsg.includes("too many requests")
   ) {
-    return { message: "AI service is busy. Please try again in a moment.", status: 429 };
+    return { message: "AI service is busy or at its usage limit. Please try again later.", status: 429 };
   }
   if (
     status === 503 ||
@@ -76,10 +76,31 @@ export function mapChatError(error: unknown): { message: string; status: number 
       status: 502,
     };
   }
-  if (errMsg.includes("gateway") || errMsg.includes("partner") || errMsg.includes("unified")) {
+  if (
+    errMsg.includes("configure ai gateway") ||
+    errMsg.includes("2001")
+  ) {
+    return {
+      message:
+        "AI Gateway is not configured. Create gateway bilauitmcuti-chat in Cloudflare dashboard (AI → AI Gateway), or set SKIP_AI_GATEWAY=1 for local dev.",
+      status: 502,
+    };
+  }
+  if (errMsg.includes("partner") || errMsg.includes("unified")) {
     return {
       message:
         "Partner AI model is unavailable. Enable Workers AI partner models in your Cloudflare account or try again later.",
+      status: 502,
+    };
+  }
+  if (
+    errMsg.includes("validation error") &&
+    errMsg.includes("tools") &&
+    errMsg.includes("function")
+  ) {
+    return {
+      message:
+        "AI tool format error. Please try again; if it persists, switch to Llama or report the issue.",
       status: 502,
     };
   }

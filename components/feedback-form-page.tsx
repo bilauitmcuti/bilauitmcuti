@@ -230,15 +230,15 @@ export function FeedbackFormPage({
                   <label htmlFor="who" className="mb-3 block text-sm font-semibold">
                     Who are you
                   </label>
-                  <Select value={who} onValueChange={setWho}>
+                  <Select value={who} onValueChange={(value) => value != null && setWho(value)}>
                     <SelectTrigger id="who" className="h-11 w-full justify-between bg-background shadow-none">
                       <SelectValue placeholder="Select your role" />
                     </SelectTrigger>
                     <SelectContent
-                      position="popper"
+                      alignItemWithTrigger={false}
                       sideOffset={6}
                       align="start"
-                      className="w-[var(--radix-select-trigger-width)]"
+                      className="w-(--anchor-width)"
                     >
                       {CONTACT_WHO_OPTIONS.map((option) => (
                         <SelectItem key={option} value={option}>
@@ -274,15 +274,15 @@ export function FeedbackFormPage({
                   <label htmlFor="category" className="mb-3 block text-sm font-semibold">
                     Category
                   </label>
-                  <Select value={category} onValueChange={setCategory}>
+                  <Select value={category} onValueChange={(value) => value != null && setCategory(value)}>
                     <SelectTrigger id="category" className="h-11 w-full justify-between bg-background shadow-none">
                       <SelectValue placeholder="Select a category" />
                     </SelectTrigger>
                     <SelectContent
-                      position="popper"
+                      alignItemWithTrigger={false}
                       sideOffset={6}
                       align="start"
-                      className="w-[var(--radix-select-trigger-width)]"
+                      className="w-(--anchor-width)"
                     >
                       {CONTACT_CATEGORY_OPTIONS.map((option) => (
                         <SelectItem key={option} value={option}>
@@ -375,23 +375,30 @@ export function FeedbackFormPage({
             </CardHeader>
             <CardContent className="pt-0 px-3 sm:px-6">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <Button asChild className="w-full sm:w-auto h-[38px]">
-                  <a
-                    href="https://shahrulestar.com/sponsor"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Sponsor
-                  </a>
+                <Button
+                  render={
+                    <a
+                      href="https://shahrulestar.com/sponsor"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    />
+                  }
+                  className="w-full sm:w-auto h-[38px]"
+                >
+                  Sponsor
                 </Button>
-                <Button variant="secondary" asChild className="w-full sm:w-auto h-[38px]">
-                  <a
-                    href="https://github.com/sponsors/shahrulestar"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Github Sponsor
-                  </a>
+                <Button
+                  variant="outline"
+                  render={
+                    <a
+                      href="https://github.com/sponsors/shahrulestar"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    />
+                  }
+                  className="w-full sm:w-auto h-[38px]"
+                >
+                  Github Sponsor
                 </Button>
               </div>
             </CardContent>

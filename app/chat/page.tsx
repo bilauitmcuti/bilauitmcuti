@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronDown, ChevronUp, Send, ThumbsUp, ThumbsDown, Copy, Check, Trash2, Pencil } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { useCalendarHydrationVersion } from "@/components/calendar-hydration-context";
 import { getSnapshot, subscribe } from "@/lib/calendar-store";
 import {
@@ -10,68 +10,25 @@ import {
   formatSessionLabelWithId,
   getProgramOptions,
   getSessionOptionsForGroup,
-  getSessionForCurrentDate,
   getGroupFromSession,
 } from "@/lib/data";
 import type { SessionId } from "@/lib/data";
-import { getFiltersFromCookie, type FilterStates } from "@/lib/cookie-utils";
+import { getFiltersFromCookie } from "@/lib/cookie-utils";
 import { getRoutePath, isProgramValue, type ProgramValue } from "@/lib/route-utils";
 import {
   areSessionListsEqual,
   getGroupFromProgram,
   getSessionMemoryKey,
-  normalizeSessionsForGroup,
 } from "@/lib/session-memory";
 import { cn } from "@/lib/utils";
 import { trackZarazEvent, ZARAZ_EVENTS } from "@/lib/zaraz";
-import { sessionSubmenuItemClass } from "@/lib/session-submenu-item-class";
-import { SessionSubmenuItemLabel } from "@/components/session-submenu-item-label";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuPortal,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  responsiveDialogContentClassName,
-} from "@/components/ui/dialog";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerTitle,
-  drawerBodyClassName,
-  responsiveDrawerContentClassName,
-  responsiveDrawerDescriptionClassName,
-  responsiveDialogDescriptionClassName,
-  responsiveDialogTitleClassName,
-  responsiveDrawerBodyClassName,
-} from "@/components/ui/drawer";
-import { Button } from "@/components/ui/button";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
-import {
-  TurnstileWidget,
-  type TurnstileWidgetHandle,
-} from "@/components/turnstile-widget";
-import { useTurnstileSiteKeyFromContext } from "@/components/turnstile-site-key-provider";
-import { useEngagementPrompt } from "@/components/engagement-prompt-provider";
-import { FormattedMessage } from "@/components/chat/formatted-message";
-import { SuggestionCarousel } from "@/components/chat/suggestion-carousel";
-import { useChatGreeting } from "@/components/chat/use-chat-greeting";
+import { useTurnstileSiteKeyFromContext } from "@/hooks/use-turnstile-site-key";
+import { useEngagementPrompt } from "@/components/engagement-prompt";
+import type { TurnstileWidgetHandle } from "@/components/turnstile-widget";
+import { ChatTranscript } from "@/components/chat/chat-transcript";
+import { ChatEmptyState } from "@/components/chat/chat-empty-state";
+import { ChatComposer } from "@/components/chat/chat-composer";
+import { useChatGreeting } from "@/hooks/use-chat-greeting";
 import { getRandomSuggestions } from "@/components/chat/suggestion-data";
 import { useDesktopViewport } from "@/lib/use-mobile-viewport";
 import {
@@ -79,7 +36,6 @@ import {
   FETCH_TIMEOUT_MS,
   RETRY_DELAYS_MS,
   escapeRegExp,
-  formatTime24,
   getActiveMentionMatch,
   getChatErrorMessage,
   getRandomLoadingPhrase,
@@ -97,7 +53,6 @@ import {
   resolveSessionsForProgram,
   type ProgramSessionMap,
 } from "@/lib/chat/session-state";
-
 type Message = ChatMessageItem;
 
 interface MentionItem {
@@ -340,16 +295,8 @@ export default function ChatPage() {
     const opt = programOptions.find((p) => p.value === selectedProgram);
     return opt?.label ?? "All";
   }, [selectedProgram, programOptions]);
-  const [disclaimerIndex, setDisclaimerIndex] = useState(0);
-  const [disclaimerFade, setDisclaimerFade] = useState<"in" | "out">("in");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const hasScrolledRef = useRef(false);
-  const wasStreamingRef = useRef(false);
-  const streamingAssistantMessageRef = useRef<HTMLDivElement>(null);
-  const scrollAssistantMessageToTopRef = useRef<() => void>(() => {});
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const turnstileRef = useRef<TurnstileWidgetHandle>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const lastScrollTop = useRef(0);
   const groupAOptions = useMemo(() => programOptions.filter(p => p.group === 'A'), [programOptions]);
   const groupBOptions = useMemo(() => programOptions.filter(p => p.group === 'B'), [programOptions]);
@@ -426,44 +373,26 @@ export default function ChatPage() {
     return null;
   }, [messages]);
 
-  const assistantScrollTargetId = useMemo(() => {
-    const streaming = messages.find(
+  const showLoadingMarker = useMemo(() => {
+    const isAwaitingAssistant = messages.some(
       (m) => m.role === "assistant" && m.isComplete === false
     );
-    if (streaming) return streaming.id;
-    const last = messages[messages.length - 1];
-    if (last?.role === "assistant") return last.id;
-    return null;
-  }, [messages]);
+    const hasStreamingContent = messages.some(
+      (m) =>
+        m.role === "assistant" &&
+        m.isComplete === false &&
+        m.content.trim().length > 0
+    );
 
-  const showThinkingUi = useMemo(
-    () =>
+    return (
       isLoading &&
-      showThinkingIndicator &&
-      !messages.some((m) => m.role === "assistant" && m.isComplete === false),
-    [isLoading, showThinkingIndicator, messages]
-  );
+      ((showThinkingIndicator && !isAwaitingAssistant) ||
+        (isAwaitingAssistant && !hasStreamingContent))
+    );
+  }, [isLoading, showThinkingIndicator, messages]);
 
-  const disclaimerTexts = useMemo(() => [
-    "AI can make mistakes. Check important info.",
-    "Free-tier AI model with daily rate limits.",
-  ], []);
-
-  // Rotate disclaimer text every 8 seconds with fade animation
   useEffect(() => {
-    const interval = setInterval(() => {
-      setDisclaimerFade("out");
-      setTimeout(() => {
-        setDisclaimerIndex((prev) => (prev + 1) % disclaimerTexts.length);
-        setDisclaimerFade("in");
-      }, 600);
-    }, 8000);
-    return () => clearInterval(interval);
-  }, [disclaimerTexts.length]);
-
-  // Rotate loading phrases while the delayed thinking indicator is visible
-  useEffect(() => {
-    if (!showThinkingIndicator) {
+    if (!showLoadingMarker) {
       setLoadingPhrase("");
       return;
     }
@@ -472,75 +401,31 @@ export default function ChatPage() {
       setLoadingPhrase((prev) => getRandomLoadingPhrase(prev));
     }, 3000);
     return () => clearInterval(interval);
-  }, [showThinkingIndicator]);
+  }, [showLoadingMarker]);
 
   useEffect(() => () => clearThinkingDelay(), [clearThinkingDelay]);
-
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, []);
-
-  const scrollAssistantMessageToTop = useCallback(() => {
-    if (hasScrolledRef.current) return;
-    streamingAssistantMessageRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-    hasScrolledRef.current = true;
-  }, []);
-
-  useEffect(() => {
-    scrollAssistantMessageToTopRef.current = scrollAssistantMessageToTop;
-  }, [scrollAssistantMessageToTop]);
-
-  useLayoutEffect(() => {
-    const isStreaming = messages.some(
-      (m) => m.role === "assistant" && m.isComplete === false
-    );
-
-    if (wasStreamingRef.current && !isStreaming) {
-      hasScrolledRef.current = false;
-    }
-    wasStreamingRef.current = isStreaming;
-
-    if (messages.length === 0) {
-      hasScrolledRef.current = false;
-      return;
-    }
-
-    const last = messages[messages.length - 1];
-
-    if (last.role === "user") {
-      hasScrolledRef.current = false;
-      scrollToBottom();
-      return;
-    }
-
-    if (isStreaming || last.role === "assistant") {
-      scrollAssistantMessageToTop();
-    }
-  }, [messages, scrollToBottom, scrollAssistantMessageToTop]);
 
   useEffect(() => {
     adjustTextareaHeight();
   }, [input, adjustTextareaHeight]);
 
-  const handleScroll = useCallback(() => {
-    const el = scrollContainerRef.current;
-    if (!el) return;
-    const currentScrollTop = el.scrollTop;
-    if (dropdownOpen) {
-      setDropdownOpen(false);
-      setActiveSubmenu(null);
-    }
-    // Show header when scrolling up or near top
-    if (currentScrollTop <= 10 || currentScrollTop < lastScrollTop.current) {
-      setHeaderVisible(true);
-    } else if (currentScrollTop > lastScrollTop.current) {
-      setHeaderVisible(false);
-    }
-    lastScrollTop.current = currentScrollTop;
-  }, [dropdownOpen]);
+  const handleViewportScroll = useCallback(
+    (event: React.UIEvent<HTMLDivElement>) => {
+      const el = event.currentTarget;
+      const currentScrollTop = el.scrollTop;
+      if (dropdownOpen) {
+        setDropdownOpen(false);
+        setActiveSubmenu(null);
+      }
+      if (currentScrollTop <= 10 || currentScrollTop < lastScrollTop.current) {
+        setHeaderVisible(true);
+      } else if (currentScrollTop > lastScrollTop.current) {
+        setHeaderVisible(false);
+      }
+      lastScrollTop.current = currentScrollTop;
+    },
+    [dropdownOpen]
+  );
 
   const sendMessage = useCallback(async (text: string) => {
     const trimmed = text.trim();
@@ -627,9 +512,30 @@ export default function ChatPage() {
 
             usedStreamPlaceholder = true;
 
+            setMessages((prev) => {
+              if (prev.some((m) => m.id === assistantId)) return prev;
+              return [
+                ...prev,
+                {
+                  id: assistantId,
+                  role: "assistant",
+                  content: "",
+                  isComplete: false,
+                  timestamp: Date.now(),
+                },
+              ];
+            });
             await consumeChatStream(res, {
-              onToken: () => {
-                scrollAssistantMessageToTopRef.current();
+              onToken: (token) => {
+                clearThinkingDelay();
+                setShowThinkingIndicator(false);
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? { ...m, content: m.content + token }
+                      : m
+                  )
+                );
               },
               onDone: (payload) => {
                 content = payload.reply;
@@ -979,9 +885,8 @@ export default function ChatPage() {
     setMessages(messages.slice(0, msgIndex));
     setTimeout(() => {
       textareaRef.current?.focus();
-      scrollToBottom();
     }, 100);
-  }, [messages, scrollToBottom]);
+  }, [messages]);
 
   const isEmptyChat = messages.length === 0;
 
@@ -994,10 +899,7 @@ export default function ChatPage() {
   }, [isEmptyChat, isDesktopViewport]);
 
   return (
-    <div className="relative flex flex-col h-dvh bg-background text-foreground" data-nosnippet>
-      {/* Top fade - always visible, independent of header scroll */}
-      <div className="chat-top-fade absolute top-0 left-0 right-0 z-[9] pointer-events-none" />
-
+    <div className="relative flex flex-col h-dvh overflow-x-hidden bg-background text-foreground" data-nosnippet>
       {/* Header - overlays on top of chat area */}
       <div className={`chat-header absolute top-0 left-0 right-0 z-10 px-4 md:px-0 ${headerVisible ? "translate-y-0" : "-translate-y-full"}`}>
         <header className="flex items-center gap-3 pt-8 pb-3 mx-auto max-w-[600px] w-full">
@@ -1014,519 +916,82 @@ export default function ChatPage() {
       {/* Chat area + composer */}
       <div
         className={cn(
-          "flex min-h-0 flex-1 flex-col",
+          "flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden px-1 md:px-0",
           isEmptyChat && "lg:justify-center lg:gap-16"
         )}
       >
-      {/* Chat messages area */}
-      <div
-        ref={scrollContainerRef}
-        onScroll={handleScroll}
-        className={cn(
-          "px-4 md:px-0",
-          isEmptyChat
-            ? "flex flex-1 flex-col items-center justify-center pt-0 pb-6 lg:flex-none lg:overflow-visible lg:pb-0"
-            : "flex-1 overflow-y-auto pt-0 pb-6"
-        )}
-      >
         {isEmptyChat ? (
-          <div className="flex h-full flex-col items-center justify-center gap-4 px-4 text-center mx-auto max-w-[600px] lg:h-auto">
-            <div className="flex w-full max-w-md flex-col items-center gap-2 text-center">
-              <h1
-                className="text-2xl sm:text-3xl font-semibold tracking-tight text-foreground text-balance"
-                suppressHydrationWarning
-              >
-                {chatGreeting}
-              </h1>
-              <p className="text-sm text-muted-foreground max-w-sm mx-auto text-balance lg:hidden">
-                Ask about academic calendars or public holidays. Select your programme, or type @ to mention a calendar.
-              </p>
-            </div>
-            {showTurnstileChallenge ? (
-              <div className="w-full max-w-[320px] px-3">
-                <TurnstileWidget
-                  ref={turnstileRef}
-                  key={turnstileNonce}
-                  siteKey={turnstileSiteKey}
-                  action="chat_message"
-                  onToken={setTurnstileToken}
-                />
-              </div>
-            ) : null}
-          </div>
+          <ChatEmptyState
+            greeting={chatGreeting}
+            showTurnstileChallenge={showTurnstileChallenge}
+            turnstileSiteKey={turnstileSiteKey ?? ""}
+            turnstileNonce={turnstileNonce}
+            turnstileRef={turnstileRef}
+            onTurnstileToken={setTurnstileToken}
+          />
         ) : (
-          <div className="mx-auto max-w-[600px] space-y-6 pt-14">
-            {showTurnstileChallenge ? (
-              <div className="w-full max-w-[320px]">
-                <TurnstileWidget
-                  ref={turnstileRef}
-                  key={turnstileNonce}
-                  siteKey={turnstileSiteKey}
-                  action="chat_message"
-                  onToken={setTurnstileToken}
-                />
-              </div>
-            ) : null}
-            {messages.map((msg) => {
-              if (
-                msg.role === "assistant" &&
-                msg.isComplete === false &&
-                !msg.content.trim()
-              ) {
-                return null;
-              }
-              const assistantFinished =
-                msg.role === "assistant" &&
-                msg.isComplete !== false &&
-                msg.content.trim().length > 0;
-
-              return (
-              <div
-                key={msg.id}
-                ref={
-                  msg.id === assistantScrollTargetId
-                    ? streamingAssistantMessageRef
-                    : undefined
-                }
-                className="space-y-1"
-              >
-                <div
-                  className={`flex ${
-                    msg.role === "user" ? "justify-end" : "justify-start"
-                  }`}
-                >
-                  {msg.role === "user" ? (
-                    <ContextMenu>
-                      <ContextMenuTrigger asChild>
-                        <div
-                          className="max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed bg-primary text-primary-foreground rounded-br-md whitespace-pre-wrap cursor-context-menu select-none"
-                        >
-                          <div>{msg.content}</div>
-                          <div className="text-right text-xs opacity-80 mt-1">
-                            {formatTime24((msg.timestamp ?? parseInt(msg.id, 10)) || Date.now())}
-                          </div>
-                        </div>
-                      </ContextMenuTrigger>
-                      <ContextMenuContent className="w-fit max-w-[200px]">
-                        {msg.id === lastUserMsgId && (
-                          <ContextMenuItem onClick={() => handleEdit(msg.id)}>
-                            <Pencil className="w-3.5 h-3.5 mr-2" />
-                            Edit
-                          </ContextMenuItem>
-                        )}
-                        <ContextMenuItem onClick={() => handleCopy(msg.id, msg.content)}>
-                          <Copy className="w-3.5 h-3.5 mr-2" />
-                          Copy
-                        </ContextMenuItem>
-                        <ContextMenuItem onClick={() => handleDelete(msg.id)}>
-                          <Trash2 className="w-3.5 h-3.5 mr-2" />
-                          Delete
-                        </ContextMenuItem>
-                      </ContextMenuContent>
-                    </ContextMenu>
-                  ) : (
-                    <div className="w-full px-1 py-1 text-sm leading-relaxed text-foreground">
-                      <FormattedMessage content={msg.content} />
-                    </div>
-                  )}
-                </div>
-                {assistantFinished && (
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => handleCopy(msg.id, msg.content)}
-                      className="flex items-center justify-center w-7 h-7 rounded-md hover:bg-secondary dark:hover:bg-[#2A2A2A] text-muted-foreground hover:text-foreground transition-colors"
-                      aria-label="Copy answer"
-                    >
-                      {copiedId === msg.id ? (
-                        <Check className="w-3.5 h-3.5 text-blue-500" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
-                    </button>
-                    <button
-                      onClick={() => handleReaction(msg.id, "up")}
-                      className={`flex items-center justify-center w-7 h-7 rounded-md hover:bg-secondary dark:hover:bg-[#2A2A2A] transition-colors active:scale-90 transition-transform duration-150 ${reactions[msg.id] === "up" ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                      aria-label="Thumbs up"
-                    >
-                      <ThumbsUp className={`w-3.5 h-3.5 ${reactions[msg.id] === "up" ? "fill-current" : ""}`} />
-                    </button>
-                    <button
-                      onClick={() => handleReaction(msg.id, "down")}
-                      className={`flex items-center justify-center w-7 h-7 rounded-md hover:bg-secondary dark:hover:bg-[#2A2A2A] transition-colors active:scale-90 transition-transform duration-150 ${reactions[msg.id] === "down" ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                      aria-label="Thumbs down"
-                    >
-                      <ThumbsDown className={`w-3.5 h-3.5 ${reactions[msg.id] === "down" ? "fill-current" : ""}`} />
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-            })}
-
-            {showThinkingUi && (
-              <div className="flex flex-col items-start gap-1">
-                <div className="px-1 py-1">
-                  <div className="flex gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:0ms]" />
-                    <span className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:150ms]" />
-                    <span className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:300ms]" />
-                  </div>
-                </div>
-                {loadingPhrase && (
-                  <span className="text-xs text-muted-foreground pl-1 animate-pulse">
-                    {loadingPhrase}
-                  </span>
-                )}
-              </div>
-            )}
-
-            <div ref={messagesEndRef} />
-          </div>
+          <ChatTranscript
+            messages={messages}
+            isLoading={isLoading}
+            showLoadingMarker={showLoadingMarker}
+            loadingPhrase={loadingPhrase}
+            lastUserMsgId={lastUserMsgId}
+            copiedId={copiedId}
+            reactions={reactions}
+            showTurnstileChallenge={showTurnstileChallenge}
+            turnstileSiteKey={turnstileSiteKey ?? ""}
+            turnstileNonce={turnstileNonce}
+            turnstileRef={turnstileRef}
+            onTurnstileToken={setTurnstileToken}
+            onViewportScroll={handleViewportScroll}
+            onCopy={handleCopy}
+            onReaction={handleReaction}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+          />
         )}
-      </div>
 
-      {/* Input area - bottom on mobile / active chat; centered below greeting on desktop empty */}
-      <div
-        className={cn(
-          "chat-input-area relative px-4 md:px-0 pt-1 lg:pt-0.5 pb-6",
-          isEmptyChat && "chat-input-area-centered lg:pt-0 lg:pb-10"
-        )}
-      >
-        <div className="mx-auto flex max-w-[600px] flex-col">
-          {/* Suggestion chips - swipeable carousel with edge fades */}
-          {feedbackError && (
-            <p className="text-xs text-destructive mb-2 px-1" role="status">
-              {feedbackError}
-            </p>
-          )}
-          {messages.length === 0 && (
-            <SuggestionCarousel
-              className="mb-2 lg:order-2 lg:mb-0 lg:mt-2"
-              suggestions={suggestions}
-              disabled={
-                waitForTurnstileConfig ||
-                (requiresTurnstile && !turnstileToken.trim()) ||
-                isLoading
-              }
-              onSelect={(suggestion) => sendMessage(suggestion)}
-            />
-          )}
-          <form
-            onSubmit={handleSubmit}
-            className={cn(
-              "relative rounded-[10px] border border-border bg-secondary dark:bg-[#2A2A2A] overflow-visible",
-              isEmptyChat && "lg:order-1"
-            )}
-          >
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-x-0 top-0 z-0 whitespace-pre-wrap break-words px-4 pt-3 pb-1 text-sm leading-relaxed"
-            >
-              {mentionHighlightParts.map((part, index) =>
-                part.isMention ? (
-                  <span key={`mention-${index}`} className="text-transparent">
-                    {part.text}
-                  </span>
-                ) : (
-                  <span key={`plain-${index}`} className="text-transparent">
-                    {part.text}
-                  </span>
-                )
-              )}
-            </div>
-            {/* Auto-growing text input */}
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => {
-                const nextValue = e.target.value.slice(0, MAX_CHAT_MESSAGE_LENGTH);
-                setInput(nextValue);
-                updateMentionState(nextValue, e.target.selectionStart);
-              }}
-              maxLength={MAX_CHAT_MESSAGE_LENGTH}
-              onClick={(e) => updateMentionState(e.currentTarget.value, e.currentTarget.selectionStart)}
-              onKeyUp={(e) => updateMentionState(e.currentTarget.value, e.currentTarget.selectionStart)}
-              onKeyDown={handleKeyDown}
-              placeholder={chatInputPlaceholder}
-              disabled={isLoading}
-              rows={1}
-              className="chat-input relative z-10 w-full resize-none bg-transparent px-4 pt-3 pb-1 text-sm leading-relaxed placeholder:text-muted-foreground focus:outline-none disabled:opacity-50"
-            />
-            {isMobileMentionPicker ? (
-              <Drawer open={isMentionOpen} onOpenChange={setIsMentionOpen}>
-                <DrawerContent className={responsiveDrawerContentClassName}>
-                  <div className={cn(drawerBodyClassName, responsiveDrawerBodyClassName)}>
-                    <DrawerTitle>Mention Session Calendar</DrawerTitle>
-                    <DrawerDescription className={responsiveDrawerDescriptionClassName}>
-                      Select a session to insert into your message.
-                    </DrawerDescription>
-                    <div className="w-full space-y-2 text-left">
-                      {mentionItems.length > 0 ? (
-                        mentionItems.map((item, index) => (
-                          <button
-                            key={item.id}
-                            type="button"
-                            onClick={() => handleMentionSelect(item)}
-                            className={`flex w-full flex-col items-start rounded-md border border-border px-2 py-2 text-left text-sm text-secondary-foreground transition-colors focus-visible:outline-none focus-visible:ring-0 ${
-                              index === activeMentionIndex ? "bg-secondary/80" : "bg-secondary md:hover:bg-secondary/80"
-                            }`}
-                          >
-                            <span className="font-medium">{item.label}</span>
-                            <span className="text-xs text-muted-foreground">{item.id}</span>
-                          </button>
-                        ))
-                      ) : (
-                        <div className="py-2 text-xs text-muted-foreground">No sessions found</div>
-                      )}
-                    </div>
-                  </div>
-                </DrawerContent>
-              </Drawer>
-            ) : (
-              <Dialog open={isMentionOpen} onOpenChange={setIsMentionOpen}>
-                <DialogContent className={responsiveDialogContentClassName} showCloseButton={false}>
-                  <DialogHeader className="gap-3 text-center md:text-left">
-                    <DialogTitle className={responsiveDialogTitleClassName}>
-                      Mention Session Calendar
-                    </DialogTitle>
-                    <DialogDescription className={responsiveDialogDescriptionClassName}>
-                      Select a session to insert into your message.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="max-h-[80vh] overflow-auto space-y-2">
-                    {mentionItems.length > 0 ? (
-                      mentionItems.map((item, index) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => handleMentionSelect(item)}
-                          className={`flex w-full flex-col items-start rounded-md border border-border px-2 py-2 text-left text-sm text-secondary-foreground transition-colors focus-visible:outline-none focus-visible:ring-0 ${
-                            index === activeMentionIndex ? "bg-secondary/80" : "bg-secondary md:hover:bg-secondary/80"
-                          }`}
-                        >
-                          <span className="font-medium">{item.label}</span>
-                          <span className="text-xs text-muted-foreground">{item.id}</span>
-                        </button>
-                      ))
-                    ) : (
-                      <div className="px-2 py-2 text-xs text-muted-foreground">No sessions found</div>
-                    )}
-                  </div>
-                </DialogContent>
-              </Dialog>
-            )}
-
-            {/* Bottom bar */}
-            <div className="flex items-center justify-between px-3 py-2">
-              {/* Program + Session dropdown (same structure as homepage) */}
-              <DropdownMenu
-                open={dropdownOpen}
-                onOpenChange={(open) => {
-                  if (!open && keepDropdownOpenRef.current) {
-                    keepDropdownOpenRef.current = false;
-                    setDropdownOpen(true);
-                    return;
-                  }
-                  setDropdownOpen(open);
-                  if (!open) setActiveSubmenu(null);
-                }}
-              >
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 min-w-0 max-w-[180px] sm:max-w-[260px] md:max-w-[300px] overflow-hidden text-xs border-none bg-transparent shadow-none px-2 gap-1 hover:!bg-transparent dark:hover:!bg-transparent rounded-lg font-medium"
-                  >
-                    <span className="block min-w-0 flex-1 truncate text-left">{currentProgramLabel}</span>
-                    {dropdownOpen ? (
-                      <ChevronUp className="size-4 opacity-50 flex-shrink-0" />
-                    ) : (
-                      <ChevronDown className="size-4 opacity-50 flex-shrink-0" />
-                    )}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  className="min-w-[260px] overflow-visible pt-4 pb-4 pl-3 pr-3 bg-popover dark:bg-[#2A2A2A]"
-                  align="start"
-                >
-                  <div className="-mx-1 px-1">
-                    <div className="mb-2">
-                      <div className="text-xs font-semibold text-muted-foreground mb-2 px-2">GROUP A</div>
-                      {groupAOptions.map((opt) => {
-                        const groupASessionSummary = formatGroupASessionTriggerLabel(
-                          opt.value,
-                          selectedProgram,
-                          selectedSessions
-                        );
-                        return (
-                        <DropdownMenuSub
-                          key={opt.value}
-                          open={activeSubmenu === opt.value}
-                          onOpenChange={(open) => setActiveSubmenu(open ? opt.value : null)}
-                        >
-                          <DropdownMenuSubTrigger
-                            className="relative w-full max-w-full min-w-0 cursor-pointer items-center justify-between gap-0 rounded-md px-2 py-1.5"
-                            onSelect={(event) => {
-                              keepDropdownOpenRef.current = true;
-                              event.preventDefault();
-                            }}
-                          >
-                            <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
-                              <span
-                                className={`min-w-0 truncate font-medium text-sm ${
-                                  opt.value === selectedProgram ? "text-primary" : "text-foreground"
-                                }`}
-                              >
-                                {opt.label}
-                              </span>
-                              {groupASessionSummary ? (
-                                <span className="min-w-0 truncate text-xs text-muted-foreground leading-snug whitespace-nowrap">
-                                  {groupASessionSummary}
-                                </span>
-                              ) : null}
-                            </div>
-                          </DropdownMenuSubTrigger>
-                          <DropdownMenuPortal>
-                            <DropdownMenuSubContent
-                              collisionPadding={{ top: 8, right: 28, bottom: 8, left: 8 }}
-                              className="min-w-[200px] bg-popover dark:bg-[#2A2A2A]"
-                            >
-                              {getSessionOptionsForGroup("A").map((sess) => {
-                                const isSelected = selectedSessions.includes(sess.id);
-                                return (
-                                  <DropdownMenuItem
-                                    key={sess.id}
-                                    className={sessionSubmenuItemClass(isSelected)}
-                                    onSelect={(event) => {
-                                      keepDropdownOpenRef.current = true;
-                                      event.preventDefault();
-                                    }}
-                                    onClick={() =>
-                                      handleSessionToggle(opt.value as ProgramValue, sess.id, "A")
-                                    }
-                                  >
-                                    <span
-                                      className={`pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 flex size-3.5 shrink-0 items-center justify-center rounded-full border ${isSelected ? "border-primary bg-primary" : "border-muted-foreground"}`}
-                                      aria-hidden
-                                    />
-                                    <SessionSubmenuItemLabel session={sess} />
-                                  </DropdownMenuItem>
-                                );
-                              })}
-                            </DropdownMenuSubContent>
-                          </DropdownMenuPortal>
-                        </DropdownMenuSub>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div className="my-2 h-px bg-border -mx-3 w-[calc(100%+1.5rem)]" />
-                  <div className="-mx-1 px-1">
-                    <div>
-                      <div className="text-xs font-semibold text-muted-foreground mb-2 px-2">GROUP B</div>
-                      <DropdownMenuSub
-                        open={activeSubmenu === "group-b-sessions"}
-                        onOpenChange={(open) => setActiveSubmenu(open ? "group-b-sessions" : null)}
-                      >
-                        <DropdownMenuSubTrigger
-                          className="cursor-pointer items-start"
-                          onSelect={(event) => {
-                            keepDropdownOpenRef.current = true;
-                            event.preventDefault();
-                          }}
-                        >
-                          <div className="flex min-w-0 flex-1 flex-col gap-1 text-left pr-1">
-                            <span className="font-medium text-sm">Sessions</span>
-                            <span className="min-w-0 text-xs text-muted-foreground text-balance leading-snug">
-                              {groupBSessionLabel}
-                            </span>
-                          </div>
-                        </DropdownMenuSubTrigger>
-                        <DropdownMenuPortal>
-                          <DropdownMenuSubContent
-                            collisionPadding={{ top: 8, right: 28, bottom: 8, left: 8 }}
-                            className="min-w-[220px] bg-popover dark:bg-[#2A2A2A]"
-                          >
-                            {getSessionOptionsForGroup("B").map((sess) => {
-                              const isSelected = selectedSessions.includes(sess.id);
-                              return (
-                                <DropdownMenuItem
-                                  key={sess.id}
-                                  className={sessionSubmenuItemClass(isSelected)}
-                                  onSelect={(event) => {
-                                    keepDropdownOpenRef.current = true;
-                                    event.preventDefault();
-                                  }}
-                                  onClick={() =>
-                                    handleSessionToggle(groupBProgramForSessions, sess.id, "B")
-                                  }
-                                >
-                                  <span
-                                    className={`pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 flex size-3.5 shrink-0 items-center justify-center rounded-full border ${isSelected ? "border-primary bg-primary" : "border-muted-foreground"}`}
-                                    aria-hidden
-                                  />
-                                  <SessionSubmenuItemLabel session={sess} />
-                                </DropdownMenuItem>
-                              );
-                            })}
-                          </DropdownMenuSubContent>
-                        </DropdownMenuPortal>
-                      </DropdownMenuSub>
-                      {/* Program list - direct click */}
-                      {groupBOptions.map((opt, index) => (
-                        <DropdownMenuItem
-                          key={opt.value}
-                          className={`relative cursor-pointer pr-8 font-medium bg-transparent data-[highlighted]:bg-transparent ${index === 0 ? "mt-2" : ""} ${opt.value === selectedProgram ? "text-primary data-[highlighted]:text-primary" : "text-foreground data-[highlighted]:text-foreground"}`}
-                          onClick={() => {
-                            setActiveSubmenu(null);
-                            setDropdownOpen(false);
-                            handleProgramSelect(opt.value as ProgramValue);
-                          }}
-                        >
-                          {opt.label}
-                          {opt.value === selectedProgram ? (
-                            <span
-                              className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 flex size-3.5 shrink-0 items-center justify-center rounded-full border border-primary bg-primary"
-                              aria-hidden
-                            />
-                          ) : null}
-                        </DropdownMenuItem>
-                      ))}
-                    </div>
-                  </div>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <div className="flex items-center gap-2">
-                {/* Send button */}
-                <button
-                  type="submit"
-                  disabled={
-                    !input.trim() ||
-                    isLoading ||
-                    waitForTurnstileConfig ||
-                    (requiresTurnstile && !turnstileToken.trim())
-                  }
-                  className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  aria-label="Send message"
-                >
-                  <Send className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </form>
-          <span
-            key={disclaimerIndex}
-            className={cn(
-              "block text-center text-xs text-muted-foreground mt-2",
-              isEmptyChat && "lg:hidden",
-              disclaimerFade === "in" ? "disclaimer-fade-in" : "disclaimer-fade-out"
-            )}
-          >
-            {disclaimerTexts[disclaimerIndex]}
-          </span>
-        </div>
-      </div>
+        <ChatComposer
+          isEmptyChat={isEmptyChat}
+          input={input}
+          placeholder={chatInputPlaceholder}
+          isLoading={isLoading}
+          waitForTurnstileConfig={waitForTurnstileConfig}
+          requiresTurnstile={requiresTurnstile}
+          turnstileToken={turnstileToken}
+          feedbackError={feedbackError}
+          suggestions={suggestions}
+          mentionHighlightParts={mentionHighlightParts}
+          isMentionOpen={isMentionOpen}
+          isMobileMentionPicker={isMobileMentionPicker}
+          mentionItems={mentionItems}
+          activeMentionIndex={activeMentionIndex}
+          dropdownOpen={dropdownOpen}
+          activeSubmenu={activeSubmenu}
+          currentProgramLabel={currentProgramLabel}
+          groupAOptions={groupAOptions}
+          groupBOptions={groupBOptions}
+          groupBProgramForSessions={groupBProgramForSessions}
+          groupBSessionLabel={groupBSessionLabel}
+          selectedProgram={selectedProgram}
+          selectedSessions={selectedSessions}
+          textareaRef={textareaRef}
+          keepDropdownOpenRef={keepDropdownOpenRef}
+          onInputChange={(value, caretIndex) => {
+            setInput(value);
+            updateMentionState(value, caretIndex);
+          }}
+          onKeyDown={handleKeyDown}
+          onSubmit={handleSubmit}
+          onSuggestionSelect={sendMessage}
+          onMentionSelect={handleMentionSelect}
+          onMentionOpenChange={setIsMentionOpen}
+          onDropdownOpenChange={setDropdownOpen}
+          onActiveSubmenuChange={setActiveSubmenu}
+          onSessionToggle={handleSessionToggle}
+          onProgramSelect={handleProgramSelect}
+          formatGroupASessionTriggerLabel={formatGroupASessionTriggerLabel}
+        />
       </div>
     </div>
   );

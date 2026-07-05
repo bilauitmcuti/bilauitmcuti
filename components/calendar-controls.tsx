@@ -47,10 +47,11 @@ import type { ProgramValue } from '@/lib/route-utils';
 import { sessionSubmenuItemClass } from '@/lib/session-submenu-item-class';
 
 import { SessionSubmenuItemLabel } from '@/components/session-submenu-item-label';
-import { useEngagementPrompt } from '@/components/engagement-prompt-provider';
+import { useEngagementPrompt } from '@/components/engagement-prompt';
 import { usePwaInstalled } from '@/hooks/use-pwa-installed';
-import { CalendarFilterToggle } from '@/components/calendar/filter-toggle';
+import { SettingsSwitchRow } from '@/components/ui/settings-switch-row';
 import { PwaInstallButton } from '@/components/calendar/pwa-install-hint';
+import { drawerOutlineButtonClassName } from '@/components/ui/drawer';
 
 interface CalendarControlsProps {
   selectedProgram: string;
@@ -308,11 +309,11 @@ export function CalendarControls({
 
   return (
       <div 
-        className={`${positionClass} ${bgClass} -mx-4 sm:-mx-6 lg:-mx-4 px-4 sm:px-6 lg:px-4 transition-none overflow-visible ${stabilityClass}`} 
+        className={`${positionClass} -mx-4 sm:-mx-6 lg:-mx-4 px-4 sm:px-6 lg:px-4 transition-none relative overflow-visible ${stabilityClass}`} 
         suppressHydrationWarning
       >
         <div 
-          className={`flex flex-row items-center justify-between gap-4 pt-8 w-full px-0 min-h-14 pb-1 ${bgClass} transition-none`} 
+          className={`flex flex-row items-center justify-between gap-4 pt-8 w-full px-0 min-h-14 pb-6 -mb-6 scroll-fade-b scroll-fade-6 calendar-controls-scroll-fade ${bgClass} transition-none`} 
           suppressHydrationWarning
           style={{ transition: 'none' }}
         >
@@ -330,12 +331,15 @@ export function CalendarControls({
               if (!open) setActiveSubmenu(null);
             }}
           >
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className={`inline-flex shrink-0 cursor-pointer items-center justify-between gap-1.5 px-2.5 text-sm font-medium whitespace-nowrap outline-none select-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${calendarControlClusterSurface} h-[38px] w-fit min-w-0 max-w-[180px] overflow-hidden sm:max-w-[260px] md:max-w-[300px] ${textClass}`}
-                suppressHydrationWarning
-              >
+            <DropdownMenuTrigger
+              render={
+                <button
+                  type="button"
+                  className={`inline-flex shrink-0 cursor-pointer items-center justify-between gap-1.5 px-2.5 text-sm font-medium whitespace-nowrap outline-none select-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${calendarControlClusterSurface} h-[38px] w-fit min-w-0 max-w-[180px] overflow-hidden sm:max-w-[260px] md:max-w-[300px] ${textClass}`}
+                  suppressHydrationWarning
+                />
+              }
+            >
                 <span className="block min-w-0 flex-1 truncate text-left font-medium text-sm">
                   {currentProgramLabel}
                 </span>
@@ -344,7 +348,6 @@ export function CalendarControls({
                 ) : (
                   <ChevronDown className="size-4 shrink-0" strokeWidth={2} aria-hidden />
                 )}
-              </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="min-w-[260px] overflow-visible pt-4 pb-4 pl-3 pr-3 bg-popover dark:bg-[#2A2A2A]" align="start">
               <div className="-mx-1 px-1">
@@ -387,7 +390,6 @@ export function CalendarControls({
                       </DropdownMenuSubTrigger>
                       <DropdownMenuPortal>
                         <DropdownMenuSubContent
-                          collisionPadding={{ top: 8, right: 28, bottom: 8, left: 8 }}
                           className="min-w-[200px] bg-popover dark:bg-[#2A2A2A]"
                         >
                           {getSessionOptionsForGroup('A').map((sess) => {
@@ -403,7 +405,7 @@ export function CalendarControls({
                                 onClick={() => handleSessionToggle(option.value as ProgramValue, sess.id, 'A')}
                               >
                                 <span
-                                  className={`pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 flex size-3.5 shrink-0 items-center justify-center rounded-full border ${isSelected ? 'border-primary bg-primary' : 'border-muted-foreground'}`}
+                                  className={`pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 flex size-3 shrink-0 items-center justify-center rounded-full border ${isSelected ? 'border-primary bg-primary' : 'border-muted-foreground'}`}
                                   aria-hidden
                                 />
                                 <SessionSubmenuItemLabel session={sess} />
@@ -442,7 +444,6 @@ export function CalendarControls({
                     </DropdownMenuSubTrigger>
                     <DropdownMenuPortal>
                       <DropdownMenuSubContent
-                        collisionPadding={{ top: 8, right: 28, bottom: 8, left: 8 }}
                         className="min-w-[220px] bg-popover dark:bg-[#2A2A2A]"
                       >
                         {getSessionOptionsForGroup('B').map((sess) => {
@@ -458,7 +459,7 @@ export function CalendarControls({
                               onClick={() => handleSessionToggle(groupBProgramForSessions, sess.id, 'B')}
                             >
                               <span
-                                className={`pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 flex size-3.5 shrink-0 items-center justify-center rounded-full border ${isSelected ? 'border-primary bg-primary' : 'border-muted-foreground'}`}
+                                className={`pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 flex size-3 shrink-0 items-center justify-center rounded-full border ${isSelected ? 'border-primary bg-primary' : 'border-muted-foreground'}`}
                                 aria-hidden
                               />
                               <SessionSubmenuItemLabel session={sess} />
@@ -482,7 +483,7 @@ export function CalendarControls({
                       {option.label}
                       {option.value === selectedProgram ? (
                         <span
-                          className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 flex size-3.5 shrink-0 items-center justify-center rounded-full border border-primary bg-primary"
+                          className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 flex size-3 shrink-0 items-center justify-center rounded-full border border-primary bg-primary"
                           aria-hidden
                         />
                       ) : null}
@@ -539,16 +540,18 @@ export function CalendarControls({
               setIsOpen(open);
               if (open) recordEngagementAction('settings_open');
             }}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={`${iconBaseClass} ${iconInactiveClass} aria-expanded:!bg-transparent aria-expanded:!text-muted-foreground`}
-                  title="Settings"
-                  suppressHydrationWarning
-                >
+              <PopoverTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={`${iconBaseClass} ${iconInactiveClass} aria-expanded:!bg-transparent aria-expanded:!text-muted-foreground`}
+                    title="Settings"
+                    suppressHydrationWarning
+                  />
+                }
+              >
                   <Settings className="h-6 w-6" strokeWidth={2} />
-                </Button>
               </PopoverTrigger>
               <PopoverContent 
                 className="h-auto w-[260px] sm:w-[300px] gap-3 pt-4 pb-4 pl-3 pr-3 z-50 bg-popover dark:bg-[#2A2A2A] transition-none"
@@ -560,175 +563,90 @@ export function CalendarControls({
                 <div className="space-y-3 transition-none">
                   {/* Activity Type Toggles */}
                   <div className="space-y-2 transition-none">
-                    <CalendarFilterToggle
+                    <SettingsSwitchRow
                       label="Registration"
                       checked={showRegistration}
                       onChange={(checked) => onFilterToggle(checked, onShowRegistrationChange)}
                       ariaLabel="Toggle registration events"
                     />
 
-                    <label className="flex items-center justify-between cursor-pointer py-0.5 transition-none">
-                      <span className="text-sm font-medium text-foreground">Lecture</span>
-                      <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-none ${showLecture ? 'bg-primary' : 'bg-muted'}`}
-                        style={{ transition: 'none' }}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full transition-none shadow-sm ${showLecture ? 'bg-background' : 'bg-background dark:bg-foreground'}`}
-                          style={{ transform: showLecture ? 'translateX(20px)' : 'translateX(2px)', transition: 'none' }}
-                        />
-                        <input
-                          type="checkbox"
-                          checked={showLecture}
-                          onChange={(e) => onFilterToggle(e.target.checked, onShowLectureChange)}
-                          className="sr-only"
-                          aria-label="Toggle lecture events"
-                        />
-                      </div>
-                    </label>
+                    <SettingsSwitchRow
+                      label="Lecture"
+                      checked={showLecture}
+                      onChange={(checked) => onFilterToggle(checked, onShowLectureChange)}
+                      ariaLabel="Toggle lecture events"
+                    />
 
                     {hasSemesterPendek && (
-                    <label className="flex items-center justify-between cursor-pointer py-0.5 pl-4 transition-none">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-muted-foreground">Short Semester</span>
-                      </div>
-                      <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-none ${showSemesterPendek ? 'bg-primary' : 'bg-muted'}`}
-                        style={{ transition: 'none' }}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full transition-none shadow-sm ${showSemesterPendek ? 'bg-background' : 'bg-background dark:bg-foreground'}`}
-                          style={{ transform: showSemesterPendek ? 'translateX(20px)' : 'translateX(2px)', transition: 'none' }}
-                        />
-                        <input
-                          type="checkbox"
-                          checked={showSemesterPendek}
-                          onChange={(e) => onFilterToggle(e.target.checked, onShowSemesterPendekChange)}
-                          className="sr-only"
-                          aria-label="Toggle Short Semester events"
-                        />
-                      </div>
-                    </label>
+                    <SettingsSwitchRow
+                      label="Short Semester"
+                      checked={showSemesterPendek}
+                      onChange={(checked) => onFilterToggle(checked, onShowSemesterPendekChange)}
+                      nested
+                      ariaLabel="Toggle Short Semester events"
+                    />
                     )}
 
                     {hasKuliahIntersesi && (
-                    <label className="flex items-center justify-between cursor-pointer py-0.5 pl-4 transition-none">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-muted-foreground">Intersession Classes</span>
-                      </div>
-                      <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-none ${showKuliahIntersesi ? 'bg-primary' : 'bg-muted'}`}
-                        style={{ transition: 'none' }}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full transition-none shadow-sm ${showKuliahIntersesi ? 'bg-background' : 'bg-background dark:bg-foreground'}`}
-                          style={{ transform: showKuliahIntersesi ? 'translateX(20px)' : 'translateX(2px)', transition: 'none' }}
-                        />
-                        <input
-                          type="checkbox"
-                          checked={showKuliahIntersesi}
-                          onChange={(e) => onFilterToggle(e.target.checked, onShowKuliahIntersesiChange)}
-                          className="sr-only"
-                          aria-label="Toggle Intersession Classes events"
-                        />
-                      </div>
-                    </label>
+                    <SettingsSwitchRow
+                      label="Intersession Classes"
+                      checked={showKuliahIntersesi}
+                      onChange={(checked) => onFilterToggle(checked, onShowKuliahIntersesiChange)}
+                      nested
+                      ariaLabel="Toggle Intersession Classes events"
+                    />
                     )}
 
-                    <label className="flex items-center justify-between cursor-pointer py-0.5 transition-none">
-                      <span className="text-sm font-medium text-foreground">Examination</span>
-                      <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-none ${showExamination ? 'bg-primary' : 'bg-muted'}`}
-                        style={{ transition: 'none' }}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full transition-none shadow-sm ${showExamination ? 'bg-background' : 'bg-background dark:bg-foreground'}`}
-                          style={{ transform: showExamination ? 'translateX(20px)' : 'translateX(2px)', transition: 'none' }}
-                        />
-                        <input
-                          type="checkbox"
-                          checked={showExamination}
-                          onChange={(e) => onFilterToggle(e.target.checked, onShowExaminationChange)}
-                          className="sr-only"
-                          aria-label="Toggle examination events"
-                        />
-                      </div>
-                    </label>
+                    <SettingsSwitchRow
+                      label="Examination"
+                      checked={showExamination}
+                      onChange={(checked) => onFilterToggle(checked, onShowExaminationChange)}
+                      ariaLabel="Toggle examination events"
+                    />
 
                     {hasOthersExams && (
-                    <label className="flex items-center justify-between cursor-pointer py-0.5 pl-4 transition-none">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-muted-foreground">Others Exams</span>
-                      </div>
-                      <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-none ${showOthersExams ? 'bg-primary' : 'bg-muted'}`}
-                        style={{ transition: 'none' }}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full transition-none shadow-sm ${showOthersExams ? 'bg-background' : 'bg-background dark:bg-foreground'}`}
-                          style={{ transform: showOthersExams ? 'translateX(20px)' : 'translateX(2px)', transition: 'none' }}
-                        />
-                        <input
-                          type="checkbox"
-                          checked={showOthersExams}
-                          onChange={(e) => onFilterToggle(e.target.checked, onShowOthersExamsChange)}
-                          className="sr-only"
-                          aria-label="Toggle others exams events"
-                        />
-                      </div>
-                    </label>
+                    <SettingsSwitchRow
+                      label="Others Exams"
+                      checked={showOthersExams}
+                      onChange={(checked) => onFilterToggle(checked, onShowOthersExamsChange)}
+                      nested
+                      ariaLabel="Toggle others exams events"
+                    />
                     )}
 
-                    <label className="flex items-center justify-between cursor-pointer py-0.5 transition-none">
-                      <span className="text-sm font-medium text-foreground">Break</span>
-                      <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-none ${showBreak ? 'bg-primary' : 'bg-muted'}`}
-                        style={{ transition: 'none' }}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full transition-none shadow-sm ${showBreak ? 'bg-background' : 'bg-background dark:bg-foreground'}`}
-                          style={{ transform: showBreak ? 'translateX(20px)' : 'translateX(2px)', transition: 'none' }}
-                        />
-                        <input
-                          type="checkbox"
-                          checked={showBreak}
-                          onChange={(e) => onFilterToggle(e.target.checked, onShowBreakChange)}
-                          className="sr-only"
-                          aria-label="Toggle break events"
-                        />
-                      </div>
-                    </label>
+                    <SettingsSwitchRow
+                      label="Break"
+                      checked={showBreak}
+                      onChange={(checked) => onFilterToggle(checked, onShowBreakChange)}
+                      ariaLabel="Toggle break events"
+                    />
                   </div>
 
                   {hasRegionalDateRange && (
-                  <label className="flex items-center justify-between cursor-pointer py-0.5 transition-none">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-foreground">Show</span>
-                      <div className="flex gap-1 pointer-events-none select-none">
-                        <Avatar className="h-5 w-5">
-                          <AvatarImage src="/flags/kedah.png" alt="Kedah" draggable={false} />
-                          <AvatarFallback>KD</AvatarFallback>
-                        </Avatar>
-                        <Avatar className="h-5 w-5">
-                          <AvatarImage src="/flags/kelantan.png" alt="Kelantan" draggable={false} />
-                          <AvatarFallback>KT</AvatarFallback>
-                        </Avatar>
-                        <Avatar className="h-5 w-5">
-                          <AvatarImage src="/flags/terengganu.png" alt="Terengganu" draggable={false} />
-                          <AvatarFallback>TG</AvatarFallback>
-                        </Avatar>
-                      </div>
-                    </div>
-                    <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-none ${showKKT ? 'bg-primary' : 'bg-muted'}`}
-                      style={{ transition: 'none' }}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full transition-none shadow-sm ${showKKT ? 'bg-background' : 'bg-background dark:bg-foreground'}`}
-                        style={{ transform: showKKT ? 'translateX(20px)' : 'translateX(2px)', transition: 'none' }}
-                      />
-                      <input
-                        type="checkbox"
-                        checked={showKKT}
-                        onChange={(e) => onFilterToggle(e.target.checked, onShowKKTChange)}
-                        className="sr-only"
-                        aria-label="Toggle Kedah, Kelantan, and Terengganu regional holidays"
-                      />
-                    </div>
-                  </label>
+                  <SettingsSwitchRow
+                    label={
+                      <>
+                        <span className="text-sm font-medium text-foreground">Show</span>
+                        <div className="flex gap-1 pointer-events-none select-none">
+                          <Avatar className="h-5 w-5">
+                            <AvatarImage src="/flags/kedah.png" alt="Kedah" draggable={false} />
+                            <AvatarFallback>KD</AvatarFallback>
+                          </Avatar>
+                          <Avatar className="h-5 w-5">
+                            <AvatarImage src="/flags/kelantan.png" alt="Kelantan" draggable={false} />
+                            <AvatarFallback>KT</AvatarFallback>
+                          </Avatar>
+                          <Avatar className="h-5 w-5">
+                            <AvatarImage src="/flags/terengganu.png" alt="Terengganu" draggable={false} />
+                            <AvatarFallback>TG</AvatarFallback>
+                          </Avatar>
+                        </div>
+                      </>
+                    }
+                    checked={showKKT}
+                    onChange={(checked) => onFilterToggle(checked, onShowKKTChange)}
+                    ariaLabel="Toggle Kedah, Kelantan, and Terengganu regional holidays"
+                  />
                   )}
 
                   {/* Theme Toggle */}
@@ -746,7 +664,7 @@ export function CalendarControls({
                         <Button
                           size="default"
                           variant="outline"
-                          className="w-full h-[38px] justify-center border-border bg-background text-black shadow-xs transition-all hover:bg-muted hover:text-foreground dark:border-input dark:bg-input/30 dark:text-foreground dark:hover:bg-input/50"
+                          className={drawerOutlineButtonClassName}
                         >
                           Send Feedback
                         </Button>
@@ -798,7 +716,6 @@ export function CalendarControls({
           </div>
         </div>
       </div>
-      <div className="calendar-controls-fade" />
     </div>
   );
 }

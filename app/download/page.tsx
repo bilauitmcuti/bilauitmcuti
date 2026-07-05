@@ -1,9 +1,11 @@
 'use client';
 
 import { Suspense, useState, useEffect, useCallback, useRef } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -12,6 +14,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { usePwaInstalled } from '@/hooks/use-pwa-installed';
 
 const pwaBenefits = [
   'Open the app from your home screen in one tap.',
@@ -112,9 +115,9 @@ function PwaTabContent({ isInstalled }: { isInstalled: boolean }) {
       <Card className="gap-0 rounded-[10px] shadow-none">
         <CardHeader className="space-y-1 px-3 pb-4 sm:px-6">
           <div>
-            <CardTitle asChild className="text-2xl font-semibold">
-              <h2>Install Bila UiTM Cuti</h2>
-            </CardTitle>
+                <CardTitle render={<h2 className="text-2xl font-semibold" />}>
+                  Install Bila UiTM Cuti
+                </CardTitle>
             <CardDescription className="mt-1 text-sm text-foreground">
               Progressive Web App — add this site to your home screen for quick access to the calendar and chat. No app
               store install is required.
@@ -196,8 +199,8 @@ function BookmarkTabContent() {
       <Card className="gap-0 rounded-[10px] shadow-none">
         <CardHeader className="space-y-1 px-3 pb-4 sm:px-6">
           <div>
-            <CardTitle asChild className="text-2xl font-semibold">
-              <h2>Bookmark Bila UiTM Cuti</h2>
+            <CardTitle render={<h2 className="text-2xl font-semibold" />}>
+              Bookmark Bila UiTM Cuti
             </CardTitle>
             <CardDescription className="mt-1 text-sm text-foreground">
               Save this site in your browser bookmarks or favorites so you can return to the calendar and chat without
@@ -280,22 +283,11 @@ function DownloadPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [headerVisible, setHeaderVisible] = useState(true);
-  const [isInstalled, setIsInstalled] = useState(false);
+  const isInstalled = usePwaInstalled();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const lastScrollTop = useRef(0);
 
   const initialTab = searchParams.get('tab') === 'bookmark' ? 'bookmark' : 'pwa';
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-    const isMinimalUI = (window.navigator as { standalone?: boolean }).standalone === true;
-
-    if (isStandalone || isMinimalUI) {
-      setIsInstalled(true);
-    }
-  }, []);
 
   const handleScroll = useCallback(() => {
     const el = scrollContainerRef.current;
@@ -352,6 +344,54 @@ function DownloadPageContent() {
               <BookmarkTabContent />
             </TabsContent>
           </Tabs>
+
+          <Card className="mt-4 gap-0 rounded-[10px] shadow-none">
+            <CardHeader className="space-y-1 px-3 pb-4 sm:px-6">
+              <CardTitle className="text-xl font-semibold">About Bila UiTM Cuti</CardTitle>
+              <CardDescription className="mt-1 text-sm text-foreground">
+                Learn what this project covers, how the calendar works, and where to send feedback.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4 px-3 pt-0 sm:px-6">
+              <Button render={<Link href="/about" />} variant="default" className="h-[38px] w-fit">
+                About
+              </Button>
+
+              <div className="flex flex-col gap-2">
+                <p className="text-sm font-semibold text-foreground">Become Our Sponsors</p>
+                <p className="text-sm text-foreground">
+                  Support the project and help keep the calendar free for everyone.
+                </p>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <Button
+                    render={
+                      <a
+                        href="https://shahrulestar.com/sponsor"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      />
+                    }
+                    className="h-[38px] w-full sm:w-auto"
+                  >
+                    Sponsor
+                  </Button>
+                  <Button
+                    variant="outline"
+                    render={
+                      <a
+                        href="https://github.com/sponsors/shahrulestar"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      />
+                    }
+                    className="h-[38px] w-full sm:w-auto"
+                  >
+                    Github Sponsor
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

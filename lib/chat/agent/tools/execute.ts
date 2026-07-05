@@ -1,7 +1,10 @@
 import {
+  formatClosestActivitiesBlock,
   formatMatchedActivitiesBlock,
-  matchActivitiesInMessage,
+  searchActivitiesInMessage,
   flattenActivitiesWithSession,
+  HIGH_CONFIDENCE_MATCH_SCORE,
+  WEAK_CANDIDATE_MIN_SCORE,
 } from "@/lib/chat/activity-match";
 import {
   computeQuickReferenceForSessions,
@@ -48,12 +51,64 @@ function formatToolMiss(params: {
   ].join("\n");
 }
 
+function formatSearchPartialResult(params: {
+  searched: string;
+  scope: string;
+  closestBlock: string;
+  calendarExcerpt: string;
+}): string {
+  const parts = [
+    "=== SEARCH RESULT (no exact single match — use closest rows + calendar below) ===",
+    `Searched: ${params.searched}`,
+    `Scope: ${params.scope}`,
+  ];
+  if (params.closestBlock) parts.push(params.closestBlock);
+  if (params.calendarExcerpt) parts.push(params.calendarExcerpt);
+  parts.push(
+    "Answer using the closest official activity name above if it fits the user's words. If still unclear, name the top candidates and state uncertainty. Copy dates only from these rows."
+  );
+  return parts.filter(Boolean).join("\n\n");
+}
+
+function formatActivityNamesList(
+  sessionIds: import("@/lib/data").SessionId[],
+  program: string,
+  group: "A" | "B"
+): string {
+  const flat = flattenActivitiesWithSession(sessionIds, (sid) =>
+    getFilteredActivitiesForSession(sid, program, group)
+  );
+  const names = [...new Set(flat.map(({ activity }) => activity.name))];
+  const lines = names.slice(0, 80).map((n) => `- ${n}`);
+  return [
+    "=== OFFICIAL ACTIVITY NAMES (browse — use search_calendar_activities with full name for dates) ===",
+    ...lines,
+  ].join("\n");
+}
+
 function sessionScopeLine(ctx: AgentTurnContext): string {
   const sessions =
     ctx.effectiveSessions.length > 0
       ? ctx.effectiveSessions.join(", ")
       : ctx.contextSessionIds.join(", ") || "(default)";
   return `Program ${ctx.programLabel}, GROUP ${ctx.primaryGroup}, session(s) ${sessions}`;
+}
+
+function formatStructuredToolOutput(
+  rows: Record<string, unknown>[],
+  humanText: string
+): string {
+  if (rows.length === 0) return humanText;
+  return `${JSON.stringify({ rows })}\n\n${humanText}`;
+}
+
+function matchedActivitiesToRows(matches: import("@/lib/chat/activity-match").MatchedActivity[]) {
+  return matches.map(({ activity, sessionId }) => ({
+    sessionId,
+    name: activity.name,
+    start: toPromptDate(activity.startDate),
+    end: activity.endDate ? toPromptDate(activity.endDate) : undefined,
+  }));
 }
 
 export async function executeChatTool(
@@ -87,20 +142,30 @@ function executeSearchCalendarActivities(
 ): string {
   const parsed = parseToolArgs(args);
   const query = String(parsed.query ?? ctx.message).trim();
+  const searchText = query || ctx.message;
 
   if (ctx.activityMatches.length > 0 && !parsed.query) {
-    return truncateToolOutput(formatMatchedActivitiesBlock(ctx.activityMatches));
+    const human = formatMatchedActivitiesBlock(ctx.activityMatches);
+    return truncateToolOutput(
+      formatStructuredToolOutput(matchedActivitiesToRows(ctx.activityMatches), human)
+    );
   }
 
   const flatPool = flattenActivitiesWithSession(ctx.contextSessionIds, (sid) =>
     getFilteredActivitiesForSession(sid, ctx.program, ctx.primaryGroup)
   );
-  const matches = matchActivitiesInMessage(query || ctx.message, flatPool);
-  if (matches.length > 0) {
-    return truncateToolOutput(formatMatchedActivitiesBlock(matches));
+
+  const strongMatches = searchActivitiesInMessage(searchText, flatPool, {
+    minScore: HIGH_CONFIDENCE_MATCH_SCORE,
+  });
+  if (strongMatches.length > 0) {
+    const human = formatMatchedActivitiesBlock(strongMatches);
+    return truncateToolOutput(
+      formatStructuredToolOutput(matchedActivitiesToRows(strongMatches), human)
+    );
   }
 
-  const dateScope = resolveDateScope(query || ctx.message, ctx.todayISO);
+  const dateScope = resolveDateScope(searchText, ctx.todayISO);
   if (dateScope) {
     const scoped = filterActivitiesByDateScope(ctx.primaryActivities, dateScope);
     const lines: string[] = [
@@ -109,37 +174,70 @@ function executeSearchCalendarActivities(
     if (scoped.length === 0) {
       lines.push("(no rows overlap this period)");
     } else {
+      const rows = scoped.slice(0, 24).map((a) => ({
+        name: a.name,
+        start: toPromptDate(a.startDate),
+        end: a.endDate ? toPromptDate(a.endDate) : undefined,
+      }));
       for (const a of scoped.slice(0, 24)) {
         let range = toPromptDate(a.startDate);
         if (a.endDate) range += ` to ${toPromptDate(a.endDate)}`;
         lines.push(`- ${a.name}: ${range}`);
       }
+      const human = lines.join("\n");
+      return truncateToolOutput(formatStructuredToolOutput(rows, human));
     }
     return truncateToolOutput(lines.join("\n"));
   }
 
-  return formatToolMiss({
-    tool: "search_calendar_activities",
-    searched: query || ctx.message,
-    scope: sessionScopeLine(ctx),
-    suggest: "call get_academic_calendar for full session calendar, or rephrase the official activity name",
+  const weakCandidates = searchActivitiesInMessage(searchText, flatPool, {
+    maxResults: 5,
+    minScore: WEAK_CANDIDATE_MIN_SCORE,
+  }).filter((m) => m.score < HIGH_CONFIDENCE_MATCH_SCORE);
+
+  const closestBlock = formatClosestActivitiesBlock(weakCandidates);
+  const calendarExcerpt = executeGetAcademicCalendar(args, ctx, {
+    forceFullCalendar: true,
+    mode: "full",
   });
+
+  return truncateToolOutput(
+    formatSearchPartialResult({
+      searched: searchText,
+      scope: sessionScopeLine(ctx),
+      closestBlock,
+      calendarExcerpt,
+    })
+  );
 }
 
 function executeGetAcademicCalendar(
   args: Record<string, unknown>,
-  ctx: AgentTurnContext
+  ctx: AgentTurnContext,
+  internal?: { forceFullCalendar?: boolean; mode?: "names_only" | "full" }
 ): string {
   const parsed = parseToolArgs(args);
   const includeSecondary =
     parsed.include_secondary_group === true || ctx.includeSecondary;
+  const mode =
+    internal?.mode ??
+    (parsed.mode === "names_only" || parsed.mode === "full"
+      ? (parsed.mode as "names_only" | "full")
+      : "full");
+  const useIntentFilter = internal?.forceFullCalendar ? false : ctx.useIntentFilter;
+
+  if (mode === "names_only") {
+    return truncateToolOutput(
+      formatActivityNamesList(ctx.contextSessionIds, ctx.program, ctx.primaryGroup)
+    );
+  }
 
   const primary = formatPrimaryCalendarContext(
     ctx.contextSessionIds,
     ctx.program,
     ctx.primaryGroup,
     ctx.contextIntent,
-    { useIntentFilter: ctx.useIntentFilter }
+    { useIntentFilter }
   );
   let out = [
     `=== SESSION LIST (GROUP ${ctx.primaryGroup}) ===`,
@@ -214,25 +312,29 @@ async function executeGetLectureWeeks(
 
   if (wantTable) {
     const table = await buildLectureWeeksTableBlock(ctx.contextSessionIds);
-    return truncateToolOutput(
+    const human =
       table ||
-        formatToolMiss({
-          tool: "get_lecture_weeks",
-          searched: "full lecture week table",
-          scope: sessionScopeLine(ctx),
-          suggest: "lecture week API may be unavailable for this session",
-        })
+      formatToolMiss({
+        tool: "get_lecture_weeks",
+        searched: "full lecture week table",
+        scope: sessionScopeLine(ctx),
+        suggest: "lecture week API may be unavailable for this session",
+      });
+    return truncateToolOutput(
+      formatStructuredToolOutput([{ mode: "full_table", scope: sessionScopeLine(ctx) }], human)
     );
   }
   const quick = await buildLectureWeekQuickReference(ctx.contextSessionIds, ctx.todayISO);
-  return truncateToolOutput(
+  const human =
     quick ||
-      formatToolMiss({
-        tool: "get_lecture_weeks",
-        searched: "current lecture week",
-        scope: sessionScopeLine(ctx),
-        suggest: "try full_table=true if user asked for all weeks",
-      })
+    formatToolMiss({
+      tool: "get_lecture_weeks",
+      searched: "current lecture week",
+      scope: sessionScopeLine(ctx),
+      suggest: "try full_table=true if user asked for all weeks",
+    });
+  return truncateToolOutput(
+    formatStructuredToolOutput([{ mode: "current", scope: sessionScopeLine(ctx) }], human)
   );
 }
 

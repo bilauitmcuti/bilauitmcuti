@@ -1,7 +1,5 @@
 "use client";
 
-import useEmblaCarousel from "embla-carousel-react";
-
 import { cn } from "@/lib/utils";
 
 interface SuggestionCarouselProps {
@@ -17,21 +15,22 @@ export function SuggestionCarousel({
   onSelect,
   className,
 }: SuggestionCarouselProps) {
-  const [emblaRef] = useEmblaCarousel({ dragFree: true, containScroll: "trimSnaps", align: "center" });
-
   return (
-    <div className={cn("suggestions-carousel relative -mx-4 md:mx-0 mb-2", className)}>
-      <div className="suggestions-fade-left" />
-      <div className="suggestions-fade-right" />
-      <div className="suggestions-swipe overflow-hidden" ref={emblaRef}>
-        <div className="embla__container flex gap-2 px-6">
+    <div
+      className={cn(
+        "mb-2 min-w-0 w-full max-w-full overflow-hidden -mx-4 md:mx-0",
+        className
+      )}
+    >
+      <div className="scroll-fade-x no-scrollbar w-full min-w-0 overflow-x-auto">
+        <div className="flex w-max gap-2 px-6 py-0.5">
           {suggestions.map((suggestion) => (
             <button
               key={suggestion}
               type="button"
               disabled={disabled}
               onClick={() => onSelect(suggestion)}
-              className="embla__slide flex-none text-xs px-3 py-1.5 rounded-full border border-border bg-secondary/50 hover:bg-secondary dark:bg-[#2A2A2A] dark:hover:bg-[#333] text-foreground transition-colors whitespace-nowrap disabled:opacity-40 disabled:pointer-events-none disabled:cursor-not-allowed"
+              className="shrink-0 text-xs px-3 py-1.5 rounded-full border border-border bg-secondary/50 hover:bg-secondary dark:bg-[#2A2A2A] dark:hover:bg-[#333] text-foreground transition-colors whitespace-nowrap disabled:opacity-40 disabled:pointer-events-none disabled:cursor-not-allowed"
             >
               {suggestion}
             </button>

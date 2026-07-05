@@ -4,21 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { ResponsiveOverlayShell } from "@/components/ui/responsive-overlay-shell";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  responsiveDialogContentClassName,
-} from "@/components/ui/dialog";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerTitle,
-  drawerBodyClassName,
-  responsiveDrawerContentClassName,
-  responsiveDialogTitleClassName,
-  responsiveDrawerBodyClassName,
+  drawerOutlineButtonClassName,
+  drawerPrimaryButtonClassName,
 } from "@/components/ui/drawer";
 import { Textarea } from "@/components/ui/textarea";
 import { StarRating } from "@/components/star-rating";
@@ -35,8 +24,10 @@ import { trackZarazEvent, ZARAZ_EVENTS } from "@/lib/zaraz";
 const SHARE_TITLE = "Bila UiTM Cuti";
 const SHARE_TEXT =
   "Check out the UiTM academic calendar — registration, lectures, exams, and semester breaks.";
-const MIN_FEEDBACK_REASON_LENGTH = 10;
 const MAX_FEEDBACK_REASON_LENGTH = 400;
+const LOW_RATING_FEEDBACK_PLACEHOLDER =
+  "We’d love to hear your thoughts!";
+const HIGH_RATING_AUTO_CLOSE_MS = 2000;
 
 interface EngagementPromptSheetProps {
   open: boolean;
@@ -54,6 +45,7 @@ function EngagementPromptBody({
   requiresFeedback,
   feedbackReason,
   isSubmittingFeedback,
+  compactFeedbackInput,
   onRatingChange,
   onFeedbackReasonChange,
   onSubmitLowRatingFeedback,
@@ -66,16 +58,13 @@ function EngagementPromptBody({
   requiresFeedback: boolean;
   feedbackReason: string;
   isSubmittingFeedback: boolean;
+  compactFeedbackInput?: boolean;
   onRatingChange: (value: number) => void;
   onFeedbackReasonChange: (value: string) => void;
   onSubmitLowRatingFeedback: () => void;
   onFeedback: () => void;
   onShare: () => void;
 }) {
-  const trimmedReasonLength = feedbackReason.trim().length;
-  const canSubmitLowRating =
-    trimmedReasonLength >= MIN_FEEDBACK_REASON_LENGTH && !isSubmittingFeedback;
-
   return (
     <div className="flex w-full flex-col gap-5">
       <p className="text-sm text-muted-foreground">
@@ -116,17 +105,18 @@ function EngagementPromptBody({
                     )
                   }
                   maxLength={MAX_FEEDBACK_REASON_LENGTH}
-                  rows={6}
-                  placeholder="Write your feedback..."
+                  rows={compactFeedbackInput ? 3 : 6}
+                  placeholder={LOW_RATING_FEEDBACK_PLACEHOLDER}
                   disabled={isSubmittingFeedback}
                   className="resize-none bg-background text-sm shadow-none placeholder:text-sm focus-visible:ring-inset dark:bg-[#2A2A2A]"
                   data-vaul-no-drag=""
                 />
                 <Button
                   type="button"
+                  size="sm"
                   variant="default"
-                  className="h-[38px] w-full"
-                  disabled={!canSubmitLowRating}
+                  className={drawerPrimaryButtonClassName}
+                  disabled={isSubmittingFeedback}
                   onClick={onSubmitLowRatingFeedback}
                 >
                   {isSubmittingFeedback ? "Sending…" : "Send feedback"}
@@ -148,15 +138,16 @@ function EngagementPromptBody({
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-[38px] w-full"
+                  className={drawerOutlineButtonClassName}
                   onClick={onFeedback}
                 >
                   Send feedback
                 </Button>
                 <Button
                   type="button"
+                  size="sm"
                   variant="default"
-                  className="h-[38px] w-full"
+                  className={drawerPrimaryButtonClassName}
                   onClick={onShare}
                 >
                   Share with friends
@@ -187,16 +178,42 @@ export function EngagementPromptSheet({
     isEngagementRatingLimitReached()
   );
   const latestSubmittedRatingRef = useRef(0);
+  const highRatingCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+
+  const clearHighRatingCloseTimer = useCallback(() => {
+    if (highRatingCloseTimerRef.current) {
+      clearTimeout(highRatingCloseTimerRef.current);
+      highRatingCloseTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleHighRatingClose = useCallback(() => {
+    clearHighRatingCloseTimer();
+    highRatingCloseTimerRef.current = setTimeout(() => {
+      highRatingCloseTimerRef.current = null;
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      onOpenChange(false);
+    }, HIGH_RATING_AUTO_CLOSE_MS);
+  }, [clearHighRatingCloseTimer, onOpenChange]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      clearHighRatingCloseTimer();
+      return;
+    }
     setRating(0);
     setFeedbackReason("");
     setRequiresFeedback(false);
     setIsSubmittingFeedback(false);
     latestSubmittedRatingRef.current = 0;
     setRatingDisabled(isEngagementRatingLimitReached());
-  }, [open]);
+  }, [open, clearHighRatingCloseTimer]);
+
+  useEffect(() => () => clearHighRatingCloseTimer(), [clearHighRatingCloseTimer]);
 
   const submitHighRating = useCallback(
     async (value: number) => {
@@ -239,12 +256,14 @@ export function EngagementPromptSheet({
       setRating(value);
 
       if (value <= 3) {
+        clearHighRatingCloseTimer();
         setRequiresFeedback(true);
         return;
       }
 
       setRequiresFeedback(false);
       setFeedbackReason("");
+      scheduleHighRatingClose();
 
       const attempts = recordEngagementRatingAttempt();
       if (attempts >= MAX_ENGAGEMENT_RATING_ATTEMPTS) {
@@ -254,7 +273,7 @@ export function EngagementPromptSheet({
       latestSubmittedRatingRef.current = value;
       void submitHighRating(value);
     },
-    [ratingDisabled, submitHighRating]
+    [ratingDisabled, submitHighRating, clearHighRatingCloseTimer, scheduleHighRatingClose]
   );
 
   const handleSubmitLowRatingFeedback = useCallback(async () => {
@@ -263,10 +282,7 @@ export function EngagementPromptSheet({
     }
 
     const reason = feedbackReason.trim();
-    if (reason.length < MIN_FEEDBACK_REASON_LENGTH) {
-      toast.error(`Please enter at least ${MIN_FEEDBACK_REASON_LENGTH} characters.`);
-      return;
-    }
+    if (reason.length === 0) return;
 
     if (ratingDisabled || isEngagementRatingLimitReached()) {
       setRatingDisabled(true);
@@ -297,9 +313,14 @@ export function EngagementPromptSheet({
         setRatingDisabled(true);
       }
 
+      clearHighRatingCloseTimer();
       onRatingComplete();
       trackZarazEvent(ZARAZ_EVENTS.engagementRating, { rating });
       setRequiresFeedback(false);
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      onOpenChange(false);
     } catch {
       if (latestSubmittedRatingRef.current === rating) {
         toast.error(
@@ -314,11 +335,14 @@ export function EngagementPromptSheet({
     isSubmittingFeedback,
     onRatingComplete,
     rating,
+    onOpenChange,
     ratingDisabled,
     requiresFeedback,
+    clearHighRatingCloseTimer,
   ]);
 
   const handleShare = useCallback(async () => {
+    clearHighRatingCloseTimer();
     const url = getPageShareUrl();
     const result = await shareOrCopyLink({
       title: SHARE_TITLE,
@@ -337,63 +361,36 @@ export function EngagementPromptSheet({
     if (result === "aborted") return;
 
     toast.error("Could not copy the link. Please try again.");
-  }, [onShareComplete]);
+  }, [clearHighRatingCloseTimer, onShareComplete]);
 
   const handleFeedback = useCallback(() => {
+    clearHighRatingCloseTimer();
     trackZarazEvent(ZARAZ_EVENTS.engagementFeedbackClick);
     onFeedbackComplete();
     router.push("/feedback");
-  }, [onFeedbackComplete, router]);
-
-  if (isMobileSheet) {
-    return (
-      <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className={responsiveDrawerContentClassName}>
-          <div className={cn(drawerBodyClassName, responsiveDrawerBodyClassName)}>
-            <DrawerTitle>Enjoying Bila UiTM Cuti?</DrawerTitle>
-            <EngagementPromptBody
-              rating={rating}
-              ratingDisabled={ratingDisabled}
-              requiresFeedback={requiresFeedback}
-              feedbackReason={feedbackReason}
-              isSubmittingFeedback={isSubmittingFeedback}
-              onRatingChange={handleRatingChange}
-              onFeedbackReasonChange={setFeedbackReason}
-              onSubmitLowRatingFeedback={handleSubmitLowRatingFeedback}
-              onFeedback={handleFeedback}
-              onShare={handleShare}
-            />
-          </div>
-        </DrawerContent>
-      </Drawer>
-    );
-  }
+  }, [clearHighRatingCloseTimer, onFeedbackComplete, router]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className={responsiveDialogContentClassName}
-        showCloseButton={false}
-      >
-        <DialogHeader className="gap-3 text-center md:text-left">
-          <DialogTitle className={responsiveDialogTitleClassName}>
-            Enjoying Bila UiTM Cuti?
-          </DialogTitle>
-        </DialogHeader>
-        <EngagementPromptBody
-          rating={rating}
-          ratingDisabled={ratingDisabled}
-          centerRating
-          requiresFeedback={requiresFeedback}
-          feedbackReason={feedbackReason}
-          isSubmittingFeedback={isSubmittingFeedback}
-          onRatingChange={handleRatingChange}
-          onFeedbackReasonChange={setFeedbackReason}
-          onSubmitLowRatingFeedback={handleSubmitLowRatingFeedback}
-          onFeedback={handleFeedback}
-          onShare={handleShare}
-        />
-      </DialogContent>
-    </Dialog>
+    <ResponsiveOverlayShell
+      open={open}
+      onOpenChange={onOpenChange}
+      isMobile={isMobileSheet}
+      title="Enjoying Bila UiTM Cuti?"
+    >
+      <EngagementPromptBody
+        rating={rating}
+        ratingDisabled={ratingDisabled}
+        centerRating={!isMobileSheet}
+        requiresFeedback={requiresFeedback}
+        feedbackReason={feedbackReason}
+        isSubmittingFeedback={isSubmittingFeedback}
+        compactFeedbackInput={isMobileSheet}
+        onRatingChange={handleRatingChange}
+        onFeedbackReasonChange={setFeedbackReason}
+        onSubmitLowRatingFeedback={handleSubmitLowRatingFeedback}
+        onFeedback={handleFeedback}
+        onShare={handleShare}
+      />
+    </ResponsiveOverlayShell>
   );
 }

@@ -35,7 +35,6 @@ import {
 } from "@/lib/turnstile";
 import { isTurnstileVerificationRequired } from "@/lib/turnstile-config";
 import { jsonError } from "@/lib/api-response";
-import { checkRateLimit } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import {
   getModelResponseBudget,
@@ -144,18 +143,7 @@ export async function POST(request: NextRequest) {
       return jsonError("Request body too large", 413);
     }
 
-    const ip =
-      request.headers.get("cf-connecting-ip") ||
-      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      request.headers.get("x-real-ip") ||
-      "unknown";
-
     correlationId = generateCorrelationId();
-    const rateLimit = checkRateLimit(ip, request);
-    if (rateLimit.limited) {
-      logger.warn("Rate limited", { correlationId, ip });
-      return jsonError(rateLimit.message, 429);
-    }
 
     const rawBody = await request.json();
 
@@ -369,7 +357,30 @@ export async function POST(request: NextRequest) {
       includeSecondary,
     });
 
+    const buildLegacyContextSystemPrompt = () =>
+      useResearchOnly
+        ? buildResearchSystemPrompt(todayFormatted) +
+          (dataContextFull ? `\n\n${dataContextFull}` : "")
+        : buildChatAssistantSystemPrompt({
+            programLabel,
+            primaryGroup,
+            secondaryGroup,
+            todayFormatted,
+            sessionListContext,
+            primaryContext,
+            secondaryContext: includeSecondary ? secondaryContext : "",
+            dataContext: dataContextFull,
+            topics: topicRoute.topics,
+            selectedSessionCount: effectiveSessions.length,
+            forceTableOutput: wantsTableOutput,
+            multipleSessionsSelected,
+            uitmSupplement: includeUitmSupplement ? UITM_GENERAL_INFO : "",
+            includeSecondaryContext: includeSecondary,
+            maxPrimaryChars,
+          });
+
     let systemPrompt = "";
+    let legacyFallbackSystemPrompt = "";
     if (!useAgentPath || agentMode !== "tools") {
       if (useAgentPath && agentMode === "compact") {
         systemPrompt = await buildCompactFallbackSystemPrompt({
@@ -386,27 +397,10 @@ export async function POST(request: NextRequest) {
           useIntentFilter,
         });
       } else {
-        systemPrompt = useResearchOnly
-          ? buildResearchSystemPrompt(todayFormatted) +
-            (dataContextFull ? `\n\n${dataContextFull}` : "")
-          : buildChatAssistantSystemPrompt({
-              programLabel,
-              primaryGroup,
-              secondaryGroup,
-              todayFormatted,
-              sessionListContext,
-              primaryContext,
-              secondaryContext: includeSecondary ? secondaryContext : "",
-              dataContext: dataContextFull,
-              topics: topicRoute.topics,
-              selectedSessionCount: effectiveSessions.length,
-              forceTableOutput: wantsTableOutput,
-              multipleSessionsSelected,
-              uitmSupplement: includeUitmSupplement ? UITM_GENERAL_INFO : "",
-              includeSecondaryContext: includeSecondary,
-              maxPrimaryChars,
-            });
+        systemPrompt = buildLegacyContextSystemPrompt();
       }
+    } else {
+      legacyFallbackSystemPrompt = buildLegacyContextSystemPrompt();
     }
 
     const cacheKey = [
@@ -449,12 +443,15 @@ export async function POST(request: NextRequest) {
         ? getCalendarUnderstandingDirective(sanitizedMessage)
         : "";
 
-    const systemPromptWithCompletion =
-      systemPrompt +
+    const completionSuffix =
       getCompletionInstruction(isSimple, asksDetail, needsList, hasMatchedActivity) +
       understandingDirective +
       publicHolidayDirective +
       languageDirective;
+
+    const systemPromptWithCompletion = systemPrompt + completionSuffix;
+    const legacyFallbackPromptWithCompletion =
+      legacyFallbackSystemPrompt + completionSuffix;
 
     const validationActivityPool = !useResearchOnly
       ? getActivitiesFromSessions(loadSessions, selectedProgram, primaryGroup)
@@ -469,6 +466,41 @@ export async function POST(request: NextRequest) {
 
     const streamTokensToClient = shouldStreamTokensToClient(requestHost);
 
+    const runLegacyLlm = async (
+      prompt: string,
+      onToken: (token: string) => void | Promise<void>,
+      budget = modelBudget
+    ): Promise<string> => {
+      if (wantStream) {
+        return streamAiWithRetry(
+          sanitizedMessage,
+          prompt,
+          sanitizedHistory,
+          { ...budget, requestHost, correlationId, onToken, emitTokensToClient: streamTokensToClient }
+        );
+      }
+      return askAiWithRetry(
+        sanitizedMessage,
+        prompt,
+        sanitizedHistory,
+        { ...budget, requestHost, correlationId }
+      );
+    };
+
+    const resolveAgentReplyWithFallback = async (
+      agentReply: string,
+      toolsUsed: string[],
+      onToken: (token: string) => void | Promise<void>,
+      legacyPrompt: string
+    ): Promise<string> => {
+      if (!legacyPrompt.trim() || agentReply.trim()) return agentReply;
+      logger.warn("Chat agent empty reply, using legacy context fallback", {
+        correlationId,
+        toolsUsed,
+      });
+      return runLegacyLlm(legacyPrompt, onToken);
+    };
+
     const runLlm = async (
       onToken: (token: string) => void | Promise<void>
     ): Promise<string> => {
@@ -479,26 +511,37 @@ export async function POST(request: NextRequest) {
           history: sanitizedHistory,
           ctx: agentTurnContext,
           requestHost,
+          correlationId,
           maxTokens: modelBudget.maxTokens,
           temperature: modelBudget.temperature,
           extraSystemDirectives: systemPromptWithCompletion,
           onToken,
           emitTokensToClient: streamTokensToClient,
         });
-        rawReply = agentResult.reply;
+        logger.info("Chat agent reply", {
+          correlationId,
+          agentMode,
+          toolsUsed: agentResult.toolsUsed,
+        });
+        rawReply = await resolveAgentReplyWithFallback(
+          agentResult.reply,
+          agentResult.toolsUsed,
+          onToken,
+          legacyFallbackPromptWithCompletion
+        );
       } else if (wantStream) {
         rawReply = await streamAiWithRetry(
           sanitizedMessage,
           systemPromptWithCompletion,
           sanitizedHistory,
-          { ...modelBudget, requestHost, onToken, emitTokensToClient: streamTokensToClient }
+          { ...modelBudget, requestHost, correlationId, onToken, emitTokensToClient: streamTokensToClient }
         );
       } else {
         rawReply = await askAiWithRetry(
           sanitizedMessage,
           systemPromptWithCompletion,
           sanitizedHistory,
-          { ...modelBudget, requestHost }
+          { ...modelBudget, requestHost, correlationId }
         );
       }
 
@@ -514,6 +557,7 @@ export async function POST(request: NextRequest) {
             history: sanitizedHistory,
             ctx: agentTurnContext,
             requestHost,
+            correlationId,
             maxTokens: modelBudget.maxTokens,
             temperature: modelBudget.temperature,
             extraSystemDirectives:
@@ -521,20 +565,25 @@ export async function POST(request: NextRequest) {
             onToken,
             emitTokensToClient: streamTokensToClient,
           });
-          rawReply = agentRetry.reply;
+          rawReply = await resolveAgentReplyWithFallback(
+            agentRetry.reply,
+            agentRetry.toolsUsed,
+            onToken,
+            legacyFallbackPromptWithCompletion + DATE_VALIDATION_RETRY_NUDGE
+          );
         } else if (wantStream) {
           rawReply = await streamAiWithRetry(
             sanitizedMessage,
             systemPromptWithCompletion + DATE_VALIDATION_RETRY_NUDGE,
             sanitizedHistory,
-            { ...modelBudget, requestHost, onToken, emitTokensToClient: streamTokensToClient }
+            { ...modelBudget, requestHost, correlationId, onToken, emitTokensToClient: streamTokensToClient }
           );
         } else {
           rawReply = await askAiWithRetry(
             sanitizedMessage,
             systemPromptWithCompletion + DATE_VALIDATION_RETRY_NUDGE,
             sanitizedHistory,
-            { ...modelBudget, requestHost }
+            { ...modelBudget, requestHost, correlationId }
           );
         }
       }
@@ -553,6 +602,7 @@ export async function POST(request: NextRequest) {
             history: sanitizedHistory,
             ctx: agentTurnContext,
             requestHost,
+            correlationId,
             maxTokens: bumpedBudget.maxTokens,
             temperature: bumpedBudget.temperature,
             extraSystemDirectives:
@@ -560,7 +610,12 @@ export async function POST(request: NextRequest) {
             onToken,
             emitTokensToClient: streamTokensToClient,
           });
-          retryReply = agentCompletion.reply;
+          retryReply = await resolveAgentReplyWithFallback(
+            agentCompletion.reply,
+            agentCompletion.toolsUsed,
+            onToken,
+            legacyFallbackPromptWithCompletion + REPLY_COMPLETION_RETRY_NUDGE
+          );
         } else if (wantStream) {
           retryReply = await streamAiWithRetry(
             sanitizedMessage,
@@ -569,6 +624,7 @@ export async function POST(request: NextRequest) {
             {
               ...bumpedBudget,
               requestHost,
+              correlationId,
               onToken,
               emitTokensToClient: streamTokensToClient,
             }
@@ -578,7 +634,7 @@ export async function POST(request: NextRequest) {
             sanitizedMessage,
             systemPromptWithCompletion + REPLY_COMPLETION_RETRY_NUDGE,
             sanitizedHistory,
-            { ...bumpedBudget, requestHost }
+            { ...bumpedBudget, requestHost, correlationId }
           );
         }
         const cleanedRetry = normalizeAssistantTables(cleanAiReply(retryReply));
@@ -619,6 +675,7 @@ export async function POST(request: NextRequest) {
               cause: error instanceof Error ? error.message : String(error),
               modelTier,
               modelChain: modelChain.join(" → "),
+              agentMode,
             });
             enqueue(encodeSseEvent("error", { error: mapped.message, status: mapped.status }));
             controller.close();

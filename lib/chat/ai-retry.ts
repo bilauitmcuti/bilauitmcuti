@@ -113,7 +113,12 @@ export async function askAiWithRetry(
   message: string,
   systemPrompt: string,
   history: ChatMessage[] | undefined,
-  options: { maxTokens: number; temperature: number; requestHost?: string | null }
+  options: {
+    maxTokens: number;
+    temperature: number;
+    requestHost?: string | null;
+    correlationId?: string;
+  }
 ): Promise<string> {
   let lastError: unknown = null;
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
@@ -137,6 +142,7 @@ export async function streamAiWithRetry(
     maxTokens: number;
     temperature: number;
     requestHost?: string | null;
+    correlationId?: string;
     onToken: (token: string) => void | Promise<void>;
     emitTokensToClient?: boolean;
   }
@@ -149,6 +155,7 @@ export async function streamAiWithRetry(
         maxTokens: options.maxTokens,
         temperature: options.temperature,
         requestHost: options.requestHost,
+        correlationId: options.correlationId,
         onToken: options.onToken,
         emitTokensToClient: options.emitTokensToClient,
       });
