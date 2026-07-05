@@ -17,6 +17,7 @@ import { getFiltersFromCookie, setFiltersToCookie } from "@/lib/cookie-utils";
 import { isProgramValue, type ProgramValue } from "@/lib/route-utils";
 import {
   readChatCalendarContext,
+  resolveChatReturnRoute,
 } from "@/lib/session-query";
 import {
   areSessionListsEqual,
@@ -260,11 +261,11 @@ export default function ChatPage() {
   }, [selectedProgram, selectedSessions, sessionsByProgram]);
 
   useEffect(() => {
-    router.prefetch("/");
+    router.prefetch(resolveChatReturnRoute());
   }, [router]);
 
   const handleChatBack = useCallback(() => {
-    router.push("/");
+    router.push(resolveChatReturnRoute());
   }, [router]);
 
   // Sync selectedSessions when program changes using per-program memory.
@@ -964,7 +965,7 @@ export default function ChatPage() {
           <button
             onClick={handleChatBack}
             className="flex items-center justify-center w-9 h-9 rounded-full bg-secondary hover:bg-secondary/80 dark:bg-[#2A2A2A] dark:hover:bg-[#333] transition-colors"
-            aria-label="Back to home"
+            aria-label="Back"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>

@@ -1,11 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi, afterEach } from "vitest";
 import {
   buildCalendarAbsoluteUrl,
   buildCalendarUrlPath,
   buildSessionQueryString,
+  CHAT_RETURN_ROUTE_FALLBACK,
+  CHAT_RETURN_ROUTE_KEY,
+  isValidChatReturnRoute,
+  normalizeChatReturnRoute,
   parseSessionIdsFromSearchParams,
+  resolveChatReturnRoute,
   resolveCleanCalendarPath,
   resolveProgramForSessionQuery,
+  saveChatReturnRoute,
 } from "./session-query";
 
 describe("session query URL helpers", () => {
@@ -63,5 +69,60 @@ describe("session query URL helpers", () => {
       resolveCleanCalendarPath("/", "Foundation/Professional", "grid")
     ).toBe("/foundation-professional");
     expect(resolveCleanCalendarPath("/", "All", "grid")).toBe("/");
+  });
+});
+
+describe("chat return route validation", () => {
+  it("accepts calendar routes and rejects chat/api paths", () => {
+    expect(isValidChatReturnRoute("/")).toBe(true);
+    expect(isValidChatReturnRoute("/list")).toBe(true);
+    expect(isValidChatReturnRoute("/diploma")).toBe(true);
+    expect(isValidChatReturnRoute("/diploma/list")).toBe(true);
+    expect(isValidChatReturnRoute("/chat")).toBe(false);
+    expect(isValidChatReturnRoute("/chat/api")).toBe(false);
+    expect(isValidChatReturnRoute("/api/health")).toBe(false);
+    expect(isValidChatReturnRoute("https://evil.example/list")).toBe(false);
+    expect(isValidChatReturnRoute("//evil.example/list")).toBe(false);
+  });
+
+  it("normalizes invalid or missing routes to homepage", () => {
+    expect(normalizeChatReturnRoute(null)).toBe(CHAT_RETURN_ROUTE_FALLBACK);
+    expect(normalizeChatReturnRoute("/chat")).toBe(CHAT_RETURN_ROUTE_FALLBACK);
+    expect(normalizeChatReturnRoute("/list?B-20263")).toBe("/list");
+  });
+});
+
+describe("chat return route persistence", () => {
+  const storage = new Map<string, string>();
+
+  beforeEach(() => {
+    storage.clear();
+    vi.stubGlobal("window", {});
+    vi.stubGlobal("sessionStorage", {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value);
+      },
+      removeItem: (key: string) => {
+        storage.delete(key);
+      },
+      clear: () => {
+        storage.clear();
+      },
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("persists and resolves the saved return route", () => {
+    saveChatReturnRoute("/diploma/list");
+    expect(sessionStorage.getItem(CHAT_RETURN_ROUTE_KEY)).toBe("/diploma/list");
+    expect(resolveChatReturnRoute()).toBe("/diploma/list");
+  });
+
+  it("falls back to homepage when chat is opened directly", () => {
+    expect(resolveChatReturnRoute()).toBe(CHAT_RETURN_ROUTE_FALLBACK);
   });
 });

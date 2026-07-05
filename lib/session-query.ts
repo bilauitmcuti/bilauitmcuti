@@ -204,3 +204,45 @@ export function readChatCalendarContext(): ChatReturnContext | null {
     return null;
   }
 }
+
+export const CHAT_RETURN_ROUTE_KEY = "chatReturnRoute";
+export const CHAT_RETURN_ROUTE_FALLBACK = "/";
+
+/** Internal calendar routes safe to use as chat Back destination. */
+export function isValidChatReturnRoute(pathname: string): boolean {
+  if (!pathname || !pathname.startsWith("/")) return false;
+  if (pathname.startsWith("//")) return false;
+  if (pathname.includes("://")) return false;
+  if (pathname === "/chat" || pathname.startsWith("/chat/")) return false;
+  if (pathname === "/api" || pathname.startsWith("/api/")) return false;
+  return isCalendarPath(pathname);
+}
+
+export function normalizeChatReturnRoute(pathname: string | null | undefined): string {
+  if (!pathname) return CHAT_RETURN_ROUTE_FALLBACK;
+  const pathOnly = pathname.split("?")[0]?.split("#")[0] ?? "";
+  if (!isValidChatReturnRoute(pathOnly)) return CHAT_RETURN_ROUTE_FALLBACK;
+  return pathOnly;
+}
+
+/** Remember the in-app page the user opened chat from (sessionStorage, no query params). */
+export function saveChatReturnRoute(pathname: string): void {
+  if (typeof window === "undefined") return;
+  const pathOnly = (pathname || "/").split("?")[0]?.split("#")[0] ?? "/";
+  if (!isValidChatReturnRoute(pathOnly)) return;
+  try {
+    sessionStorage.setItem(CHAT_RETURN_ROUTE_KEY, pathOnly);
+  } catch {
+    // Ignore storage errors (private mode / quota).
+  }
+}
+
+export function resolveChatReturnRoute(): string {
+  if (typeof window === "undefined") return CHAT_RETURN_ROUTE_FALLBACK;
+  try {
+    const raw = sessionStorage.getItem(CHAT_RETURN_ROUTE_KEY);
+    return normalizeChatReturnRoute(raw);
+  } catch {
+    return CHAT_RETURN_ROUTE_FALLBACK;
+  }
+}

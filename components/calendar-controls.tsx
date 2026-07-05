@@ -42,7 +42,7 @@ import { getSnapshot, subscribe } from '@/lib/calendar-store';
 import type { SessionId } from '@/lib/data';
 import { getLabelForProgramValue, getRoutePath } from '@/lib/route-utils';
 import { replaceCalendarHistoryUrl } from '@/lib/share-url';
-import { saveChatCalendarContext } from '@/lib/session-query';
+import { saveChatCalendarContext, saveChatReturnRoute } from '@/lib/session-query';
 import type { ViewMode } from '@/app/page';
 import type { ProgramValue } from '@/lib/route-utils';
 import { sessionSubmenuItemClass } from '@/lib/session-submenu-item-class';
@@ -213,8 +213,9 @@ export function CalendarControls({
       selectedProgram: selectedProgram as ProgramValue,
       selectedSessions,
     });
+    saveChatReturnRoute(pathname);
     router.push('/chat');
-  }, [router, selectedProgram, selectedSessions]);
+  }, [router, pathname, selectedProgram, selectedSessions]);
 
   // Memoize filtered program options to avoid recalculation
   const groupAOptions = useMemo(() => programOptions.filter(p => p.group === 'A'), [programOptions]);
