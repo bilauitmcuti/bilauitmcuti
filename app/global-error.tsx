@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { purgeStaleOverlayPortals } from '@/lib/overlay-cleanup';
 
 export default function GlobalError({
   error,
@@ -13,6 +14,7 @@ export default function GlobalError({
     if (process.env.NODE_ENV === 'development') {
       console.error('Global error:', error);
     }
+    purgeStaleOverlayPortals();
   }, [error]);
 
   return (
@@ -23,8 +25,9 @@ export default function GlobalError({
           A critical error occurred. Please refresh the page or try again later.
         </p>
         <button
+          type="button"
           onClick={reset}
-          className="px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-medium"
+          className="relative z-[10001] px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-medium"
         >
           Try again
         </button>

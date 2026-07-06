@@ -1,4 +1,5 @@
 import { resolveCalendarSeoFromPathname } from "@/lib/calendar-seo-metadata";
+import { dispatchCalendarUrlChange } from "@/lib/overlay-cleanup";
 import { hasSessionQueryParams } from "@/lib/session-query";
 
 const SITE_ORIGIN = "https://bilauitmcuti.com";
@@ -136,9 +137,16 @@ export function syncPageShareUrl(): void {
   syncPageDocumentSeo();
 }
 
-/** Replace address bar with a clean path (no session query). */
+/** Current calendar pathname from the address bar (includes replaceState updates). */
+export function getClientCalendarPathname(): string {
+  if (typeof window === "undefined") return "/";
+  return window.location.pathname || "/";
+}
+
+/** Replace address bar with a clean path (no session query). Prefer navigateCalendarPath for in-app navigation. */
 export function replaceCalendarHistoryUrl(path: string): void {
   if (typeof window === "undefined") return;
   window.history.replaceState(null, "", path);
   syncPageShareUrl();
+  dispatchCalendarUrlChange(path);
 }

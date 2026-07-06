@@ -2,8 +2,8 @@ import React, { Suspense } from "react"
 import type { Metadata, Viewport } from 'next'
 import { ThemeProvider } from '@/components/theme-provider'
 import { ThemeShortcut } from '@/components/theme-shortcut'
-import { VersionProvider } from '@/components/version-provider'
 import { EngagementPromptRoot } from '@/components/engagement-prompt'
+import { OverlayRouteGuard } from '@/components/overlay-route-guard'
 import { ZarazPageView } from '@/components/zaraz-page-view'
 import './globals.css'
 import { Geist, Geist_Mono } from "next/font/google"
@@ -125,12 +125,6 @@ export default function RootLayout({
   return (
     <html lang="en" className={cn(geistSans.variable, geistMono.variable, "font-sans")} suppressHydrationWarning>
       <head>
-        <meta name="app-build-id" content={process.env.NEXT_PUBLIC_BUILD_ID ?? ""} />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `window.__APP_BUILD_ID__=${JSON.stringify(process.env.NEXT_PUBLIC_BUILD_ID ?? "")};`,
-          }}
-        />
         <meta name="theme-color" content="#ffffff" />
         <meta name="application-name" content="Bila UiTM Cuti" />
         <meta property="og:site_name" content="Bila UiTM Cuti" />
@@ -224,18 +218,19 @@ export default function RootLayout({
         />
       </head>
       <body className={`${geistSans.className} antialiased`} suppressHydrationWarning>
-        <VersionProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="light"
-            enableSystem={false}
-            storageKey="theme"
-            disableTransitionOnChange={false}
-          >
-            <ThemeShortcut />
-            <EngagementPromptRoot>{children}</EngagementPromptRoot>
-          </ThemeProvider>
-        </VersionProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem={false}
+          storageKey="theme"
+          disableTransitionOnChange={false}
+        >
+          <ThemeShortcut />
+          <EngagementPromptRoot>
+            <OverlayRouteGuard />
+            {children}
+          </EngagementPromptRoot>
+        </ThemeProvider>
         <Suspense fallback={null}>
           <ZarazPageView />
         </Suspense>
