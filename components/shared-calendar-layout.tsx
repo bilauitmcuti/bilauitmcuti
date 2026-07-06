@@ -30,7 +30,9 @@ import type { SessionId } from '@/lib/data';
 import { setFiltersToCookie, type FilterStates } from '@/lib/cookie-utils';
 import type { ViewMode } from '@/app/page';
 import { parseSessionIdsFromHydrateKey } from '@/lib/calendar-initial-server';
-import { replaceCalendarHistoryUrl } from '@/lib/share-url';
+import {
+  getClientCalendarPathname,
+} from '@/lib/share-url';
 import {
   areSessionListsEqual,
   getGroupFromProgram,
@@ -111,12 +113,23 @@ export function SharedCalendarLayout({
   const [selectedProgram, setSelectedProgram] = useState(initialSelectedProgram);
   const programGroup = getGroupFromProgram(selectedProgram);
 
-  // Sync program from route only when the path encodes a program (not `/` or `/list`).
+  // Sync program from route when the App Router pathname changes (back/forward, link nav).
   useEffect(() => {
-    if (routeSelectedProgram !== 'All') {
-      setSelectedProgram(routeSelectedProgram);
+    const fromRoute = resolveProgramFromPathAndProps(pathname, programFromRoute);
+    if (fromRoute !== 'All') {
+      setSelectedProgram(fromRoute);
     }
-  }, [routeSelectedProgram]);
+  }, [pathname, programFromRoute]);
+
+  const navigateCalendarPath = useCallback(
+    (path: string) => {
+      const target = path || '/';
+      const current = pathname ?? getClientCalendarPathname();
+      if (current === target) return;
+      router.replace(target, { scroll: false });
+    },
+    [pathname, router]
+  );
 
   // Disable browser's automatic scroll restoration so back-navigation
   // doesn't fight with our own scroll-to-top, preventing sticky header jump
@@ -329,9 +342,9 @@ export function SharedCalendarLayout({
       window.scrollTo(0, 0);
       setActiveViewMode(newMode);
       const newPath = getRoutePath(selectedProgram as ProgramValue, newMode);
-      replaceCalendarHistoryUrl(newPath);
+      navigateCalendarPath(newPath);
     },
-    [selectedProgram]
+    [selectedProgram, navigateCalendarPath]
   );
 
   const persistProgramSessions = useCallback(
@@ -371,8 +384,9 @@ export function SharedCalendarLayout({
 
       if (options?.navigate !== false) {
         const newPath = getRoutePath(program, activeViewMode);
-        if (newPath !== pathname) {
-          replaceCalendarHistoryUrl(newPath);
+        const currentPath = pathname ?? getClientCalendarPathname();
+        if (newPath !== currentPath) {
+          navigateCalendarPath(newPath);
           window.scrollTo(0, 0);
         }
       }
@@ -380,6 +394,7 @@ export function SharedCalendarLayout({
     [
       activeViewMode,
       pathname,
+      navigateCalendarPath,
       showKKT,
       showRegistration,
       showLecture,

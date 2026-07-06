@@ -47,12 +47,34 @@ export function getLabelForProgramValue(program: ProgramValue): string {
 /**
  * Prefer pathname when it encodes a program; otherwise use RSC `programFromRoute` slug
  * (fixes refresh when `usePathname()` lags behind the real URL on first paint).
+ * On the client, also consult `window.location.pathname` when the App Router pathname
+ * is still on `/` or `/list` but the address bar already shows a program route.
  */
 export function resolveProgramFromPathAndProps(
   pathname: string | null | undefined,
   programFromRoute: string
 ): ProgramValue {
-  const segments = pathname?.split('/').filter(Boolean) ?? [];
+  let pathForResolve = pathname ?? "";
+
+  if (typeof window !== "undefined") {
+    const browserPath = window.location.pathname || "/";
+    const routerSeg = pathForResolve.split("/").filter(Boolean)[0];
+    const browserSeg = browserPath.split("/").filter(Boolean)[0];
+    const routerIsHome =
+      pathForResolve === "/" ||
+      pathForResolve === "/list" ||
+      !routerSeg ||
+      routerSeg === "list";
+    const browserProgram =
+      browserSeg && browserSeg !== "list"
+        ? getProgramFromRoute(browserSeg)
+        : "All";
+    if (routerIsHome && browserProgram !== "All") {
+      pathForResolve = browserPath;
+    }
+  }
+
+  const segments = pathForResolve.split("/").filter(Boolean) ?? [];
   const pathSeg = segments[0] && segments[0] !== 'list' ? segments[0] : null;
   const fromPath = pathSeg ? getProgramFromRoute(pathSeg) : 'All';
   if (fromPath !== 'All') return fromPath;

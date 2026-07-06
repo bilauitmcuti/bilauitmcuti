@@ -41,7 +41,7 @@ import { useCalendarHydrationVersion } from '@/components/calendar-hydration-con
 import { getSnapshot, subscribe } from '@/lib/calendar-store';
 import type { SessionId } from '@/lib/data';
 import { getLabelForProgramValue, getRoutePath } from '@/lib/route-utils';
-import { replaceCalendarHistoryUrl } from '@/lib/share-url';
+import { getClientCalendarPathname } from '@/lib/share-url';
 import { saveChatCalendarContext } from '@/lib/session-query';
 import { purgeStaleOverlayPortals } from '@/lib/overlay-cleanup';
 import type { ViewMode } from '@/app/page';
@@ -174,12 +174,13 @@ export function CalendarControls({
       onProgramSessionChange(programValue, next);
     } else {
       const newPath = getRoutePath(programValue, viewMode);
-      if (newPath !== pathname) {
-        replaceCalendarHistoryUrl(newPath);
+      const currentPath = pathname ?? getClientCalendarPathname();
+      if (newPath !== currentPath) {
+        router.replace(newPath, { scroll: false });
       }
     }
     recordEngagementAction('session_change');
-  }, [onProgramSessionChange, selectedSessions, pathname, viewMode, recordEngagementAction]);
+  }, [onProgramSessionChange, selectedSessions, pathname, viewMode, router, recordEngagementAction]);
 
   // Switch program only (parent resolves sessions from sessionsByProgram)
   const handleProgramSelect = useCallback((program: ProgramValue) => {
@@ -187,12 +188,13 @@ export function CalendarControls({
       onProgramSessionChange(program, []);
     } else {
       const newPath = getRoutePath(program, viewMode);
-      if (newPath !== pathname) {
-        replaceCalendarHistoryUrl(newPath);
+      const currentPath = pathname ?? getClientCalendarPathname();
+      if (newPath !== currentPath) {
+        router.replace(newPath, { scroll: false });
       }
     }
     recordEngagementAction('program_change');
-  }, [onProgramSessionChange, pathname, viewMode, recordEngagementAction]);
+  }, [onProgramSessionChange, pathname, viewMode, router, recordEngagementAction]);
 
   // Handle view mode change - use callback if provided (client state, no appear effect), else router
   const handleViewModeChange = useCallback(
@@ -214,13 +216,16 @@ export function CalendarControls({
     setDropdownOpen(false);
     setActiveSubmenu(null);
     purgeStaleOverlayPortals();
+    const returnPath =
+      getRoutePath(selectedProgram as ProgramValue, viewMode) ||
+      getClientCalendarPathname();
     saveChatCalendarContext({
       selectedProgram: selectedProgram as ProgramValue,
       selectedSessions,
-      returnPath: pathname,
+      returnPath,
     });
     router.push('/chat');
-  }, [router, selectedProgram, selectedSessions, pathname]);
+  }, [router, selectedProgram, selectedSessions, viewMode]);
 
   // Memoize filtered program options to avoid recalculation
   const groupAOptions = useMemo(() => programOptions.filter(p => p.group === 'A'), [programOptions]);
