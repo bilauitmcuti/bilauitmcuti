@@ -32,6 +32,7 @@ export interface Activity {
 }
 
 import { getSnapshot as getCalendarSnapshot } from "./calendar-store";
+import { GROUP_A_DEFAULT_SESSION_ID } from "./group-a-sessions";
 
 export type SessionId = string;
 
@@ -167,7 +168,7 @@ export function getDefaultSessionForGroup(group: ProgramGroup): SessionId {
   if (opt) return opt.id;
   const opts = getSessionOptionsForGroup(group);
   if (opts.length > 0) return opts[0]!.id;
-  return "B-20263";
+  return group === "A" ? GROUP_A_DEFAULT_SESSION_ID : STATIC_DEFAULT_SESSION_FALLBACK;
 }
 
 /** Min/max dates from loaded API activities for a session (authoritative span). */

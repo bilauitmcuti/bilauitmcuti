@@ -30,12 +30,16 @@ import type { SessionId } from '@/lib/data';
 import { setFiltersToCookie, type FilterStates } from '@/lib/cookie-utils';
 import type { ViewMode } from '@/app/page';
 import { parseSessionIdsFromHydrateKey } from '@/lib/calendar-initial-server';
-import { replaceCalendarHistoryUrl } from '@/lib/share-url';
+import {
+  getClientCalendarPathname,
+} from '@/lib/share-url';
+import { dismissBlockingOverlays } from '@/lib/overlay-cleanup';
 import {
   areSessionListsEqual,
   getGroupFromProgram,
   getSessionMemoryKey,
   normalizeSessionsForGroup,
+  resolveProgramSessionsForStore,
 } from '@/lib/session-memory';
 
 type ProgramSessionMap = Partial<Record<ProgramValue, SessionId[]>>;
@@ -111,12 +115,28 @@ export function SharedCalendarLayout({
   const [selectedProgram, setSelectedProgram] = useState(initialSelectedProgram);
   const programGroup = getGroupFromProgram(selectedProgram);
 
-  // Sync program from route only when the path encodes a program (not `/` or `/list`).
+  // Sync program from route when the App Router pathname changes (back/forward, link nav).
   useEffect(() => {
-    if (routeSelectedProgram !== 'All') {
-      setSelectedProgram(routeSelectedProgram);
+    const fromRoute = resolveProgramFromPathAndProps(pathname, programFromRoute);
+    if (fromRoute !== 'All') {
+      setSelectedProgram(fromRoute);
     }
-  }, [routeSelectedProgram]);
+  }, [pathname, programFromRoute]);
+
+  const navigateCalendarPath = useCallback(
+    (path: string) => {
+      const target = path || '/';
+      const current = pathname ?? getClientCalendarPathname();
+      if (current === target) return;
+      dismissBlockingOverlays();
+      router.replace(target, { scroll: false });
+    },
+    [pathname, router]
+  );
+
+  useLayoutEffect(() => {
+    dismissBlockingOverlays();
+  }, [pathname]);
 
   // Disable browser's automatic scroll restoration so back-navigation
   // doesn't fight with our own scroll-to-top, preventing sticky header jump
@@ -305,13 +325,13 @@ export function SharedCalendarLayout({
   useEffect(() => {
     const dateStr = initialCurrentDate ?? new Date().toISOString().slice(0, 10);
     setSelectedSessions((prev) => {
-      const targetGroup = getGroupFromProgram(selectedProgram);
-      const sessionMemoryKey = getSessionMemoryKey(selectedProgram);
-      const fromProgram = normalizeSessionsForGroup(sessionsByProgram[sessionMemoryKey] ?? [], targetGroup);
-      if (fromProgram.length > 0) return areSessionListsEqual(prev, fromProgram) ? prev : fromProgram;
-
-      const fallback = [getSessionForCurrentDate(targetGroup, dateStr)];
-      return areSessionListsEqual(prev, fallback) ? prev : fallback;
+      const resolved = resolveProgramSessionsForStore(
+        selectedProgram,
+        prev,
+        sessionsByProgram,
+        dateStr
+      );
+      return areSessionListsEqual(prev, resolved) ? prev : resolved;
     });
   }, [selectedProgram, sessionsByProgram, initialCurrentDate]);
 
@@ -329,9 +349,9 @@ export function SharedCalendarLayout({
       window.scrollTo(0, 0);
       setActiveViewMode(newMode);
       const newPath = getRoutePath(selectedProgram as ProgramValue, newMode);
-      replaceCalendarHistoryUrl(newPath);
+      navigateCalendarPath(newPath);
     },
-    [selectedProgram]
+    [selectedProgram, navigateCalendarPath]
   );
 
   const persistProgramSessions = useCallback(
@@ -340,9 +360,14 @@ export function SharedCalendarLayout({
       sessionIds: SessionId[],
       options?: { navigate?: boolean }
     ) => {
-      const targetGroup = getGroupFromProgram(program);
       const sessionMemoryKey = getSessionMemoryKey(program);
-      const resolvedSessions = normalizeSessionsForGroup(sessionIds, targetGroup);
+      const dateStr = initialCurrentDate ?? new Date().toISOString().slice(0, 10);
+      const resolvedSessions = resolveProgramSessionsForStore(
+        program,
+        sessionIds,
+        sessionsByProgram,
+        dateStr
+      );
       if (resolvedSessions.length === 0) return;
 
       const nextSessionsByProgram: ProgramSessionMap = {
@@ -371,8 +396,9 @@ export function SharedCalendarLayout({
 
       if (options?.navigate !== false) {
         const newPath = getRoutePath(program, activeViewMode);
-        if (newPath !== pathname) {
-          replaceCalendarHistoryUrl(newPath);
+        const currentPath = pathname ?? getClientCalendarPathname();
+        if (newPath !== currentPath) {
+          navigateCalendarPath(newPath);
           window.scrollTo(0, 0);
         }
       }
@@ -380,6 +406,8 @@ export function SharedCalendarLayout({
     [
       activeViewMode,
       pathname,
+      navigateCalendarPath,
+      initialCurrentDate,
       showKKT,
       showRegistration,
       showLecture,
@@ -395,17 +423,13 @@ export function SharedCalendarLayout({
 
   const handleProgramSessionChange = useCallback(
     (program: ProgramValue, sessionIds: SessionId[]) => {
-      const targetGroup = getGroupFromProgram(program);
-      const sessionMemoryKey = getSessionMemoryKey(program);
-      const inGroup = normalizeSessionsForGroup(sessionIds, targetGroup);
-      const fromProgram = normalizeSessionsForGroup(sessionsByProgram[sessionMemoryKey] ?? [], targetGroup);
-      const resolvedSessions =
-        inGroup.length > 0
-          ? inGroup
-          : fromProgram.length > 0
-            ? fromProgram
-            : [getSessionForCurrentDate(targetGroup, initialCurrentDate ?? new Date().toISOString().slice(0, 10))];
-
+      const dateStr = initialCurrentDate ?? new Date().toISOString().slice(0, 10);
+      const resolvedSessions = resolveProgramSessionsForStore(
+        program,
+        sessionIds,
+        sessionsByProgram,
+        dateStr
+      );
       persistProgramSessions(program, resolvedSessions, { navigate: true });
     },
     [

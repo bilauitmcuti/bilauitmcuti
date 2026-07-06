@@ -14,17 +14,39 @@ export function dispatchCalendarUrlChange(path: string): void {
   );
 }
 
+function hideOverlayNode(node: Element): void {
+  if (!(node instanceof HTMLElement)) return;
+  node.style.pointerEvents = "none";
+  node.style.visibility = "hidden";
+}
+
 function removeNode(node: Element): void {
   node.remove();
 }
 
-function hasOpenDescendant(root: Element, selector: string): boolean {
-  return root.querySelector(selector) != null;
+/**
+ * Soft-dismiss full-screen blockers before route changes.
+ * Does not remove React-managed menu/popover portals (avoids global error crashes).
+ */
+export function dismissBlockingOverlays(): void {
+  if (typeof document === "undefined") return;
+
+  const selectors = [
+    '[data-slot="drawer-viewport"]',
+    '[data-slot="drawer-overlay"]',
+    '[data-slot="dialog-overlay"]',
+  ];
+
+  for (const selector of selectors) {
+    document.querySelectorAll(selector).forEach(hideOverlayNode);
+  }
+
+  document.body.style.pointerEvents = "";
+  document.documentElement.style.pointerEvents = "";
 }
 
 /**
- * Remove orphaned Base UI portal layers that can block clicks after route changes
- * or error-boundary recovery (drawer viewport/backdrop, dialog overlay, etc.).
+ * Hard-remove orphaned overlay layers for error-boundary recovery only.
  */
 export function purgeStaleOverlayPortals(): void {
   if (typeof document === "undefined") return;
@@ -32,18 +54,15 @@ export function purgeStaleOverlayPortals(): void {
   const selectors = [
     '[data-slot="drawer-viewport"]',
     '[data-slot="drawer-overlay"]',
-    '[data-slot="drawer-portal"]:empty',
+    '[data-slot="drawer-portal"]',
     '[data-slot="dialog-overlay"]',
-    '[data-slot="dialog-portal"]:empty',
+    '[data-slot="dialog-portal"]',
   ];
 
   for (const selector of selectors) {
     document.querySelectorAll(selector).forEach(removeNode);
   }
 
-  document.querySelectorAll('[data-slot="dropdown-menu-portal"]').forEach((portal) => {
-    if (!hasOpenDescendant(portal, '[data-slot="dropdown-menu-content"][data-open]')) {
-      removeNode(portal);
-    }
-  });
+  document.body.style.pointerEvents = "";
+  document.documentElement.style.pointerEvents = "";
 }

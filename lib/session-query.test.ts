@@ -106,6 +106,12 @@ describe("resolveChatReturnPath", () => {
 
     setReturnPath("/diploma/list");
     expect(resolveChatReturnPath()).toBe("/diploma/list");
+
+    setReturnPath("/foundation-professional/list");
+    expect(resolveChatReturnPath()).toBe("/foundation-professional/list");
+
+    setReturnPath("/bachelor-part-time");
+    expect(resolveChatReturnPath()).toBe("/bachelor-part-time");
   });
 
   it("falls back to / when missing, corrupt, or invalid", () => {
