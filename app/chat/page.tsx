@@ -19,7 +19,7 @@ import {
   readChatCalendarContext,
   resolveChatReturnPath,
 } from "@/lib/session-query";
-import { purgeStaleOverlayPortals } from "@/lib/overlay-cleanup";
+import { dismissBlockingOverlays } from "@/lib/overlay-cleanup";
 import {
   areSessionListsEqual,
   getGroupFromProgram,
@@ -266,7 +266,7 @@ export default function ChatPage() {
   }, [router]);
 
   const handleChatBack = useCallback(() => {
-    purgeStaleOverlayPortals();
+    dismissBlockingOverlays();
     router.push(resolveChatReturnPath());
   }, [router]);
 

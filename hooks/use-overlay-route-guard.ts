@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import {
   CALENDAR_URL_CHANGE_EVENT,
-  purgeStaleOverlayPortals,
+  dismissBlockingOverlays,
 } from "@/lib/overlay-cleanup";
 
 /** Purge stale overlay portals on App Router and replaceState calendar navigations. */
@@ -12,12 +12,12 @@ export function useOverlayRouteGuard(): void {
   const pathname = usePathname();
 
   useEffect(() => {
-    purgeStaleOverlayPortals();
+    dismissBlockingOverlays();
   }, [pathname]);
 
   useEffect(() => {
     const handleCalendarUrlChange = () => {
-      purgeStaleOverlayPortals();
+      dismissBlockingOverlays();
     };
 
     window.addEventListener(

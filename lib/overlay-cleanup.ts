@@ -14,13 +14,39 @@ export function dispatchCalendarUrlChange(path: string): void {
   );
 }
 
+function hideOverlayNode(node: Element): void {
+  if (!(node instanceof HTMLElement)) return;
+  node.style.pointerEvents = "none";
+  node.style.visibility = "hidden";
+}
+
 function removeNode(node: Element): void {
   node.remove();
 }
 
 /**
- * Remove orphaned Base UI portal layers that can block clicks after route changes
- * or error-boundary recovery (drawer viewport/backdrop, dialog overlay, etc.).
+ * Soft-dismiss full-screen blockers before route changes.
+ * Does not remove React-managed menu/popover portals (avoids global error crashes).
+ */
+export function dismissBlockingOverlays(): void {
+  if (typeof document === "undefined") return;
+
+  const selectors = [
+    '[data-slot="drawer-viewport"]',
+    '[data-slot="drawer-overlay"]',
+    '[data-slot="dialog-overlay"]',
+  ];
+
+  for (const selector of selectors) {
+    document.querySelectorAll(selector).forEach(hideOverlayNode);
+  }
+
+  document.body.style.pointerEvents = "";
+  document.documentElement.style.pointerEvents = "";
+}
+
+/**
+ * Hard-remove orphaned overlay layers for error-boundary recovery only.
  */
 export function purgeStaleOverlayPortals(): void {
   if (typeof document === "undefined") return;
@@ -31,8 +57,6 @@ export function purgeStaleOverlayPortals(): void {
     '[data-slot="drawer-portal"]',
     '[data-slot="dialog-overlay"]',
     '[data-slot="dialog-portal"]',
-    '[data-slot="dropdown-menu-portal"]',
-    '[data-slot="popover-content"]',
   ];
 
   for (const selector of selectors) {

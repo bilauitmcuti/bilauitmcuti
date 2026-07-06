@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { purgeStaleOverlayPortals } from '@/lib/overlay-cleanup';
 
 export default function GlobalError({
   error,
@@ -13,6 +14,7 @@ export default function GlobalError({
     if (process.env.NODE_ENV === 'development') {
       console.error('Global error:', error);
     }
+    purgeStaleOverlayPortals();
   }, [error]);
 
   return (
