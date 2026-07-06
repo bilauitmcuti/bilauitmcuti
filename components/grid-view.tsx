@@ -4,6 +4,7 @@ import React, { memo } from "react"
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react';
 
 import { useState, useEffect, useLayoutEffect, useMemo, useSyncExternalStore, useRef, useCallback } from 'react';
+import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
   Tooltip,
@@ -29,6 +30,9 @@ import { fetchLectureWeeks } from '@/lib/calendar-api';
 import { buildDateToWeekNumberMap } from '@/lib/lecture-weeks-resolve';
 import { useMobileViewport } from '@/lib/use-mobile-viewport';
 import { useEngagementPrompt } from '@/components/engagement-prompt';
+import {
+  CALENDAR_URL_CHANGE_EVENT,
+} from '@/lib/overlay-cleanup';
 
 interface TooltipActivityListProps {
   dateKey: string;
@@ -914,6 +918,32 @@ export const GridView = memo(function GridView({
   const drawerSwipeCleanupRef = useRef<(() => void) | null>(null);
   const isMobileViewport = useMobileViewport();
   const { recordEngagementAction } = useEngagementPrompt();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    setDrawerDateKey(null);
+    setTooltipOpenKey(null);
+    setHoveredDateStr(null);
+  }, [pathname]);
+
+  useEffect(() => {
+    const handleCalendarUrlChange = () => {
+      setDrawerDateKey(null);
+      setTooltipOpenKey(null);
+      setHoveredDateStr(null);
+    };
+
+    window.addEventListener(
+      CALENDAR_URL_CHANGE_EVENT,
+      handleCalendarUrlChange as EventListener
+    );
+    return () => {
+      window.removeEventListener(
+        CALENDAR_URL_CHANGE_EVENT,
+        handleCalendarUrlChange as EventListener
+      );
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

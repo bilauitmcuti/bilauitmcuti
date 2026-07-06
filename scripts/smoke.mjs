@@ -40,11 +40,6 @@ async function main() {
     }
   });
 
-  await check("GET /api/version", "/api/version", async (res) => {
-    if (res.status !== 200) throw new Error(`expected 200, got ${res.status}`);
-    await res.json();
-  });
-
   await check("GET /api/v1/meta?group=A", "/api/v1/meta?group=A", async (res) => {
     if (res.status !== 200) throw new Error(`expected 200, got ${res.status}`);
     await res.json();

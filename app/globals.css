@@ -414,7 +414,7 @@ input[type="checkbox"],
 
   /* Mobile: session submenus (Group A/B) — cap width + nudge left when wider than available space */
   @media (max-width: 640px) {
-    [data-radix-popper-content-wrapper]:has([data-slot="dropdown-menu-sub-content"]) {
+    [data-slot="dropdown-menu-portal"]:has([data-slot="dropdown-menu-sub-content"]) {
       max-width: calc(100vw - 16px);
     }
 
@@ -425,11 +425,10 @@ input[type="checkbox"],
     }
 
     [data-slot="dropdown-menu-sub-content"][data-side="right"] {
-      /* Match max-width cap so margin tracks the same width Radix/Floating UI allows */
       margin-left: min(
         0px,
         calc(
-          var(--radix-popper-available-width, 9999px) - min(260px, calc(100vw - 24px))
+          var(--available-width, 9999px) - min(260px, calc(100vw - 24px))
         )
       );
     }
