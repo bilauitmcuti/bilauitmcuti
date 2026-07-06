@@ -15,7 +15,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuPortal,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -121,16 +120,37 @@ export function CalendarControls({
   const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
   const keepDropdownOpenRef = useRef(false);
   const overlayOpenScrollYRef = useRef(0);
+
+  const closeProgramDropdown = useCallback(() => {
+    keepDropdownOpenRef.current = false;
+    setDropdownOpen(false);
+    setActiveSubmenu(null);
+    dismissBlockingOverlays();
+  }, []);
+
+  const runProgramSessionChange = useCallback(
+    (program: ProgramValue, sessionIds: SessionId[]) => {
+      if (!onProgramSessionChange) return;
+      const programChanging = program !== selectedProgram;
+      if (programChanging) {
+        closeProgramDropdown();
+        requestAnimationFrame(() => {
+          onProgramSessionChange(program, sessionIds);
+        });
+        return;
+      }
+      onProgramSessionChange(program, sessionIds);
+    },
+    [closeProgramDropdown, onProgramSessionChange, selectedProgram]
+  );
   const isPWAInstalled = usePwaInstalled();
   const [currentFooterText, setCurrentFooterText] = useState(0);
   const { recordEngagementAction } = useEngagementPrompt();
 
   useEffect(() => {
     setIsOpen(false);
-    setDropdownOpen(false);
-    setActiveSubmenu(null);
-    dismissBlockingOverlays();
-  }, [pathname]);
+    closeProgramDropdown();
+  }, [pathname, closeProgramDropdown]);
 
   const onFilterToggle = useCallback(
     (checked: boolean, handler: (value: boolean) => void) => {
@@ -178,7 +198,7 @@ export function CalendarControls({
       next = inGroup;
     }
     if (onProgramSessionChange) {
-      onProgramSessionChange(programValue, next);
+      runProgramSessionChange(programValue, next);
     } else {
       const newPath = getRoutePath(programValue, viewMode);
       const currentPath = pathname ?? getClientCalendarPathname();
@@ -187,12 +207,12 @@ export function CalendarControls({
       }
     }
     recordEngagementAction('session_change');
-  }, [onProgramSessionChange, selectedSessions, pathname, viewMode, router, recordEngagementAction]);
+  }, [onProgramSessionChange, runProgramSessionChange, selectedSessions, pathname, viewMode, router, recordEngagementAction]);
 
   // Switch program only (parent resolves sessions from sessionsByProgram)
   const handleProgramSelect = useCallback((program: ProgramValue) => {
     if (onProgramSessionChange) {
-      onProgramSessionChange(program, []);
+      runProgramSessionChange(program, []);
     } else {
       const newPath = getRoutePath(program, viewMode);
       const currentPath = pathname ?? getClientCalendarPathname();
@@ -201,7 +221,7 @@ export function CalendarControls({
       }
     }
     recordEngagementAction('program_change');
-  }, [onProgramSessionChange, pathname, viewMode, router, recordEngagementAction]);
+  }, [onProgramSessionChange, runProgramSessionChange, pathname, viewMode, router, recordEngagementAction]);
 
   // Handle view mode change - use callback if provided (client state, no appear effect), else router
   const handleViewModeChange = useCallback(
@@ -219,10 +239,8 @@ export function CalendarControls({
   );
 
   const handleOpenChat = useCallback(() => {
+    closeProgramDropdown();
     setIsOpen(false);
-    setDropdownOpen(false);
-    setActiveSubmenu(null);
-    dismissBlockingOverlays();
     const returnPath =
       getRoutePath(selectedProgram as ProgramValue, viewMode) ||
       getClientCalendarPathname();
@@ -232,7 +250,7 @@ export function CalendarControls({
       returnPath,
     });
     router.push('/chat');
-  }, [router, selectedProgram, selectedSessions, viewMode]);
+  }, [router, selectedProgram, selectedSessions, viewMode, closeProgramDropdown]);
 
   // Memoize filtered program options to avoid recalculation
   const groupAOptions = useMemo(() => programOptions.filter(p => p.group === 'A'), [programOptions]);
@@ -351,6 +369,7 @@ export function CalendarControls({
         {/* Program + Session selector - Left */}
         <div className="px-0">
             <DropdownMenu
+            modal={false}
             open={dropdownOpen}
             onOpenChange={(open) => {
               if (!open && keepDropdownOpenRef.current) {
@@ -359,7 +378,10 @@ export function CalendarControls({
                 return;
               }
               setDropdownOpen(open);
-              if (!open) setActiveSubmenu(null);
+              if (!open) {
+                setActiveSubmenu(null);
+                dismissBlockingOverlays();
+              }
             }}
           >
             <DropdownMenuTrigger
@@ -423,7 +445,6 @@ export function CalendarControls({
                           ) : null}
                         </div>
                       </DropdownMenuSubTrigger>
-                      <DropdownMenuPortal>
                         <DropdownMenuSubContent
                           className="min-w-[200px] bg-popover dark:bg-[#2A2A2A]"
                         >
@@ -449,7 +470,6 @@ export function CalendarControls({
                             );
                           })}
                         </DropdownMenuSubContent>
-                      </DropdownMenuPortal>
                     </DropdownMenuSub>
                     );
                   })}
@@ -482,7 +502,6 @@ export function CalendarControls({
                         </span>
                       </div>
                     </DropdownMenuSubTrigger>
-                    <DropdownMenuPortal>
                       <DropdownMenuSubContent
                         className="min-w-[220px] bg-popover dark:bg-[#2A2A2A]"
                       >
@@ -508,7 +527,6 @@ export function CalendarControls({
                           );
                         })}
                       </DropdownMenuSubContent>
-                    </DropdownMenuPortal>
                     </DropdownMenuSub>
                   {/* Program list - direct click */}
                   {groupBOptions.map((option, index) => (
@@ -516,8 +534,7 @@ export function CalendarControls({
                       key={option.value}
                       className={`relative cursor-pointer pr-8 font-medium text-sm data-[highlighted]:bg-transparent ${index === 0 ? 'mt-2' : ''} ${option.value === selectedProgram ? 'text-primary data-[highlighted]:text-primary' : 'text-foreground data-[highlighted]:text-foreground'}`}
                       onClick={() => {
-                        setActiveSubmenu(null);
-                        setDropdownOpen(false);
+                        closeProgramDropdown();
                         handleProgramSelect(option.value as ProgramValue);
                       }}
                     >

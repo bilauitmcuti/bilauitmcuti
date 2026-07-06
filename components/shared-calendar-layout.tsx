@@ -134,10 +134,6 @@ export function SharedCalendarLayout({
     [pathname, router]
   );
 
-  useLayoutEffect(() => {
-    dismissBlockingOverlays();
-  }, [pathname]);
-
   // Disable browser's automatic scroll restoration so back-navigation
   // doesn't fight with our own scroll-to-top, preventing sticky header jump
   useEffect(() => {

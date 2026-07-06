@@ -14,35 +14,35 @@ export function dispatchCalendarUrlChange(path: string): void {
   );
 }
 
-function hideOverlayNode(node: Element): void {
-  if (!(node instanceof HTMLElement)) return;
-  node.style.pointerEvents = "none";
-  node.style.visibility = "hidden";
-}
-
 function removeNode(node: Element): void {
   node.remove();
 }
 
 /**
- * Soft-dismiss full-screen blockers before route changes.
- * Does not remove React-managed menu/popover portals (avoids global error crashes).
+ * Clear Base UI modal menu / drawer interaction locks left after abrupt unmount.
+ * Modal menus set `inert` on siblings; if the menu unmounts during navigation the page stays dead.
  */
-export function dismissBlockingOverlays(): void {
+export function releaseModalInteractionLocks(): void {
   if (typeof document === "undefined") return;
 
-  const selectors = [
-    '[data-slot="drawer-viewport"]',
-    '[data-slot="drawer-overlay"]',
-    '[data-slot="dialog-overlay"]',
-  ];
-
-  for (const selector of selectors) {
-    document.querySelectorAll(selector).forEach(hideOverlayNode);
-  }
+  document.querySelectorAll("[inert]").forEach((node) => {
+    node.removeAttribute("inert");
+  });
+  document.querySelectorAll("[data-base-ui-inert]").forEach((node) => {
+    node.removeAttribute("data-base-ui-inert");
+  });
 
   document.body.style.pointerEvents = "";
+  document.body.style.overflow = "";
   document.documentElement.style.pointerEvents = "";
+  document.documentElement.style.overflow = "";
+}
+
+/**
+ * Soft cleanup before route changes. Never removes React-managed portal nodes.
+ */
+export function dismissBlockingOverlays(): void {
+  releaseModalInteractionLocks();
 }
 
 /**
@@ -50,6 +50,8 @@ export function dismissBlockingOverlays(): void {
  */
 export function purgeStaleOverlayPortals(): void {
   if (typeof document === "undefined") return;
+
+  releaseModalInteractionLocks();
 
   const selectors = [
     '[data-slot="drawer-viewport"]',
@@ -62,7 +64,4 @@ export function purgeStaleOverlayPortals(): void {
   for (const selector of selectors) {
     document.querySelectorAll(selector).forEach(removeNode);
   }
-
-  document.body.style.pointerEvents = "";
-  document.documentElement.style.pointerEvents = "";
 }
