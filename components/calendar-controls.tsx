@@ -45,6 +45,11 @@ import { replaceCalendarHistoryUrl } from '@/lib/share-url';
 import type { ViewMode } from '@/app/page';
 import type { ProgramValue } from '@/lib/route-utils';
 import { sessionSubmenuItemClass } from '@/lib/session-submenu-item-class';
+import {
+  activateSessionSubmenu,
+  handleProgramDropdownRootOpenChange,
+  handleSessionSubmenuOpenChange,
+} from '@/lib/session-submenu-open-change';
 
 import { SessionSubmenuItemLabel } from '@/components/session-submenu-item-label';
 import { useEngagementPrompt } from '@/components/engagement-prompt';
@@ -114,6 +119,7 @@ export function CalendarControls({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
   const keepDropdownOpenRef = useRef(false);
+  const submenuSwitchingRef = useRef(false);
   const overlayOpenScrollYRef = useRef(0);
   const isPWAInstalled = usePwaInstalled();
   const [currentFooterText, setCurrentFooterText] = useState(0);
@@ -319,24 +325,27 @@ export function CalendarControls({
         >
         {/* Program + Session selector - Left */}
         <div className="px-0">
+          <div className="inline-flex -m-1 p-1">
             <DropdownMenu
             open={dropdownOpen}
-            onOpenChange={(open) => {
-              if (!open && keepDropdownOpenRef.current) {
-                keepDropdownOpenRef.current = false;
-                setDropdownOpen(true);
-                return;
-              }
-              setDropdownOpen(open);
-              if (!open) setActiveSubmenu(null);
-            }}
+            onOpenChange={(open, details) =>
+              handleProgramDropdownRootOpenChange(open, details, {
+                activeSubmenu,
+                keepDropdownOpenRef,
+                setDropdownOpen,
+                setActiveSubmenu,
+              })
+            }
           >
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className={`inline-flex shrink-0 cursor-pointer items-center justify-between gap-1.5 px-2.5 text-sm font-medium whitespace-nowrap outline-none select-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${calendarControlClusterSurface} h-[38px] w-fit min-w-0 max-w-[180px] overflow-hidden sm:max-w-[260px] md:max-w-[300px] ${textClass}`}
-                suppressHydrationWarning
-              >
+            <DropdownMenuTrigger
+              render={
+                <button
+                  type="button"
+                  className={`inline-flex shrink-0 cursor-pointer items-center justify-between gap-1.5 px-2.5 text-sm font-medium whitespace-nowrap outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 ${calendarControlClusterSurface} h-[38px] w-fit min-w-0 max-w-[180px] sm:max-w-[260px] md:max-w-[300px] ${textClass}`}
+                  suppressHydrationWarning
+                />
+              }
+            >
                 <span className="block min-w-0 flex-1 truncate text-left font-medium text-sm">
                   {currentProgramLabel}
                 </span>
@@ -345,7 +354,6 @@ export function CalendarControls({
                 ) : (
                   <ChevronDown className="size-4 shrink-0" strokeWidth={2} aria-hidden />
                 )}
-              </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="min-w-[260px] overflow-visible pt-4 pb-4 pl-3 pr-3 bg-popover dark:bg-[#2A2A2A]" align="start">
               <div className="-mx-1 px-1">
@@ -362,14 +370,26 @@ export function CalendarControls({
                     <DropdownMenuSub
                       key={option.value}
                       open={activeSubmenu === option.value}
-                      onOpenChange={(open) => setActiveSubmenu(open ? option.value : null)}
+                      onOpenChange={(open, details) =>
+                        handleSessionSubmenuOpenChange(
+                          option.value,
+                          setActiveSubmenu,
+                          open,
+                          details,
+                          submenuSwitchingRef
+                        )
+                      }
                     >
                       <DropdownMenuSubTrigger
                         className="relative w-full max-w-full min-w-0 cursor-pointer items-center justify-between gap-0 rounded-md px-2 py-1.5"
-                        onSelect={(event) => {
-                          keepDropdownOpenRef.current = true;
-                          event.preventDefault();
-                        }}
+                        onPointerDown={() =>
+                          activateSessionSubmenu(
+                            option.value,
+                            setActiveSubmenu,
+                            keepDropdownOpenRef,
+                            submenuSwitchingRef
+                          )
+                        }
                       >
                         <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
                           <span
@@ -396,12 +416,11 @@ export function CalendarControls({
                             return (
                               <DropdownMenuItem
                                 key={sess.id}
+                                closeOnClick={false}
                                 className={sessionSubmenuItemClass(isSelected)}
-                                onSelect={(event) => {
-                                  keepDropdownOpenRef.current = true;
-                                  event.preventDefault();
-                                }}
-                                onClick={() => handleSessionToggle(option.value as ProgramValue, sess.id, 'A')}
+                                onClick={() =>
+                                  handleSessionToggle(option.value as ProgramValue, sess.id, 'A')
+                                }
                               >
                                 <span
                                   className={`pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 flex size-3 shrink-0 items-center justify-center rounded-full border ${isSelected ? 'border-primary bg-primary' : 'border-muted-foreground'}`}
@@ -425,14 +444,26 @@ export function CalendarControls({
                   <div className="text-xs font-semibold text-muted-foreground mb-2 px-2">GROUP B</div>
                   <DropdownMenuSub
                     open={activeSubmenu === 'group-b-sessions'}
-                    onOpenChange={(open) => setActiveSubmenu(open ? 'group-b-sessions' : null)}
+                    onOpenChange={(open, details) =>
+                      handleSessionSubmenuOpenChange(
+                        'group-b-sessions',
+                        setActiveSubmenu,
+                        open,
+                        details,
+                        submenuSwitchingRef
+                      )
+                    }
                   >
                     <DropdownMenuSubTrigger
                       className="cursor-pointer items-start"
-                      onSelect={(event) => {
-                        keepDropdownOpenRef.current = true;
-                        event.preventDefault();
-                      }}
+                      onPointerDown={() =>
+                        activateSessionSubmenu(
+                          'group-b-sessions',
+                          setActiveSubmenu,
+                          keepDropdownOpenRef,
+                          submenuSwitchingRef
+                        )
+                      }
                     >
                       <div className="flex min-w-0 flex-1 flex-col gap-1 text-left pr-1">
                         <span className="font-medium text-sm">Sessions</span>
@@ -451,12 +482,11 @@ export function CalendarControls({
                           return (
                             <DropdownMenuItem
                               key={sess.id}
+                              closeOnClick={false}
                               className={sessionSubmenuItemClass(isSelected)}
-                              onSelect={(event) => {
-                                keepDropdownOpenRef.current = true;
-                                event.preventDefault();
-                              }}
-                              onClick={() => handleSessionToggle(groupBProgramForSessions, sess.id, 'B')}
+                              onClick={() =>
+                                handleSessionToggle(groupBProgramForSessions, sess.id, 'B')
+                              }
                             >
                               <span
                                 className={`pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 flex size-3 shrink-0 items-center justify-center rounded-full border ${isSelected ? 'border-primary bg-primary' : 'border-muted-foreground'}`}
@@ -493,6 +523,7 @@ export function CalendarControls({
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
+          </div>
         </div>
         {/* View controls and Settings combined - Right */}
         <div className="px-0 flex items-center justify-center">
@@ -540,16 +571,18 @@ export function CalendarControls({
               setIsOpen(open);
               if (open) recordEngagementAction('settings_open');
             }}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={`${iconBaseClass} ${iconInactiveClass} aria-expanded:!bg-transparent aria-expanded:!text-muted-foreground`}
-                  title="Settings"
-                  suppressHydrationWarning
-                >
-                  <Settings className="h-6 w-6" strokeWidth={2} />
-                </Button>
+              <PopoverTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={`${iconBaseClass} ${iconInactiveClass} aria-expanded:!bg-transparent aria-expanded:!text-muted-foreground`}
+                    title="Settings"
+                    suppressHydrationWarning
+                  />
+                }
+              >
+                <Settings className="h-6 w-6" strokeWidth={2} />
               </PopoverTrigger>
               <PopoverContent 
                 className="h-auto w-[260px] sm:w-[300px] gap-3 pt-4 pb-4 pl-3 pr-3 z-50 bg-popover dark:bg-[#2A2A2A] transition-none"

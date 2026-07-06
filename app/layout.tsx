@@ -4,6 +4,7 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { ThemeShortcut } from '@/components/theme-shortcut'
 import { VersionBanner } from '@/components/version-banner'
 import { EngagementPromptRoot } from '@/components/engagement-prompt'
+import { TooltipProviderRoot } from '@/components/tooltip-provider-root'
 import { ZarazPageView } from '@/components/zaraz-page-view'
 import './globals.css'
 import { Geist, Geist_Mono } from "next/font/google"
@@ -284,7 +285,9 @@ export default function RootLayout({
           disableTransitionOnChange={false}
         >
           <ThemeShortcut />
-          <EngagementPromptRoot>{children}</EngagementPromptRoot>
+          <TooltipProviderRoot>
+            <EngagementPromptRoot>{children}</EngagementPromptRoot>
+          </TooltipProviderRoot>
         </ThemeProvider>
         <Suspense fallback={null}>
           <ZarazPageView />

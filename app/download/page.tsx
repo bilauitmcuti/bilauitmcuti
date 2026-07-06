@@ -115,8 +115,8 @@ function PwaTabContent({ isInstalled }: { isInstalled: boolean }) {
       <Card className="gap-0 rounded-[10px] shadow-none">
         <CardHeader className="space-y-1 px-3 pb-4 sm:px-6">
           <div>
-            <CardTitle asChild className="text-2xl font-semibold">
-              <h2>Install Bila UiTM Cuti</h2>
+            <CardTitle render={<h2 />} className="text-2xl font-semibold">
+              Install Bila UiTM Cuti
             </CardTitle>
             <CardDescription className="mt-1 text-sm text-foreground">
               Progressive Web App — add this site to your home screen for quick access to the calendar and chat. No app
@@ -199,8 +199,8 @@ function BookmarkTabContent() {
       <Card className="gap-0 rounded-[10px] shadow-none">
         <CardHeader className="space-y-1 px-3 pb-4 sm:px-6">
           <div>
-            <CardTitle asChild className="text-2xl font-semibold">
-              <h2>Bookmark Bila UiTM Cuti</h2>
+            <CardTitle render={<h2 />} className="text-2xl font-semibold">
+              Bookmark Bila UiTM Cuti
             </CardTitle>
             <CardDescription className="mt-1 text-sm text-foreground">
               Save this site in your browser bookmarks or favorites so you can return to the calendar and chat without
@@ -353,8 +353,8 @@ function DownloadPageContent() {
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4 px-3 pt-0 sm:px-6">
-              <Button asChild variant="default" className="h-[38px] w-fit">
-                <Link href="/about">About</Link>
+              <Button render={<Link href="/about" />} variant="default" className="h-[38px] w-fit">
+                About
               </Button>
 
               <div className="flex flex-col gap-2">
@@ -363,23 +363,30 @@ function DownloadPageContent() {
                   Support the project and help keep the calendar free for everyone.
                 </p>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <Button asChild className="h-[38px] w-full sm:w-auto">
-                    <a
-                      href="https://shahrulestar.com/sponsor"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Sponsor
-                    </a>
+                  <Button
+                    render={
+                      <a
+                        href="https://shahrulestar.com/sponsor"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      />
+                    }
+                    className="h-[38px] w-full sm:w-auto"
+                  >
+                    Sponsor
                   </Button>
-                  <Button variant="outline" asChild className="h-[38px] w-full sm:w-auto">
-                    <a
-                      href="https://github.com/sponsors/shahrulestar"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Github Sponsor
-                    </a>
+                  <Button
+                    variant="outline"
+                    render={
+                      <a
+                        href="https://github.com/sponsors/shahrulestar"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      />
+                    }
+                    className="h-[38px] w-full sm:w-auto"
+                  >
+                    Github Sponsor
                   </Button>
                 </div>
               </div>

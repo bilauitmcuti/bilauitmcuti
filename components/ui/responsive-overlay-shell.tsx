@@ -57,7 +57,7 @@ export function ResponsiveOverlayShell({
               "min-h-0 gap-0"
             )}
           >
-            <div data-vaul-no-drag="" className="w-full shrink-0">
+            <div data-slot="drawer-no-drag" className="w-full shrink-0">
               <DrawerTitle>{title}</DrawerTitle>
               {description ? (
                 <DrawerDescription className={responsiveDrawerDescriptionClassName}>
@@ -66,7 +66,7 @@ export function ResponsiveOverlayShell({
               ) : null}
             </div>
             <div
-              data-vaul-no-drag=""
+              data-slot="drawer-no-drag"
               className={cn(drawerScrollRegionClassName, "w-full min-w-0", scrollClassName)}
             >
               {children}
