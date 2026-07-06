@@ -16,9 +16,9 @@ import {
   DrawerScrollRegion,
   DrawerTitle,
   activityDrawerContentClassName,
+  activityDrawerBodyClassName,
   activityDrawerScrollRegionClassName,
   drawerBodyClassName,
-  drawerBodyFlexClassName,
 } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { useCalendarHydrationVersion } from '@/components/calendar-hydration-context';
@@ -332,19 +332,26 @@ function ActivityDrawerAnimatedSection({
     if (!inner) return;
 
     const measure = () => {
-      setHeight(inner.scrollHeight);
+      const parent = inner.parentElement;
+      const innerHeight = inner.scrollHeight;
+      if (parent && parent.clientHeight > 0 && innerHeight > parent.clientHeight) {
+        setHeight(undefined);
+        return;
+      }
+      setHeight(innerHeight);
     };
 
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(inner);
+    if (inner.parentElement) ro.observe(inner.parentElement);
     return () => ro.disconnect();
   }, [animateKey]);
 
   return (
     <div
       className={cn(
-        'overflow-hidden',
+        'max-h-full min-h-0 overflow-hidden',
         !reduceMotion && 'transition-[height] duration-300 ease-in-out',
         className
       )}
@@ -1239,7 +1246,7 @@ export const GridView = memo(function GridView({
           <div
             className={cn(
               drawerBodyClassName,
-              drawerBodyFlexClassName,
+              activityDrawerBodyClassName,
               'min-h-0 gap-0 px-0'
             )}
           >

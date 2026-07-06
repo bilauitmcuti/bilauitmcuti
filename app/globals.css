@@ -22,6 +22,11 @@ html {
   color-scheme: light dark;
 }
 
+/* Base UI drawer: absolute overlay on iOS needs a positioned body after scroll */
+body {
+  position: relative;
+}
+
 /* Prevent flash of wrong theme during page load */
 /* CRITICAL: Don't set default background - let inline styles from script handle it */
 html {
@@ -383,6 +388,19 @@ input[type="checkbox"],
   .calendar-controls-scroll-fade.scroll-fade-b {
     animation: none;
     --scroll-fade-b: var(--_scroll-fade-size-b);
+  }
+
+  /* Message scroller viewport: keyboard-scrollable region must not show focus ring */
+  [data-slot="message-scroller-viewport"],
+  [data-slot="message-scroller-viewport"]:focus,
+  [data-slot="message-scroller-viewport"]:focus-visible,
+  [data-slot="message-scroller-viewport"]:focus-within {
+    outline: none !important;
+    --tw-ring-offset-shadow: 0 0 #0000 !important;
+    --tw-ring-shadow: 0 0 #0000 !important;
+    box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow, 0 0 #0000) !important;
+    -webkit-tap-highlight-color: transparent !important;
+    tap-highlight-color: transparent !important;
   }
 
   /* Top fade - used on about/download/feedback pages (chat uses scroll-fade on MessageScroller) */

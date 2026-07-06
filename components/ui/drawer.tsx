@@ -6,19 +6,27 @@ import { Drawer as DrawerPrimitive } from "@base-ui/react/drawer"
 import { useVisualViewportOffset } from "@/lib/use-visual-viewport-offset"
 import { cn } from "@/lib/utils"
 
-/** Shared shell: min 30dvh, max 80dvh (bottom); flex children use min-h-0 for inner scroll. */
+/** Shared dim + blur for modal drawer/dialog backdrops. */
+export const overlayBackdropClassName =
+  "fixed inset-0 isolate z-50 min-h-dvh bg-black/40 supports-backdrop-filter:backdrop-blur-sm supports-[-webkit-touch-callout:none]:absolute"
+
+/** Shared shell: min 35dvh, max 80dvh (bottom); flex children use min-h-0 for inner scroll. */
 export const drawerContentClassName =
-  "flex min-h-[30dvh] flex-col overflow-x-hidden border-0 shadow-none ring-0"
+  "flex min-h-[35dvh] flex-col overflow-x-hidden border-0 shadow-none ring-0"
 
 /** Activity day list drawer — content height up to 60dvh (bottom); no min height. */
 export const activityDrawerContentClassName = cn(
   "flex flex-col overflow-x-hidden border-0 shadow-none ring-0",
+  "[--drawer-content-height:auto] [--drawer-height:unset]",
   "data-[swipe-direction=down]:h-auto data-[swipe-direction=down]:min-h-0 data-[swipe-direction=down]:max-h-[60dvh]"
 )
 
-/** Base layout for activity drawer scroll area (overflow toggled by DrawerScrollRegion). */
-export const activityDrawerScrollRegionClassName =
-  "min-h-0 flex-1 overscroll-contain"
+/** Activity drawer body — no flex-1 stretch; grows when list zone overflows. */
+export const activityDrawerBodyClassName =
+  "flex min-h-0 flex-col has-[[data-overflows]]:flex-1 has-[[data-overflows]]:overflow-hidden"
+
+/** Base layout for activity drawer list zone (overflow toggled by DrawerScrollRegion). */
+export const activityDrawerScrollRegionClassName = "min-h-0 shrink overscroll-contain"
 
 /** Drawer body column that fills the shell (use with a scroll region below a fixed header). */
 export const drawerBodyFlexClassName = "flex min-h-0 flex-1 flex-col"
@@ -40,14 +48,18 @@ export const drawerBodyClassName =
 /** Pure white in light theme (see `.responsive-shell-bg` in globals.css). */
 export const responsiveShellBgClassName = "responsive-shell-bg"
 
-/** Drawer shell for mention picker & engagement prompt. */
+/** Drawer shell for mention picker & engagement prompt (desktop dialog uses responsiveShellBg only). */
 export const responsiveDrawerContentClassName = cn(
   drawerContentClassName,
   responsiveShellBgClassName
 )
 
 /** Responsive shell for drawers with text inputs (engagement prompt, mention picker). */
-export const responsiveKeyboardDrawerContentClassName = responsiveDrawerContentClassName
+export const responsiveKeyboardDrawerContentClassName = cn(
+  drawerContentClassName,
+  responsiveShellBgClassName,
+  "[--drawer-content-height:auto] [--drawer-height:unset] data-[swipe-direction=down]:!h-auto"
+)
 
 /** Pins bottom drawer to visible viewport above the mobile keyboard. */
 export const keyboardAwareDrawerContentClassName =
@@ -165,7 +177,8 @@ function DrawerOverlay({
     <DrawerPrimitive.Backdrop
       data-slot="drawer-overlay"
       className={cn(
-        "fixed inset-0 z-50 min-h-dvh bg-black/10 opacity-[max(var(--drawer-overlay-min-opacity,0),calc(1-var(--drawer-swipe-progress)))] transition-opacity duration-450 ease-[cubic-bezier(0.32,0.72,0,1)] select-none data-ending-style:pointer-events-none data-ending-style:opacity-0 data-ending-style:duration-[calc(var(--drawer-swipe-strength)*400ms)] data-snap-points:[--drawer-overlay-min-opacity:0.5] data-starting-style:opacity-0 data-swiping:duration-0 supports-backdrop-filter:backdrop-blur-xs supports-[-webkit-touch-callout:none]:absolute",
+        overlayBackdropClassName,
+        "opacity-[max(var(--drawer-overlay-min-opacity,0),calc(1-var(--drawer-swipe-progress)))] transition-opacity duration-450 ease-[cubic-bezier(0.32,0.72,0,1)] select-none data-ending-style:pointer-events-none data-ending-style:opacity-0 data-ending-style:duration-[calc(var(--drawer-swipe-strength)*400ms)] data-snap-points:[--drawer-overlay-min-opacity:0.5] data-starting-style:opacity-0 data-swiping:duration-0",
         className
       )}
       {...props}
@@ -211,7 +224,23 @@ const DrawerScrollRegion = React.forwardRef<
     if (!el) return
 
     const measure = () => {
-      setOverflows(el.scrollHeight > el.clientHeight + 1)
+      if (el.scrollHeight > el.clientHeight + 1) {
+        setOverflows(true)
+        return
+      }
+
+      const popup = el.closest('[data-slot="drawer-popup"]') as HTMLElement | null
+      if (!popup) {
+        setOverflows(false)
+        return
+      }
+
+      const header = el.previousElementSibling as HTMLElement | null
+      const headerHeight = header?.offsetHeight ?? 0
+      const shell = el.closest('[data-slot="drawer-body-shell"]') as HTMLElement | null
+      const shellTop = shell?.offsetTop ?? 0
+      const available = popup.clientHeight - headerHeight - shellTop
+      setOverflows(el.scrollHeight > available + 1)
     }
 
     measure()
@@ -220,6 +249,8 @@ const DrawerScrollRegion = React.forwardRef<
     for (const child of el.children) {
       ro.observe(child)
     }
+    const popup = el.closest('[data-slot="drawer-popup"]')
+    if (popup) ro.observe(popup)
     return () => ro.disconnect()
   }, [children])
 
@@ -228,8 +259,9 @@ const DrawerScrollRegion = React.forwardRef<
       ref={setRef}
       data-overflows={overflows ? "" : undefined}
       className={cn(
-        "min-h-0 flex-1 overscroll-contain",
-        overflows ? "overflow-y-auto" : "overflow-y-hidden",
+        "min-h-0 shrink overscroll-contain",
+        overflows && "flex-1 overflow-y-auto",
+        !overflows && "overflow-y-hidden",
         className
       )}
       {...props}
