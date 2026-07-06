@@ -10,30 +10,38 @@ import { cn } from "@/lib/utils"
 export const overlayBackdropClassName =
   "fixed inset-0 isolate z-50 min-h-dvh bg-black/40 supports-backdrop-filter:backdrop-blur-sm supports-[-webkit-touch-callout:none]:absolute"
 
-/** Shared shell: min 35dvh, max 80dvh (bottom); flex children use min-h-0 for inner scroll. */
-export const drawerContentClassName =
-  "flex min-h-[35dvh] flex-col overflow-x-hidden border-0 shadow-none ring-0"
-
-/** Activity day list drawer — content height up to 60dvh (bottom); no min height. */
-export const activityDrawerContentClassName = cn(
-  "flex flex-col overflow-x-hidden border-0 shadow-none ring-0",
+/** Default drawer shell: fit content, min 35dvh, no inner scroll (use DrawerScrollRegion when a list overflows). */
+export const drawerContentClassName = cn(
+  "flex flex-col overflow-hidden border-0 shadow-none ring-0 overflow-x-hidden",
   "[--drawer-content-height:auto] [--drawer-height:unset]",
-  "data-[swipe-direction=down]:h-auto data-[swipe-direction=down]:min-h-0 data-[swipe-direction=down]:max-h-[60dvh]"
+  "data-[swipe-direction=down]:!h-auto data-[swipe-direction=down]:min-h-[35dvh] data-[swipe-direction=down]:overflow-y-hidden data-[swipe-direction=down]:overscroll-none"
 )
 
-/** Activity drawer body — no flex-1 stretch; grows when list zone overflows. */
+/** Activity day list drawer — up to 60dvh; list scrolls inside TooltipActivityList. */
+export const activityDrawerContentClassName = cn(
+  "flex flex-col overflow-hidden border-0 shadow-none ring-0 overflow-x-hidden",
+  "[--drawer-content-height:auto] [--drawer-height:unset]",
+  "data-[swipe-direction=down]:h-auto data-[swipe-direction=down]:min-h-0 data-[swipe-direction=down]:max-h-[60dvh] data-[swipe-direction=down]:overflow-y-hidden",
+  "[&_[data-slot=drawer-content]]:flex [&_[data-slot=drawer-content]]:min-h-0 [&_[data-slot=drawer-content]]:flex-1",
+  "[&_[data-slot=drawer-body-shell]]:flex [&_[data-slot=drawer-body-shell]]:min-h-0 [&_[data-slot=drawer-body-shell]]:flex-1"
+)
+
+/** Activity drawer body — fills shell; header fixed, list scrolls below. */
 export const activityDrawerBodyClassName =
-  "flex min-h-0 flex-col has-[[data-overflows]]:flex-1 has-[[data-overflows]]:overflow-hidden"
+  "flex min-h-0 flex-1 flex-col overflow-hidden"
 
-/** Base layout for activity drawer list zone (overflow toggled by DrawerScrollRegion). */
-export const activityDrawerScrollRegionClassName = "min-h-0 shrink overscroll-contain"
+/** Body shell: fit by default; expands only when a DrawerScrollRegion child overflows. */
+export const drawerBodyShellClassName = cn(
+  "flex w-full shrink-0 flex-col overflow-y-hidden overscroll-none",
+  "has-[[data-overflows]]:min-h-0 has-[[data-overflows]]:flex-1 has-[[data-overflows]]:overflow-hidden"
+)
 
-/** Drawer body column that fills the shell (use with a scroll region below a fixed header). */
-export const drawerBodyFlexClassName = "flex min-h-0 flex-1 flex-col"
+/** Body column inside shell (headers + content). */
+export const drawerBodyColumnClassName = "flex w-full shrink-0 flex-col"
 
-/** Scrollable drawer region (list/content only — keep titles/headers outside). */
-export const drawerScrollRegionClassName =
-  "min-h-0 flex-1 overflow-y-auto overscroll-contain"
+/** Content region — no scroll unless wrapped in DrawerScrollRegion. */
+export const drawerBodyRegionClassName =
+  "w-full min-w-0 shrink-0 overflow-y-hidden overscroll-none"
 
 /** Bottom inset: safe-area + 28px (1.75rem) for PWA home indicator — use on drawer shell. */
 export const DRAWER_SAFE_BOTTOM_PADDING =
@@ -48,17 +56,16 @@ export const drawerBodyClassName =
 /** Pure white in light theme (see `.responsive-shell-bg` in globals.css). */
 export const responsiveShellBgClassName = "responsive-shell-bg"
 
-/** Drawer shell for mention picker & engagement prompt (desktop dialog uses responsiveShellBg only). */
-export const responsiveDrawerContentClassName = cn(
+/** Drawer shell for responsive overlay pairs (engagement prompt, mention picker). */
+export const responsiveDrawerShellClassName = cn(
   drawerContentClassName,
   responsiveShellBgClassName
 )
 
-/** Responsive shell for drawers with text inputs (engagement prompt, mention picker). */
-export const responsiveKeyboardDrawerContentClassName = cn(
+/** Drawer shell for mention picker & engagement prompt (desktop dialog uses responsiveShellBg only). */
+export const responsiveDrawerContentClassName = cn(
   drawerContentClassName,
-  responsiveShellBgClassName,
-  "[--drawer-content-height:auto] [--drawer-height:unset] data-[swipe-direction=down]:!h-auto"
+  responsiveShellBgClassName
 )
 
 /** Pins bottom drawer to visible viewport above the mobile keyboard. */
@@ -301,7 +308,8 @@ function DrawerContent({
             "group/drawer-popup pointer-events-auto fixed z-50 m-(--drawer-inset,0px) flex h-(--drawer-content-height) max-h-(--drawer-content-max-height,none) min-h-0 w-(--drawer-content-width,auto) transform-[translate3d(var(--translate-x,0px),var(--translate-y,0px),0)_scale(var(--stack-scale))] flex-col border-0 bg-popover text-sm text-popover-foreground shadow-none ring-0 transition-[transform,height,opacity,filter] duration-450 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform outline-none select-none [interpolate-size:allow-keywords] data-[swipe-direction=down]:rounded-t-xl data-[swipe-direction=left]:rounded-r-xl data-[swipe-direction=right]:rounded-l-xl data-[swipe-direction=up]:rounded-b-xl",
             "data-nested-drawer-open:overflow-hidden data-nested-drawer-open:brightness-95",
             "after:pointer-events-none after:absolute after:bg-(--drawer-bleed-background,var(--color-popover)) data-[swipe-axis=x]:after:inset-y-0 data-[swipe-axis=x]:after:w-(--bleed) data-[swipe-axis=y]:after:inset-x-0 data-[swipe-axis=y]:after:h-(--bleed) data-[swipe-direction=down]:after:top-full data-[swipe-direction=left]:after:right-full data-[swipe-direction=right]:after:left-full data-[swipe-direction=up]:after:bottom-full",
-            "[--drawer-content-height:var(--drawer-height,auto)] data-[swipe-axis=x]:[--drawer-content-width:75%] data-[swipe-axis=y]:[--drawer-content-max-height:80dvh] data-[swipe-axis=y]:min-h-[30dvh] data-[swipe-axis=y]:data-snap-points:[--drawer-content-height:100dvh] data-[swipe-axis=x]:sm:[--drawer-content-width:24rem]",
+            "[--drawer-content-height:var(--drawer-height,auto)] data-[swipe-axis=x]:[--drawer-content-width:75%] data-[swipe-axis=y]:[--drawer-content-max-height:80dvh] data-[swipe-axis=y]:min-h-0 data-[swipe-axis=y]:data-snap-points:[--drawer-content-height:100dvh] data-[swipe-axis=x]:sm:[--drawer-content-width:24rem]",
+            "data-[swipe-direction=down]:overflow-y-hidden data-[swipe-direction=down]:overscroll-none",
             "[--bleed:3rem] [--peek:1rem] [--stack-height:var(--drawer-frontmost-height,var(--drawer-height,0px))] [--stack-peek-offset:max(0px,calc((var(--nested-drawers)-var(--stack-progress))*var(--peek)))] [--stack-progress:clamp(0,var(--drawer-swipe-progress),1)] [--stack-scale-base:max(0,calc(1-(var(--nested-drawers)*var(--stack-step))))] [--stack-scale:clamp(0,calc(var(--stack-scale-base)+(var(--stack-step)*var(--stack-progress))),1)] [--stack-shrink:calc(1-var(--stack-scale))] [--stack-step:0.05]",
             "data-ending-style:transform-(--closed-transform) data-ending-style:opacity-[0.9999] data-ending-style:duration-[calc(var(--drawer-swipe-strength)*400ms)] data-nested-drawer-swiping:duration-0 data-ending-style:data-nested-drawer-swiping:duration-[calc(var(--drawer-swipe-strength)*400ms)] data-starting-style:transform-(--closed-transform) data-swiping:duration-0 data-ending-style:data-swiping:duration-[calc(var(--drawer-swipe-strength)*400ms)]",
             "data-[swipe-axis=y]:inset-x-0 data-[swipe-axis=y]:data-nested-drawer-open:h-(--stack-height)",
@@ -318,15 +326,14 @@ function DrawerContent({
           {showSwipeHandle && <DrawerSwipeHandle />}
           <DrawerPrimitive.Content
             data-slot="drawer-content"
-            className={cn(
-              "flex min-h-0 flex-1 flex-col overflow-hidden overscroll-contain rounded-[inherit] transition-opacity duration-300 ease-[cubic-bezier(0.45,1.005,0,1.005)] select-text group-data-nested-drawer-open/drawer-popup:opacity-0 group-data-nested-drawer-swiping/drawer-popup:opacity-100 group-data-swiping/drawer-popup:select-none"
-            )}
+            className="flex shrink-0 flex-col overflow-y-hidden overscroll-none rounded-[inherit] transition-opacity duration-300 ease-[cubic-bezier(0.45,1.005,0,1.005)] select-text group-data-nested-drawer-open/drawer-popup:opacity-0 group-data-nested-drawer-swiping/drawer-popup:opacity-100 group-data-swiping/drawer-popup:select-none"
           >
             <div
               data-slot="drawer-body-shell"
               className={cn(
-                "flex min-h-0 w-full flex-1 flex-col pt-3",
-                drawerSafeAreaBottomClassName
+                "pt-3",
+                drawerSafeAreaBottomClassName,
+                drawerBodyShellClassName
               )}
             >
               {children}

@@ -3,7 +3,7 @@
 import React, { memo } from "react"
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react';
 
-import { useState, useEffect, useLayoutEffect, useMemo, useSyncExternalStore, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useSyncExternalStore, useRef, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import {
   Tooltip,
@@ -13,11 +13,9 @@ import {
   KeyboardAwareDrawer,
   DrawerContent,
   DrawerDescription,
-  DrawerScrollRegion,
   DrawerTitle,
   activityDrawerContentClassName,
   activityDrawerBodyClassName,
-  activityDrawerScrollRegionClassName,
   drawerBodyClassName,
 } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
@@ -36,11 +34,13 @@ interface TooltipActivityListProps {
   showCountdown: boolean;
   currentDateStr: string | null;
   showKKT: boolean;
-  /** Tooltip: mobile chevron paging. Drawer (mobile viewport): min 30vh, max 60vh; list scrolls below fixed header. */
+  /** Tooltip: mobile chevron paging. Drawer: full list with internal scroll when overflow. */
   listMode: 'paginated' | 'full';
   /** Lecture week chip; rendered inside this list (scrolls with activities). */
   weekNum?: number | null;
   surface: 'tooltip' | 'drawer';
+  /** Drawer only: ref for horizontal swipe navigation on the list scroller. */
+  listScrollRef?: React.Ref<HTMLDivElement>;
 }
 
 function TooltipActivityList({
@@ -53,6 +53,7 @@ function TooltipActivityList({
   listMode,
   weekNum = null,
   surface,
+  listScrollRef,
 }: TooltipActivityListProps) {
   const badgeTextClass = 'text-xs';
   const activityTextClass = surface === 'tooltip' ? 'text-xs' : 'text-sm';
@@ -94,9 +95,22 @@ function TooltipActivityList({
   return (
     <div
       data-grid-day-activities
-      className="w-full min-w-0 border-0 py-1 text-left shadow-none outline-none ring-0 ring-offset-0"
+      className={cn(
+        'w-full min-w-0 border-0 py-1 text-left shadow-none outline-none ring-0 ring-offset-0',
+        surface === 'drawer' && 'flex min-h-0 flex-1 flex-col overflow-hidden'
+      )}
     >
-      <div className="flex min-w-0 flex-col gap-2 border-0 shadow-none outline-none ring-0 ring-offset-0">
+      <div
+        ref={listScrollRef}
+        data-grid-activity-list-scroll={surface === 'drawer' ? '' : undefined}
+        data-slot={surface === 'drawer' ? 'drawer-no-drag' : undefined}
+        data-grid-activity-drawer-swipe={surface === 'drawer' ? '' : undefined}
+        className={cn(
+          'flex min-w-0 flex-col gap-2 border-0 shadow-none outline-none ring-0 ring-offset-0',
+          surface === 'drawer' &&
+            'min-h-0 flex-1 overflow-y-auto overscroll-contain'
+        )}
+      >
         {shouldPaginate && hasPrev ? (
           <div className="pb-1">
             <button
@@ -249,6 +263,7 @@ interface GridDayActivitiesPanelProps {
   currentDateStr: string | null;
   showKKT: boolean;
   surface: 'tooltip' | 'drawer';
+  listScrollRef?: React.Ref<HTMLDivElement>;
 }
 
 function GridDayActivitiesPanel({
@@ -260,6 +275,7 @@ function GridDayActivitiesPanel({
   currentDateStr,
   showKKT,
   surface,
+  listScrollRef,
 }: GridDayActivitiesPanelProps) {
   if (surface === 'tooltip') {
     return (
@@ -288,6 +304,7 @@ function GridDayActivitiesPanel({
       listMode="full"
       weekNum={weekNum}
       surface="drawer"
+      listScrollRef={listScrollRef}
     />
   );
 }
@@ -304,7 +321,7 @@ function formatDateLabel(dateStr: string): string {
   });
 }
 
-/** Smooth height transition for drawer body; footer stays pinned below. */
+/** Fills remaining drawer height below the fixed date header. */
 function ActivityDrawerAnimatedSection({
   animateKey,
   children,
@@ -314,50 +331,9 @@ function ActivityDrawerAnimatedSection({
   children: React.ReactNode;
   className?: string;
 }) {
-  const innerRef = useRef<HTMLDivElement>(null);
-  const [height, setHeight] = useState<number | undefined>(undefined);
-  const [reduceMotion, setReduceMotion] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const sync = () => setReduceMotion(mq.matches);
-    sync();
-    mq.addEventListener('change', sync);
-    return () => mq.removeEventListener('change', sync);
-  }, []);
-
-  useLayoutEffect(() => {
-    const inner = innerRef.current;
-    if (!inner) return;
-
-    const measure = () => {
-      const parent = inner.parentElement;
-      const innerHeight = inner.scrollHeight;
-      if (parent && parent.clientHeight > 0 && innerHeight > parent.clientHeight) {
-        setHeight(undefined);
-        return;
-      }
-      setHeight(innerHeight);
-    };
-
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(inner);
-    if (inner.parentElement) ro.observe(inner.parentElement);
-    return () => ro.disconnect();
-  }, [animateKey]);
-
   return (
-    <div
-      className={cn(
-        'max-h-full min-h-0 overflow-hidden',
-        !reduceMotion && 'transition-[height] duration-300 ease-in-out',
-        className
-      )}
-      style={{ height: reduceMotion ? 'auto' : height === undefined ? 'auto' : height }}
-    >
-      <div ref={innerRef} className="flex flex-col gap-3">
+    <div className={cn('flex min-h-0 flex-1 flex-col overflow-hidden', className)}>
+      <div key={animateKey} className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {children}
       </div>
     </div>
@@ -1244,6 +1220,7 @@ export const GridView = memo(function GridView({
       >
         <DrawerContent keyboardAware className={activityDrawerContentClassName}>
           <div
+            data-grid-activity-drawer-body
             className={cn(
               drawerBodyClassName,
               activityDrawerBodyClassName,
@@ -1287,28 +1264,22 @@ export const GridView = memo(function GridView({
                     Activities for the selected date
                   </DrawerDescription>
                 </div>
-                <DrawerScrollRegion
-                  ref={setDrawerSwipeAreaRef}
-                  data-slot="drawer-no-drag"
-                  data-grid-activity-drawer-swipe=""
-                  className={cn(activityDrawerScrollRegionClassName, 'w-full min-w-0 px-4')}
+                <ActivityDrawerAnimatedSection
+                  animateKey={`${drawerDateKey}-${drawerActivities.length}-${lectureWeekByDate?.get(drawerDateKey) ?? 'none'}`}
+                  className="w-full min-w-0 max-w-full px-4"
                 >
-                  <ActivityDrawerAnimatedSection
-                    animateKey={`${drawerDateKey}-${drawerActivities.length}-${lectureWeekByDate?.get(drawerDateKey) ?? 'none'}`}
-                    className="w-full min-w-0 max-w-full"
-                  >
-                    <GridDayActivitiesPanel
-                      dateStr={drawerDateKey}
-                      activities={drawerActivities}
-                      weekNum={lectureWeekByDate?.get(drawerDateKey) ?? null}
-                      selectedProgram={selectedProgram}
-                      showCountdown={showCountdown}
-                      currentDateStr={drawerCurrentDateStr}
-                      showKKT={showKKT}
-                      surface="drawer"
-                    />
-                  </ActivityDrawerAnimatedSection>
-                </DrawerScrollRegion>
+                  <GridDayActivitiesPanel
+                    dateStr={drawerDateKey}
+                    activities={drawerActivities}
+                    weekNum={lectureWeekByDate?.get(drawerDateKey) ?? null}
+                    selectedProgram={selectedProgram}
+                    showCountdown={showCountdown}
+                    currentDateStr={drawerCurrentDateStr}
+                    showKKT={showKKT}
+                    surface="drawer"
+                    listScrollRef={setDrawerSwipeAreaRef}
+                  />
+                </ActivityDrawerAnimatedSection>
               </>
             ) : null}
           </div>

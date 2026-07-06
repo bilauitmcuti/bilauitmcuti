@@ -15,12 +15,12 @@ import {
   DrawerDescription,
   DrawerTitle,
   drawerBodyClassName,
-  drawerBodyFlexClassName,
-  drawerScrollRegionClassName,
+  drawerBodyColumnClassName,
+  drawerBodyRegionClassName,
   responsiveDialogTitleClassName,
   responsiveDrawerBodyClassName,
   responsiveDrawerDescriptionClassName,
-  responsiveKeyboardDrawerContentClassName,
+  responsiveDrawerShellClassName,
 } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
 
@@ -48,13 +48,13 @@ export function ResponsiveOverlayShell({
   if (isMobile) {
     return (
       <KeyboardAwareDrawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent keyboardAware className={responsiveKeyboardDrawerContentClassName}>
+        <DrawerContent keyboardAware className={responsiveDrawerShellClassName}>
           <div
             className={cn(
               drawerBodyClassName,
-              drawerBodyFlexClassName,
               responsiveDrawerBodyClassName,
-              "min-h-0 gap-0"
+              drawerBodyColumnClassName,
+              "gap-3"
             )}
           >
             <div data-slot="drawer-no-drag" className="w-full shrink-0">
@@ -67,7 +67,7 @@ export function ResponsiveOverlayShell({
             </div>
             <div
               data-slot="drawer-no-drag"
-              className={cn(drawerScrollRegionClassName, "w-full min-w-0", scrollClassName)}
+              className={cn(drawerBodyRegionClassName, scrollClassName)}
             >
               {children}
             </div>
