@@ -1,10 +1,17 @@
 "use client";
 
+import type { Dispatch, SetStateAction } from "react";
+import { useRef } from "react";
 import { ArrowUp, ChevronDown, ChevronUp } from "lucide-react";
 import type { SessionId } from "@/lib/data";
 import { getSessionOptionsForGroup } from "@/lib/data";
 import type { ProgramValue } from "@/lib/route-utils";
 import { sessionSubmenuItemClass } from "@/lib/session-submenu-item-class";
+import {
+  activateSessionSubmenu,
+  handleProgramDropdownRootOpenChange,
+  handleSessionSubmenuOpenChange,
+} from "@/lib/session-submenu-open-change";
 import { SessionSubmenuItemLabel } from "@/components/session-submenu-item-label";
 import { SuggestionCarousel } from "@/components/chat/suggestion-carousel";
 import { Button } from "@/components/ui/button";
@@ -73,7 +80,7 @@ interface ChatComposerProps {
   onMentionSelect: (item: MentionItem) => void;
   onMentionOpenChange: (open: boolean) => void;
   onDropdownOpenChange: (open: boolean) => void;
-  onActiveSubmenuChange: (submenu: string | null) => void;
+  onActiveSubmenuChange: Dispatch<SetStateAction<string | null>>;
   onSessionToggle: (programValue: ProgramValue, sessionId: SessionId, group: "A" | "B") => void;
   onProgramSelect: (program: ProgramValue) => void;
   formatGroupASessionTriggerLabel: (
@@ -121,6 +128,7 @@ export function ChatComposer({
   onProgramSelect,
   formatGroupASessionTriggerLabel,
 }: ChatComposerProps) {
+  const submenuSwitchingRef = useRef(false);
   const sendDisabled =
     !input.trim() ||
     isLoading ||
@@ -233,23 +241,25 @@ export function ChatComposer({
             <InputGroupAddon align="block-end" className="justify-between pt-0">
               <DropdownMenu
                 open={dropdownOpen}
-                onOpenChange={(open) => {
-                  if (!open && keepDropdownOpenRef.current) {
-                    keepDropdownOpenRef.current = false;
-                    onDropdownOpenChange(true);
-                    return;
-                  }
-                  onDropdownOpenChange(open);
-                  if (!open) onActiveSubmenuChange(null);
-                }}
+                onOpenChange={(open, details) =>
+                  handleProgramDropdownRootOpenChange(open, details, {
+                    activeSubmenu,
+                    keepDropdownOpenRef,
+                    setDropdownOpen: onDropdownOpenChange,
+                    setActiveSubmenu: onActiveSubmenuChange,
+                  })
+                }
               >
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 min-w-0 max-w-[180px] sm:max-w-[260px] md:max-w-[300px] overflow-hidden text-xs text-primary border-none bg-transparent shadow-none px-2 gap-1 rounded-lg font-medium hover:bg-transparent hover:text-primary dark:hover:bg-transparent dark:hover:text-primary aria-expanded:bg-transparent aria-expanded:text-primary"
-                  >
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 min-w-0 max-w-[180px] sm:max-w-[260px] md:max-w-[300px] overflow-hidden text-xs text-primary border-none bg-transparent shadow-none px-2 gap-1 rounded-lg font-medium hover:bg-transparent hover:text-primary dark:hover:bg-transparent dark:hover:text-primary aria-expanded:bg-transparent aria-expanded:text-primary"
+                    />
+                  }
+                >
                     <span className="block min-w-0 flex-1 truncate text-left text-primary">
                       {currentProgramLabel}
                     </span>
@@ -258,7 +268,6 @@ export function ChatComposer({
                     ) : (
                       <ChevronDown className="opacity-50 shrink-0" />
                     )}
-                  </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   className="min-w-[260px] overflow-visible pt-4 pb-4 pl-3 pr-3 bg-popover dark:bg-[#2A2A2A]"
@@ -279,16 +288,26 @@ export function ChatComposer({
                           <DropdownMenuSub
                             key={opt.value}
                             open={activeSubmenu === opt.value}
-                            onOpenChange={(open) =>
-                              onActiveSubmenuChange(open ? opt.value : null)
+                            onOpenChange={(open, details) =>
+                              handleSessionSubmenuOpenChange(
+                                opt.value,
+                                onActiveSubmenuChange,
+                                open,
+                                details,
+                                submenuSwitchingRef
+                              )
                             }
                           >
                             <DropdownMenuSubTrigger
                               className="relative w-full max-w-full min-w-0 cursor-pointer items-center justify-between gap-0 rounded-md px-2 py-1.5"
-                              onSelect={(event) => {
-                                keepDropdownOpenRef.current = true;
-                                event.preventDefault();
-                              }}
+                              onPointerDown={() =>
+                                activateSessionSubmenu(
+                                  opt.value,
+                                  onActiveSubmenuChange,
+                                  keepDropdownOpenRef,
+                                  submenuSwitchingRef
+                                )
+                              }
                             >
                               <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
                                 <span
@@ -318,11 +337,8 @@ export function ChatComposer({
                                   return (
                                     <DropdownMenuItem
                                       key={sess.id}
+                                      closeOnClick={false}
                                       className={sessionSubmenuItemClass(isSelected)}
-                                      onSelect={(event) => {
-                                        keepDropdownOpenRef.current = true;
-                                        event.preventDefault();
-                                      }}
                                       onClick={() =>
                                         onSessionToggle(opt.value as ProgramValue, sess.id, "A")
                                       }
@@ -355,16 +371,26 @@ export function ChatComposer({
                       </div>
                       <DropdownMenuSub
                         open={activeSubmenu === "group-b-sessions"}
-                        onOpenChange={(open) =>
-                          onActiveSubmenuChange(open ? "group-b-sessions" : null)
+                        onOpenChange={(open, details) =>
+                          handleSessionSubmenuOpenChange(
+                            "group-b-sessions",
+                            onActiveSubmenuChange,
+                            open,
+                            details,
+                            submenuSwitchingRef
+                          )
                         }
                       >
                         <DropdownMenuSubTrigger
                           className="cursor-pointer items-start"
-                          onSelect={(event) => {
-                            keepDropdownOpenRef.current = true;
-                            event.preventDefault();
-                          }}
+                          onPointerDown={() =>
+                            activateSessionSubmenu(
+                              "group-b-sessions",
+                              onActiveSubmenuChange,
+                              keepDropdownOpenRef,
+                              submenuSwitchingRef
+                            )
+                          }
                         >
                           <div className="flex min-w-0 flex-1 flex-col gap-1 text-left pr-1">
                             <span className="font-medium text-sm">Sessions</span>
@@ -383,11 +409,8 @@ export function ChatComposer({
                               return (
                                 <DropdownMenuItem
                                   key={sess.id}
+                                  closeOnClick={false}
                                   className={sessionSubmenuItemClass(isSelected)}
-                                  onSelect={(event) => {
-                                    keepDropdownOpenRef.current = true;
-                                    event.preventDefault();
-                                  }}
                                   onClick={() =>
                                     onSessionToggle(groupBProgramForSessions, sess.id, "B")
                                   }

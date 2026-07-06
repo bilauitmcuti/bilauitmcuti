@@ -30,14 +30,14 @@ export function StarRating({
         className={cn("flex items-center gap-1", centered && "justify-center")}
         role="group"
         aria-label="Experience rating"
-        data-vaul-no-drag=""
+        data-slot="drawer-no-drag"
       >
         {[1, 2, 3, 4, 5].map((value) => (
           <button
             key={value}
             type="button"
             disabled={disabled}
-            data-vaul-no-drag=""
+            data-slot="drawer-no-drag"
             aria-label={`${value} star${value === 1 ? "" : "s"}`}
             aria-pressed={rating >= value ? "true" : "false"}
             onClick={() => onRatingChange(value)}

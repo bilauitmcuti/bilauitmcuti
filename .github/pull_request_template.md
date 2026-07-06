@@ -1,17 +1,30 @@
 ## Summary
 
-<!-- What does this PR change, and why? Keep it short. -->
+<!-- What changed and why. Focus on the student-facing outcome when relevant. -->
 
 ## Related issue
 
-<!-- Link issue if any, e.g. Fixes #123 — or write "None / maintainer request" -->
+<!-- Fixes #123, relates to #456, or "None / maintainer request" -->
 
 ## Type of change
 
 - [ ] Bug fix
 - [ ] Feature / enhancement
+- [ ] UI / design (shadcn / Base UI)
+- [ ] Chat / AI pipeline
+- [ ] API / edge runtime / Cloudflare Pages
 - [ ] Docs / repo housekeeping
-- [ ] Refactor (no user-facing change)
+- [ ] Refactor (no intended user-facing change)
+
+## Area touched
+
+<!-- Check all that apply — mirrors issue templates -->
+
+- [ ] Calendar / dates
+- [ ] Chat assistant
+- [ ] UI / layout / mobile
+- [ ] Performance
+- [ ] Other (describe in Summary)
 
 ## Transparency note
 
@@ -22,17 +35,33 @@ This repository is **public for transparency**, not a fully community-run open s
 
 ## Test plan
 
-<!-- How did you verify the change? -->
+CI runs on every PR (`.github/workflows/ci.yml`):
 
 - [ ] `pnpm lint`
 - [ ] `pnpm typecheck`
-- [ ] `pnpm run build:pages` (for app changes)
-- [ ] Manual check on local dev / preview (describe below)
+- [ ] `pnpm test`
+- [ ] `pnpm run build:pages` (required for app / route changes)
 
-**Manual checks:**
+**Local / manual checks** (check what you verified):
 
-<!-- e.g. Opened /chat on mobile, verified calendar loads for current semester -->
+- [ ] `pnpm dev` — calendar loads, program/session filters work
+- [ ] Chat — send a message, scroll transcript, thumbs feedback (if touched)
+- [ ] Mobile layout — drawer, dropdowns, composer keyboard behavior (if UI touched)
+- [ ] `pnpm preview` — edge runtime + Workers AI binding (if chat/API touched)
+
+**Notes:**
+
+<!-- e.g. Tested semester dropdown on Android Chrome; verified /chat streams on localhost with Llama -->
+
+## Cloudflare / security checklist
+
+<!-- Mark N/A if not applicable -->
+
+- [ ] No secrets, webhook URLs, or `.env` values committed
+- [ ] New/changed API routes export `export const runtime = 'edge'`
+- [ ] Calendar traffic stays same-origin (`/api/v1/*` or proxy) — no upstream URL in client bundles
+- [ ] Turnstile / rate-limit behavior considered for new user-facing forms or chat paths
 
 ## Screenshots / recordings
 
-<!-- If UI changed, add before/after. Otherwise write N/A -->
+<!-- Required for visible UI changes. Otherwise write N/A -->

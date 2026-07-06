@@ -22,6 +22,11 @@ html {
   color-scheme: light dark;
 }
 
+/* Base UI drawer: absolute overlay on iOS needs a positioned body after scroll */
+body {
+  position: relative;
+}
+
 /* Prevent flash of wrong theme during page load */
 /* CRITICAL: Don't set default background - let inline styles from script handle it */
 html {
@@ -292,7 +297,7 @@ input[type="checkbox"],
     -ms-user-select: none !important;
   }
 
-  /* Remove focus outline from Radix TooltipTrigger wrapper */
+  /* Remove focus outline from tooltip trigger wrapper */
   [data-slot="tooltip-trigger"],
   [data-slot="tooltip-trigger"]:focus,
   [data-slot="tooltip-trigger"]:focus-visible,
@@ -385,6 +390,19 @@ input[type="checkbox"],
     --scroll-fade-b: var(--_scroll-fade-size-b);
   }
 
+  /* Message scroller viewport: keyboard-scrollable region must not show focus ring */
+  [data-slot="message-scroller-viewport"],
+  [data-slot="message-scroller-viewport"]:focus,
+  [data-slot="message-scroller-viewport"]:focus-visible,
+  [data-slot="message-scroller-viewport"]:focus-within {
+    outline: none !important;
+    --tw-ring-offset-shadow: 0 0 #0000 !important;
+    --tw-ring-shadow: 0 0 #0000 !important;
+    box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow, 0 0 #0000) !important;
+    -webkit-tap-highlight-color: transparent !important;
+    tap-highlight-color: transparent !important;
+  }
+
   /* Top fade - used on about/download/feedback pages (chat uses scroll-fade on MessageScroller) */
   .chat-top-fade {
     height: 24px;
@@ -414,7 +432,7 @@ input[type="checkbox"],
 
   /* Mobile: session submenus (Group A/B) — cap width + nudge left when wider than available space */
   @media (max-width: 640px) {
-    [data-radix-popper-content-wrapper]:has([data-slot="dropdown-menu-sub-content"]) {
+    [data-slot="dropdown-menu-positioner"]:has([data-slot="dropdown-menu-sub-content"]) {
       max-width: calc(100vw - 16px);
     }
 
@@ -425,11 +443,11 @@ input[type="checkbox"],
     }
 
     [data-slot="dropdown-menu-sub-content"][data-side="right"] {
-      /* Match max-width cap so margin tracks the same width Radix/Floating UI allows */
+      /* Match max-width cap so margin tracks the same width the positioner allows */
       margin-left: min(
         0px,
         calc(
-          var(--radix-popper-available-width, 9999px) - min(260px, calc(100vw - 24px))
+          var(--available-width, 9999px) - min(260px, calc(100vw - 24px))
         )
       );
     }

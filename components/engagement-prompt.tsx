@@ -35,7 +35,11 @@ const EngagementPromptContext = createContext<EngagementPromptContextValue | nul
 
 function isBlockingOverlayOpen(): boolean {
   if (typeof document === "undefined") return false;
-  return document.querySelectorAll('[data-vaul-drawer][data-state="open"]').length > 0;
+  return (
+    document.querySelectorAll(
+      '[data-slot="drawer-popup"][data-open], [data-slot="drawer-popup"][data-ending-style]'
+    ).length > 0
+  );
 }
 
 export function EngagementPromptProvider({ children }: { children: ReactNode }) {

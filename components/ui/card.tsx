@@ -1,5 +1,6 @@
-import * as React from "react"
-import { Slot } from "@radix-ui/react-slot"
+import type * as React from "react"
+import { mergeProps } from "@base-ui/react/merge-props"
+import { useRender } from "@base-ui/react/use-render"
 
 import { cn } from "@/lib/utils"
 
@@ -36,20 +37,25 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
 
 function CardTitle({
   className,
-  asChild = false,
+  render,
   ...props
-}: React.ComponentProps<"div"> & { asChild?: boolean }) {
-  const Comp = asChild ? Slot : "div"
-  return (
-    <Comp
-      data-slot="card-title"
-      className={cn(
-        "font-heading text-base leading-normal font-medium group-data-[size=sm]/card:text-sm",
-        className
-      )}
-      {...props}
-    />
-  )
+}: useRender.ComponentProps<"div">) {
+  return useRender({
+    defaultTagName: "div",
+    props: mergeProps<"div">(
+      {
+        className: cn(
+          "font-heading text-base leading-normal font-medium group-data-[size=sm]/card:text-sm",
+          className
+        ),
+      },
+      props
+    ),
+    render,
+    state: {
+      slot: "card-title",
+    },
+  })
 }
 
 function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
