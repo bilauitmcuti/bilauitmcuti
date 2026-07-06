@@ -19,6 +19,17 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const pr = context.payload.pull_request;
+
+            try {
+              await github.rest.repos.getBranch({ owner, repo, branch: 'preview' });
+            } catch (error) {
+              if (error.status === 404) {
+                core.warning('preview branch not found — skipping PR base retarget');
+                return;
+              }
+              throw error;
+            }
+
             await github.rest.pulls.update({
               owner,
               repo,
