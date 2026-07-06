@@ -1,4 +1,5 @@
 import { resolveCalendarSeoFromPathname } from "@/lib/calendar-seo-metadata";
+import { dispatchCalendarUrlChange } from "@/lib/overlay-cleanup";
 import { hasSessionQueryParams } from "@/lib/session-query";
 
 const SITE_ORIGIN = "https://bilauitmcuti.com";
@@ -141,4 +142,5 @@ export function replaceCalendarHistoryUrl(path: string): void {
   if (typeof window === "undefined") return;
   window.history.replaceState(null, "", path);
   syncPageShareUrl();
+  dispatchCalendarUrlChange(path);
 }

@@ -105,6 +105,7 @@ function Drawer({
   swipeDirection = "down",
   onOpenChange,
   disablePointerDismissal,
+  open,
   ...props
 }: DrawerPrimitive.Root.Props & {
   /** When true (default), swipe-to-dismiss only works from the handle — matches vaul `handleOnly`. */
@@ -127,15 +128,29 @@ function Drawer({
   )
 
   const handleOpenChange = React.useCallback(
-    (open: boolean, eventDetails: DrawerPrimitive.Root.ChangeEventDetails) => {
-      if (!open && !dismissible && eventDetails.reason === "swipe") {
+    (nextOpen: boolean, eventDetails: DrawerPrimitive.Root.ChangeEventDetails) => {
+      if (!nextOpen && !dismissible && eventDetails.reason === "swipe") {
         eventDetails.cancel()
         return
       }
-      onOpenChange?.(open, eventDetails)
+      onOpenChange?.(nextOpen, eventDetails)
     },
     [dismissible, onOpenChange]
   )
+
+  React.useEffect(() => {
+    return () => {
+      if (open) {
+        onOpenChange?.(false, {
+          reason: "escape-key",
+          cancel: () => {},
+          allowPropagation: () => {},
+          isCanceled: false,
+          isPropagationAllowed: true,
+        } as DrawerPrimitive.Root.ChangeEventDetails)
+      }
+    }
+  }, [open, onOpenChange])
 
   return (
     <DrawerContext.Provider value={contextValue}>
@@ -146,6 +161,7 @@ function Drawer({
         swipeDirection={swipeDirection}
         disablePointerDismissal={disablePointerDismissal ?? !dismissible}
         onOpenChange={handleOpenChange}
+        open={open}
         {...props}
       />
     </DrawerContext.Provider>

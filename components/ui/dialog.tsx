@@ -8,8 +8,22 @@ import { Button } from "@/components/ui/button"
 import { responsiveShellBgClassName } from "@/components/ui/drawer"
 import { XIcon } from "lucide-react"
 
-function Dialog({ ...props }: DialogPrimitive.Root.Props) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />
+function Dialog({ onOpenChange, open, ...props }: DialogPrimitive.Root.Props) {
+  React.useEffect(() => {
+    return () => {
+      if (open) {
+        onOpenChange?.(false, {
+          reason: "escape-key",
+          cancel: () => {},
+          allowPropagation: () => {},
+          isCanceled: false,
+          isPropagationAllowed: true,
+        } as DialogPrimitive.Root.ChangeEventDetails)
+      }
+    }
+  }, [open, onOpenChange])
+
+  return <DialogPrimitive.Root data-slot="dialog" onOpenChange={onOpenChange} open={open} {...props} />
 }
 
 function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {

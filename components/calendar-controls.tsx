@@ -43,6 +43,7 @@ import type { SessionId } from '@/lib/data';
 import { getLabelForProgramValue, getRoutePath } from '@/lib/route-utils';
 import { replaceCalendarHistoryUrl } from '@/lib/share-url';
 import { saveChatCalendarContext } from '@/lib/session-query';
+import { purgeStaleOverlayPortals } from '@/lib/overlay-cleanup';
 import type { ViewMode } from '@/app/page';
 import type { ProgramValue } from '@/lib/route-utils';
 import { sessionSubmenuItemClass } from '@/lib/session-submenu-item-class';
@@ -209,6 +210,10 @@ export function CalendarControls({
   );
 
   const handleOpenChat = useCallback(() => {
+    setIsOpen(false);
+    setDropdownOpen(false);
+    setActiveSubmenu(null);
+    purgeStaleOverlayPortals();
     saveChatCalendarContext({
       selectedProgram: selectedProgram as ProgramValue,
       selectedSessions,
