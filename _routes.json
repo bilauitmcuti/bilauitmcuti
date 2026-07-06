@@ -2,6 +2,7 @@
   "version": 1,
   "exclude": [
     "/_next/static/*",
+    "/calendar-static/_next/static/*",
     "/favicon.ico",
     "/manifest.json",
     "/robots.txt",

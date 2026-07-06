@@ -79,7 +79,7 @@ All dynamic routes must export `export const runtime = 'edge'`. Restore with `no
 
 `wrangler.jsonc` sets `pages_build_output_dir` for Pages + local `wrangler pages dev`. See `.cursor/rules/cloudflare-pages-deploy.mdc`.
 
-**Static assets:** Do not set `assetPrefix` in `next.config.mjs` — next-on-pages serves chunks from `/_next/static/*`. Root [`_routes.json`](_routes.json) excludes that path so the Worker does not intercept JS/CSS chunks. `pnpm run build:pages` runs [`scripts/verify-static-chunks.mjs`](scripts/verify-static-chunks.mjs) to confirm program route chunks exist after build.
+**Static assets:** Keep `assetPrefix: '/calendar-static'` in production [`next.config.mjs`](next.config.mjs) so the custom domain (`bilauitmcuti.com`) can serve CSS/JS from `/calendar-static/_next/static/*`. Root [`_routes.json`](_routes.json) must exclude both `/_next/static/*` and `/calendar-static/_next/static/*` so next-on-pages does not route those paths through the Worker (fixes `[program]` chunk `text/plain` errors). `pnpm run build:pages` runs [`scripts/verify-static-chunks.mjs`](scripts/verify-static-chunks.mjs) after build.
 
 **Do not add `account_id` to `wrangler.jsonc`.** Pages rejects it at deploy (`Configuration file for Pages projects does not support "account_id"`). The Pages project already belongs to one Cloudflare account. Local Workers AI (`pnpm dev`, `ai.remote: true`) needs `npx wrangler login` when OAuth is stale (`Authentication error [code: 10000]`) — re-login fixes that; hardcoding `account_id` does not and must not be committed.
 
@@ -129,7 +129,7 @@ Create in **Caching → Cache Rules** (order matters — most specific first):
 | # | Name | Expression | Action |
 |---|------|------------|--------|
 | 1 | `bypass_dynamic` | `(http.request.uri.path starts_with "/api/" or http.request.uri.path eq "/chat" or http.request.uri.path starts_with "/chat/")` | **Bypass cache** |
-| 2 | `cache_next_static` | `(http.request.uri.path starts_with "/_next/static/")` | Eligible for cache, edge TTL **override 1 year** |
+| 2 | `cache_next_static` | `(http.request.uri.path starts_with "/_next/static/" or http.request.uri.path starts_with "/calendar-static/_next/static/")` | Eligible for cache, edge TTL **override 1 year** |
 | 3 | `cache_public_assets` | `(http.request.uri.path.extension in {"ico" "png" "webp" "json" "js" "woff" "woff2"})` | Eligible for cache, edge TTL **7 days** |
 | 4 | `cache_sw_short` | `(http.request.uri.path eq "/sw.js")` | Eligible for cache, edge TTL **5 minutes** |
 

@@ -34,10 +34,13 @@ try {
 }
 
 const excludes = Array.isArray(routes.exclude) ? routes.exclude : [];
-if (!excludes.some((entry) => entry === '/_next/static/*' || entry === '/_next/static/**')) {
-  fail(
-    `_routes.json must exclude /_next/static/* (found: ${JSON.stringify(excludes)})`
-  );
+const requiredExcludes = ['/_next/static/*', '/calendar-static/_next/static/*'];
+for (const required of requiredExcludes) {
+  if (!excludes.includes(required)) {
+    fail(
+      `_routes.json must exclude ${required} (found: ${JSON.stringify(excludes)})`
+    );
+  }
 }
 
 const programChunkDir = CHUNK_DIRS.find((dir) => existsSync(dir));

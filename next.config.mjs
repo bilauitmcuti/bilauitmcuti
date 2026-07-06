@@ -29,6 +29,7 @@ const nextConfig = {
   compress: true,
   poweredByHeader: false,
   reactStrictMode: true,
+  assetPrefix: process.env.NODE_ENV === 'production' ? '/calendar-static' : undefined,
   async redirects() {
     return [
       {
