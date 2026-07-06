@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "next build --webpack",
-    "build:pages": "next-on-pages",
+    "build:pages": "next-on-pages && node scripts/verify-static-chunks.mjs",
     "dev": "next dev",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",

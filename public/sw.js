@@ -1,5 +1,5 @@
 const swUrl = new URL(self.location.href);
-const SW_VERSION = swUrl.searchParams.get('v') || 'v2026-03-30-03';
+const SW_VERSION = swUrl.searchParams.get('v') || 'v2026-07-06-01';
 const CACHE_NAME = `bilauitmcuti-${SW_VERSION}`;
 const PRECACHE_URLS = ['/', '/favicon.ico', '/manifest.json'];
 const TURNSTILE_HOST = 'challenges.cloudflare.com';
@@ -54,6 +54,14 @@ self.addEventListener('fetch', (event) => {
 
   // Never cache API routes.
   if (url.pathname.startsWith('/api/')) return;
+
+  // Let the browser fetch Next.js static chunks directly (avoid caching bad responses).
+  if (
+    url.pathname.startsWith('/_next/static/') ||
+    url.pathname.startsWith('/calendar-static/_next/static/')
+  ) {
+    return;
+  }
 
   // Network-first for navigations to avoid stale HTML/CSP traps.
   if (request.mode === 'navigate') {

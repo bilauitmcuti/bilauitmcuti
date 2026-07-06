@@ -79,6 +79,8 @@ All dynamic routes must export `export const runtime = 'edge'`. Restore with `no
 
 `wrangler.jsonc` sets `pages_build_output_dir` for Pages + local `wrangler pages dev`. See `.cursor/rules/cloudflare-pages-deploy.mdc`.
 
+**Static assets:** Do not set `assetPrefix` in `next.config.mjs` — next-on-pages serves chunks from `/_next/static/*`. Root [`_routes.json`](_routes.json) excludes that path so the Worker does not intercept JS/CSS chunks. `pnpm run build:pages` runs [`scripts/verify-static-chunks.mjs`](scripts/verify-static-chunks.mjs) to confirm program route chunks exist after build.
+
 **Do not add `account_id` to `wrangler.jsonc`.** Pages rejects it at deploy (`Configuration file for Pages projects does not support "account_id"`). The Pages project already belongs to one Cloudflare account. Local Workers AI (`pnpm dev`, `ai.remote: true`) needs `npx wrangler login` when OAuth is stale (`Authentication error [code: 10000]`) — re-login fixes that; hardcoding `account_id` does not and must not be committed.
 
 ## Cloudflare AI Gateway (chat)
