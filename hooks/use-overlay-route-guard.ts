@@ -5,11 +5,16 @@ import { usePathname } from "next/navigation";
 import {
   CALENDAR_URL_CHANGE_EVENT,
   dismissBlockingOverlays,
+  releaseModalInteractionLocks,
 } from "@/lib/overlay-cleanup";
 
-/** Purge stale overlay portals on App Router and replaceState calendar navigations. */
+/** Release stale modal interaction locks on App Router and replaceState calendar navigations. */
 export function useOverlayRouteGuard(): void {
   const pathname = usePathname();
+
+  useEffect(() => {
+    releaseModalInteractionLocks();
+  }, []);
 
   useEffect(() => {
     dismissBlockingOverlays();
@@ -20,15 +25,23 @@ export function useOverlayRouteGuard(): void {
       dismissBlockingOverlays();
     };
 
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        dismissBlockingOverlays();
+      }
+    };
+
     window.addEventListener(
       CALENDAR_URL_CHANGE_EVENT,
       handleCalendarUrlChange as EventListener
     );
+    window.addEventListener("pageshow", handlePageShow);
     return () => {
       window.removeEventListener(
         CALENDAR_URL_CHANGE_EVENT,
         handleCalendarUrlChange as EventListener
       );
+      window.removeEventListener("pageshow", handlePageShow);
     };
   }, []);
 }
