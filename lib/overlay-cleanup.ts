@@ -18,10 +18,6 @@ function removeNode(node: Element): void {
   node.remove();
 }
 
-function hasOpenDescendant(root: Element, selector: string): boolean {
-  return root.querySelector(selector) != null;
-}
-
 /**
  * Remove orphaned Base UI portal layers that can block clicks after route changes
  * or error-boundary recovery (drawer viewport/backdrop, dialog overlay, etc.).
@@ -32,18 +28,17 @@ export function purgeStaleOverlayPortals(): void {
   const selectors = [
     '[data-slot="drawer-viewport"]',
     '[data-slot="drawer-overlay"]',
-    '[data-slot="drawer-portal"]:empty',
+    '[data-slot="drawer-portal"]',
     '[data-slot="dialog-overlay"]',
-    '[data-slot="dialog-portal"]:empty',
+    '[data-slot="dialog-portal"]',
+    '[data-slot="dropdown-menu-portal"]',
+    '[data-slot="popover-content"]',
   ];
 
   for (const selector of selectors) {
     document.querySelectorAll(selector).forEach(removeNode);
   }
 
-  document.querySelectorAll('[data-slot="dropdown-menu-portal"]').forEach((portal) => {
-    if (!hasOpenDescendant(portal, '[data-slot="dropdown-menu-content"][data-open]')) {
-      removeNode(portal);
-    }
-  });
+  document.body.style.pointerEvents = "";
+  document.documentElement.style.pointerEvents = "";
 }

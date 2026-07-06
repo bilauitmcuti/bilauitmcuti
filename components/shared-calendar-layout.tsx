@@ -33,6 +33,7 @@ import { parseSessionIdsFromHydrateKey } from '@/lib/calendar-initial-server';
 import {
   getClientCalendarPathname,
 } from '@/lib/share-url';
+import { purgeStaleOverlayPortals } from '@/lib/overlay-cleanup';
 import {
   areSessionListsEqual,
   getGroupFromProgram,
@@ -126,10 +127,15 @@ export function SharedCalendarLayout({
       const target = path || '/';
       const current = pathname ?? getClientCalendarPathname();
       if (current === target) return;
+      purgeStaleOverlayPortals();
       router.replace(target, { scroll: false });
     },
     [pathname, router]
   );
+
+  useLayoutEffect(() => {
+    purgeStaleOverlayPortals();
+  }, [pathname]);
 
   // Disable browser's automatic scroll restoration so back-navigation
   // doesn't fight with our own scroll-to-top, preventing sticky header jump

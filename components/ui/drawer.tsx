@@ -138,20 +138,6 @@ function Drawer({
     [dismissible, onOpenChange]
   )
 
-  React.useEffect(() => {
-    return () => {
-      if (open) {
-        onOpenChange?.(false, {
-          reason: "escape-key",
-          cancel: () => {},
-          allowPropagation: () => {},
-          isCanceled: false,
-          isPropagationAllowed: true,
-        } as DrawerPrimitive.Root.ChangeEventDetails)
-      }
-    }
-  }, [open, onOpenChange])
-
   return (
     <DrawerContext.Provider value={contextValue}>
       <DrawerPrimitive.Root

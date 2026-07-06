@@ -125,6 +125,13 @@ export function CalendarControls({
   const [currentFooterText, setCurrentFooterText] = useState(0);
   const { recordEngagementAction } = useEngagementPrompt();
 
+  useEffect(() => {
+    setIsOpen(false);
+    setDropdownOpen(false);
+    setActiveSubmenu(null);
+    purgeStaleOverlayPortals();
+  }, [pathname]);
+
   const onFilterToggle = useCallback(
     (checked: boolean, handler: (value: boolean) => void) => {
       handler(checked);

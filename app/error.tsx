@@ -30,7 +30,7 @@ export default function Error({
   }, []);
 
   return (
-    <div className="min-h-[40vh] flex flex-col items-center justify-center px-4">
+    <div className="relative z-[10001] min-h-[40vh] flex flex-col items-center justify-center px-4">
       <AlertCircle className="h-12 w-12 text-destructive mb-4" />
       <h2 className="text-xl font-semibold text-foreground mb-2">
         Something went wrong

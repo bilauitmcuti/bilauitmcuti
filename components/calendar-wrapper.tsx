@@ -29,8 +29,9 @@ export async function CalendarWrapper({ viewMode, programFromRoute }: CalendarWr
   });
 
   return (
-    <SharedCalendarLayout 
-      viewMode={viewMode} 
+    <SharedCalendarLayout
+      key={`${programFromRoute}:${viewMode}`}
+      viewMode={viewMode}
       programFromRoute={programFromRoute}
       initialFilters={initialFilters}
       initialCurrentDate={initialCurrentDate}
