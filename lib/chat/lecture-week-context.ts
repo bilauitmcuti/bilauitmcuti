@@ -1,4 +1,5 @@
-import { fetchLectureWeeks, type LectureWeek } from "@/lib/calendar-api";
+import { fetchLectureWeeks } from "@/lib/calendar-api-server";
+import type { LectureWeek } from "@/lib/calendar-api";
 import type { CalendarContextIntent } from "@/lib/chat/calendar-intent";
 import { sessionLabelForContext } from "@/lib/chat/context";
 import { toDateFormat } from "@/lib/chat/dates";

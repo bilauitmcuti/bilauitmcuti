@@ -7,6 +7,7 @@ export interface CalendarSnapshot {
   programOptions: ProgramOptionRow[];
   defaultSession: string;
   sessions: Record<string, { activities: Activity[] }>;
+  lectureWeekByDate: Record<string, number>;
 }
 
 const FALLBACK_DEFAULT_SESSION = "B-20263";
@@ -17,6 +18,7 @@ const emptySnapshot: CalendarSnapshot = {
   programOptions: [],
   defaultSession: FALLBACK_DEFAULT_SESSION,
   sessions: {},
+  lectureWeekByDate: {},
 };
 
 let snapshot: CalendarSnapshot = { ...emptySnapshot, sessions: {} };
@@ -62,12 +64,25 @@ export function mergeSessions(
   emit();
 }
 
+export function mergeLectureWeekByDate(
+  partial: Record<string, number>
+): void {
+  if (Object.keys(partial).length === 0) return;
+  snapshot = {
+    ...snapshot,
+    version: snapshot.version + 1,
+    lectureWeekByDate: { ...snapshot.lectureWeekByDate, ...partial },
+  };
+  emit();
+}
+
 /** Clear cached session activities before loading chat context (avoids stale merges on reused Edge isolates). */
 export function resetSessionActivitiesCache(): void {
   snapshot = {
     ...snapshot,
     version: snapshot.version + 1,
     sessions: {},
+    lectureWeekByDate: {},
   };
   emit();
 }
@@ -83,6 +98,7 @@ export function assignCalendarStoreSnapshot(next: CalendarSnapshot): void {
     programOptions: [...next.programOptions],
     defaultSession: next.defaultSession || FALLBACK_DEFAULT_SESSION,
     sessions: { ...next.sessions },
+    lectureWeekByDate: { ...next.lectureWeekByDate },
   };
 }
 

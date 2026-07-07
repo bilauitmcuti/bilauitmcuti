@@ -1,11 +1,14 @@
 import type { NextRequest } from "next/server";
+import {
+  getCalendarApiBase,
+  lectureWeeksToDateMap,
+  parseLectureWeeksResponse,
+} from "@/lib/calendar-upstream";
 
-const DEFAULT_UPSTREAM = "https://api.bilauitmcuti.com";
-
-export type CalendarProxyApiSuffix = "v1/meta" | "v1/calendar" | "v1/lecture-weeks";
+export type CalendarProxyApiSuffix = "v1/meta" | "v1/calendar";
 
 /** Allowed upstream API suffixes only — not an open proxy. */
-const ALLOWED_PATHS = new Set<string>(["v1/meta", "v1/calendar", "v1/lecture-weeks"]);
+const ALLOWED_PATHS = new Set<string>(["v1/meta", "v1/calendar"]);
 
 /** Meta: only these are forwarded; other keys (e.g. Next.js `_rsc`) are ignored. */
 const META_QUERY_KEYS = ["group", "all"] as const;
@@ -20,13 +23,7 @@ const CALENDAR_QUERY_KEYS = [
 ] as const;
 
 function upstreamOrigin(): string {
-  const raw =
-    process.env.CALENDAR_API_BASE?.trim() ||
-    process.env.NEXT_PUBLIC_CALENDAR_API_BASE?.trim() ||
-    DEFAULT_UPSTREAM;
-  let u = raw.replace(/\/$/, "");
-  if (u.endsWith("/api")) u = u.slice(0, -4);
-  return u;
+  return getCalendarApiBase();
 }
 
 function normalizeBooleanQuery(raw: string): string | null {
@@ -63,14 +60,6 @@ export function buildForwardedSearch(
     return qs ? `?${qs}` : "";
   }
 
-  if (apiSuffix === "v1/lecture-weeks") {
-    const out = new URLSearchParams();
-    const session = inParams.get("session");
-    if (session) out.set("session", session);
-    const qs = out.toString();
-    return qs ? `?${qs}` : "";
-  }
-
   const calendarOut = new URLSearchParams();
   for (const key of CALENDAR_QUERY_KEYS) {
     const v = inParams.get(key);
@@ -91,6 +80,44 @@ export function buildForwardedSearch(
 
   const qs = calendarOut.toString();
   return qs ? `?${qs}` : "";
+}
+
+async function enrichCalendarBodyWithLectureWeeks(
+  request: NextRequest,
+  body: string
+): Promise<string> {
+  const session = request.nextUrl.searchParams.get("session")?.trim();
+  if (!session) return body;
+
+  let parsed: Record<string, unknown>;
+  try {
+    const raw = JSON.parse(body) as unknown;
+    if (!raw || typeof raw !== "object") return body;
+    parsed = { ...(raw as Record<string, unknown>) };
+  } catch {
+    return body;
+  }
+
+  try {
+    const origin = upstreamOrigin();
+    const lwRes = await fetch(
+      `${origin}/api/v1/lecture-weeks?${new URLSearchParams({ session }).toString()}`,
+      {
+        headers: { Accept: "application/json" },
+        next: { revalidate: 120 },
+      }
+    );
+    if (lwRes.ok) {
+      const lwData = await lwRes.json();
+      parsed.lectureWeekByDate = lectureWeeksToDateMap(
+        parseLectureWeeksResponse(lwData).weeks
+      );
+    }
+  } catch {
+    // Keep calendar payload when lecture weeks are unavailable.
+  }
+
+  return JSON.stringify(parsed);
 }
 
 /**
@@ -116,7 +143,11 @@ export async function calendarProxyForward(
     next: { revalidate: 120 },
   });
 
-  const body = await res.text();
+  let body = await res.text();
+  if (res.ok && apiSuffix === "v1/calendar") {
+    body = await enrichCalendarBodyWithLectureWeeks(request, body);
+  }
+
   const baseHeaders: Record<string, string> = {
     "Content-Type": res.headers.get("Content-Type") ?? "application/json",
   };

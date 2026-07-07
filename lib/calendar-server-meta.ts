@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { fetchMetaCached } from "@/lib/calendar-api";
+import { fetchMetaCached } from "@/lib/calendar-api-server";
 
 /**
  * Deduplicates `fetchMetaCached({ entire: true })` within a single RSC render

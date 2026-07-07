@@ -22,8 +22,7 @@ import { Button } from '@/components/ui/button';
 import { useCalendarHydrationVersion } from '@/components/calendar-hydration-context';
 import { getSnapshot, subscribe } from '@/lib/calendar-store';
 import { getActivitiesForDateMultiSessions, getMonthsForSessions, getDaysUntilStart, formatCountdown, getProgramBadgeConfig, getProgramBadgesConfig, type Activity, type ActivityFilterOptions, type ActivityType, type SessionId } from '@/lib/data';
-import { fetchLectureWeeks } from '@/lib/calendar-api';
-import { buildDateToWeekNumberMap } from '@/lib/lecture-weeks-resolve';
+import { lectureWeekMapFromRecord } from '@/lib/lecture-weeks-resolve';
 import { useMobileViewport } from '@/lib/use-mobile-viewport';
 import { useEngagementPrompt } from '@/components/engagement-prompt';
 
@@ -838,7 +837,15 @@ export const GridView = memo(function GridView({
   const [tooltipOpenKey, setTooltipOpenKey] = useState<string | null>(null);
   const [hoveredDateStr, setHoveredDateStr] = useState<string | null>(null);
   const tooltipAnchorRef = useRef<HTMLElement | null>(null);
-  const [lectureWeekByDate, setLectureWeekByDate] = useState<Map<string, number> | null>(null);
+  const storeLectureWeekRecord = useSyncExternalStore(
+    subscribe,
+    () => getSnapshot().lectureWeekByDate,
+    () => ({})
+  );
+  const lectureWeekByDate = useMemo(
+    () => lectureWeekMapFromRecord(storeLectureWeekRecord),
+    [storeLectureWeekRecord]
+  );
   const [drawerDateKey, setDrawerDateKey] = useState<string | null>(null);
   const [drawerCurrentDateStr, setDrawerCurrentDateStr] = useState<string | null>(initialCurrentDate ?? null);
   const drawerSwipeGestureRef = useRef<{
@@ -879,35 +886,6 @@ export const GridView = memo(function GridView({
 
   const suppressHoverDuringScrollRef = useRef(false);
   const scrollSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Stable join key so the effect re-runs only when the set of selected ids changes.
-  const sessionIdsKey = useMemo(
-    () => [...selectedSessions].sort().join(','),
-    [selectedSessions]
-  );
-
-  useEffect(() => {
-    if (!sessionIdsKey) {
-      setLectureWeekByDate(null);
-      return;
-    }
-    const ids = sessionIdsKey.split(',') as SessionId[];
-    let cancelled = false;
-    Promise.all(
-      ids.map((id) =>
-        fetchLectureWeeks(id).catch(() => ({ weeks: [] }))
-      )
-    ).then((responses) => {
-      if (cancelled) return;
-      const merged = new Map<string, number>();
-      for (const res of responses) {
-        const m = buildDateToWeekNumberMap(res.weeks);
-        m.forEach((weekNum, date) => merged.set(date, weekNum));
-      }
-      setLectureWeekByDate(merged.size > 0 ? merged : null);
-    });
-    return () => { cancelled = true; };
-  }, [sessionIdsKey]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

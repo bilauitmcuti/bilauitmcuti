@@ -19,39 +19,17 @@ export interface MetaResponse {
   programOptions: ProgramOptionRow[];
 }
 
-const DEFAULT_BASE = "https://api.bilauitmcuti.com";
-
-/** Strip trailing slash and accidental `/api` so we always append `/api/v1/...` once. */
-function normalizeCalendarApiOrigin(raw: string): string {
-  let u = raw.trim().replace(/\/$/, "");
-  if (u.endsWith("/api")) u = u.slice(0, -4);
-  return u;
-}
-
-/** Upstream origin for server-side fetches (Edge chat, RSC). Matches proxy env order. */
-function getCalendarApiBase(): string {
-  const raw =
-    process.env.CALENDAR_API_BASE?.trim() ||
-    process.env.NEXT_PUBLIC_CALENDAR_API_BASE?.trim() ||
-    DEFAULT_BASE;
-  return normalizeCalendarApiOrigin(raw);
-}
-
 /**
- * Browser: same-origin proxy (CSP connect-src). Server/Edge: direct upstream URL.
+ * Browser: same-origin proxy only (CSP connect-src). Server code uses calendar-api-server.
  */
 function buildCalendarRequestUrl(
   apiPath: string,
   searchParams?: URLSearchParams
 ): string {
   const search = searchParams?.toString() ? `?${searchParams.toString()}` : "";
-  if (typeof window !== "undefined") {
-    if (apiPath === "v1/meta") return `/api/v1/meta${search}`;
-    if (apiPath === "v1/calendar") return `/api/v1/calendar${search}`;
-    if (apiPath === "v1/lecture-weeks") return `/api/v1/lecture-weeks${search}`;
-    return `/api/calendar-proxy/${apiPath}${search}`;
-  }
-  return `${getCalendarApiBase()}/api/${apiPath}${search}`;
+  if (apiPath === "v1/meta") return `/api/v1/meta${search}`;
+  if (apiPath === "v1/calendar") return `/api/v1/calendar${search}`;
+  return `/api/calendar-proxy/${apiPath}${search}`;
 }
 
 function isActivityType(value: string): value is ActivityType {
@@ -225,24 +203,53 @@ export interface FetchCalendarSessionParams {
   program?: string;
 }
 
-function parseSingleSessionCalendar(data: unknown): Activity[] {
-  if (!data || typeof data !== "object") return [];
+export interface CalendarSessionResult {
+  activities: Activity[];
+  lectureWeekByDate?: Record<string, number>;
+}
+
+export function parseCalendarSessionResponse(data: unknown): CalendarSessionResult {
+  if (!data || typeof data !== "object") {
+    return { activities: [] };
+  }
   const o = data as Record<string, unknown>;
-  const activities = o.activities;
-  if (!Array.isArray(activities)) return [];
-  return activities.map((row) =>
-    normalizeApiActivity(typeof row === "object" && row ? (row as Record<string, unknown>) : {})
-  );
+  const activities = Array.isArray(o.activities)
+    ? o.activities.map((row) =>
+        normalizeApiActivity(
+          typeof row === "object" && row ? (row as Record<string, unknown>) : {}
+        )
+      )
+    : [];
+
+  let lectureWeekByDate: Record<string, number> | undefined;
+  if (o.lectureWeekByDate && typeof o.lectureWeekByDate === "object") {
+    lectureWeekByDate = {};
+    for (const [date, weekNum] of Object.entries(
+      o.lectureWeekByDate as Record<string, unknown>
+    )) {
+      if (typeof weekNum === "number" && Number.isFinite(weekNum)) {
+        lectureWeekByDate[date] = weekNum;
+      }
+    }
+    if (Object.keys(lectureWeekByDate).length === 0) {
+      lectureWeekByDate = undefined;
+    }
+  }
+
+  return { activities, lectureWeekByDate };
 }
 
 /** Concurrent callers with the same URL share one in-flight request (e.g. Strict Mode). */
-const calendarSessionInflight = new Map<string, Promise<Activity[]>>();
+const calendarSessionInflight = new Map<string, Promise<CalendarSessionResult>>();
 
-let sessionResultCache: Map<string, { activities: Activity[]; at: number }> | null = null;
+let sessionResultCache: Map<
+  string,
+  { result: CalendarSessionResult; at: number }
+> | null = null;
 const SESSION_CACHE_TTL_MS = 5 * 60 * 1000;
 const SESSION_CACHE_MAX_KEYS = 48;
 
-function getSessionFromCache(url: string): Activity[] | null {
+function getSessionFromCache(url: string): CalendarSessionResult | null {
   if (!sessionResultCache) return null;
   const hit = sessionResultCache.get(url);
   if (!hit) return null;
@@ -250,25 +257,25 @@ function getSessionFromCache(url: string): Activity[] | null {
     sessionResultCache.delete(url);
     return null;
   }
-  return hit.activities;
+  return hit.result;
 }
 
-function putSessionInCache(url: string, activities: Activity[]): void {
+function putSessionInCache(url: string, result: CalendarSessionResult): void {
   if (!sessionResultCache) sessionResultCache = new Map();
   if (sessionResultCache.size >= SESSION_CACHE_MAX_KEYS && !sessionResultCache.has(url)) {
     const first = sessionResultCache.keys().next().value as string | undefined;
     if (first) sessionResultCache.delete(first);
   }
-  sessionResultCache.set(url, { activities, at: Date.now() });
+  sessionResultCache.set(url, { result, at: Date.now() });
 }
 
 /**
- * Activities for one session.
+ * Activities (+ lecture week map) for one session via same-origin proxy.
  * GET /api/v1/calendar?session=&group=&program=
  */
 export async function fetchCalendarSession(
   params: FetchCalendarSessionParams
-): Promise<Activity[]> {
+): Promise<CalendarSessionResult> {
   const q = new URLSearchParams();
   q.set("session", params.sessionId);
   q.set("group", params.group);
@@ -291,9 +298,9 @@ export async function fetchCalendarSession(
   const promise = (async () => {
     try {
       const data = await fetchJsonWithRetry(url);
-      const activities = parseSingleSessionCalendar(data);
-      if (typeof window === "undefined") putSessionInCache(url, activities);
-      return activities;
+      const result = parseCalendarSessionResponse(data);
+      if (typeof window === "undefined") putSessionInCache(url, result);
+      return result;
     } finally {
       calendarSessionInflight.delete(url);
     }
@@ -328,75 +335,6 @@ export interface LectureWeek {
 
 export interface LectureWeeksResponse {
   weeks: LectureWeek[];
-}
-
-const lectureWeeksInflight = new Map<string, Promise<LectureWeeksResponse>>();
-
-interface LectureWeeksCacheEntry {
-  data: LectureWeeksResponse;
-  at: number;
-}
-const lectureWeeksCache = new Map<string, LectureWeeksCacheEntry>();
-const LECTURE_WEEKS_TTL_MS = 5 * 60 * 1000;
-
-function parseLectureWeeksResponse(data: unknown): LectureWeeksResponse {
-  if (!data || typeof data !== "object") return { weeks: [] };
-  const o = data as Record<string, unknown>;
-  if (!Array.isArray(o.weeks)) return { weeks: [] };
-  const weeks: LectureWeek[] = o.weeks.map((w) => {
-    const week = w as Record<string, unknown>;
-    const days: LectureWeekDay[] = Array.isArray(week.days)
-      ? week.days.map((d: unknown) => {
-          const day = d as Record<string, unknown>;
-          return {
-            date: String(day.date ?? ""),
-            weekday: String(day.weekday ?? ""),
-            label: String(day.label ?? ""),
-          };
-        })
-      : [];
-    return {
-      weekNumber: Number(week.weekNumber ?? 0),
-      weekStart: String(week.weekStart ?? ""),
-      weekEnd: String(week.weekEnd ?? ""),
-      rangeLabel: String(week.rangeLabel ?? ""),
-      days,
-    };
-  });
-  return { weeks };
-}
-
-/**
- * Fetches lecture weeks for a session.
- * Browser: same-origin proxy `/api/v1/lecture-weeks`. Server: upstream direct.
- * GET /api/v1/lecture-weeks?session=
- */
-export async function fetchLectureWeeks(
-  sessionId: string
-): Promise<LectureWeeksResponse> {
-  const q = new URLSearchParams({ session: sessionId });
-  const url = buildCalendarRequestUrl("v1/lecture-weeks", q);
-
-  const now = Date.now();
-  const cached = lectureWeeksCache.get(sessionId);
-  if (cached && now - cached.at < LECTURE_WEEKS_TTL_MS) return cached.data;
-
-  const existing = lectureWeeksInflight.get(sessionId);
-  if (existing) return existing;
-
-  const promise = (async () => {
-    try {
-      const data = await fetchJsonWithRetry(url);
-      const result = parseLectureWeeksResponse(data);
-      lectureWeeksCache.set(sessionId, { data: result, at: Date.now() });
-      return result;
-    } finally {
-      lectureWeeksInflight.delete(sessionId);
-    }
-  })();
-
-  lectureWeeksInflight.set(sessionId, promise);
-  return promise;
 }
 
 // ── Public holidays ───────────────────────────────────────────────────────────

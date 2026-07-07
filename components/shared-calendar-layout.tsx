@@ -28,7 +28,7 @@ import { DEFAULT_FILTER_STATES, getGroupFromSession, getSessionForCurrentDate } 
 import type { SessionId } from '@/lib/data';
 import { setFiltersToCookie, type FilterStates } from '@/lib/cookie-utils';
 import type { ViewMode } from '@/app/page';
-import { parseSessionIdsFromHydrateKey } from '@/lib/calendar-initial-server';
+import { parseSessionIdsFromHydrateKey } from '@/lib/calendar-hydrate-key';
 import { replaceCalendarHistoryUrl } from '@/lib/share-url';
 import {
   areSessionListsEqual,
