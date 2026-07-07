@@ -13,6 +13,7 @@ import {
   resolveProgramForSessionQuery,
 } from "@/lib/session-query";
 import { isSocialPreviewCrawler } from "@/lib/social-preview-crawler";
+import { applySecurityHeaders } from "@/lib/security-headers";
 
 /**
  * Bot patterns to block from accessing chat routes.
@@ -115,7 +116,7 @@ function handleSessionQueryRedirect(request: NextRequest): NextResponse | null {
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
   });
-  return response;
+  return applySecurityHeaders(response);
 }
 
 export function middleware(request: NextRequest) {
@@ -126,22 +127,21 @@ export function middleware(request: NextRequest) {
   if (sessionRedirect) return sessionRedirect;
 
   // Allow /chat/api POST from our page (Referer/Origin) to reduce mobile false-positives
-  if (isLikelyRealBrowser(request, pathname)) return NextResponse.next();
+  if (isLikelyRealBrowser(request, pathname)) {
+    return applySecurityHeaders(NextResponse.next());
+  }
   if (isBot(request)) {
     if (isChatApiPath) {
-      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+      return applySecurityHeaders(
+        NextResponse.json({ error: "Access denied" }, { status: 403 })
+      );
     }
   }
-  return NextResponse.next();
+  return applySecurityHeaders(NextResponse.next());
 }
 
 export const config = {
   matcher: [
-    "/",
-    "/list",
-    "/:program",
-    "/:program/list",
-    "/chat",
-    "/chat/:path*",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|webp|ico|svg|woff2?)$).*)",
   ],
 };

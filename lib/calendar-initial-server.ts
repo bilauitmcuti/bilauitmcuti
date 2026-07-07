@@ -1,13 +1,10 @@
 import { parseFiltersFromCookie } from "@/lib/cookie-utils";
 import {
   calendarProgramQueryForRoute,
-  fetchCalendarSession,
-  fetchLectureWeeks,
+  type CalendarSessionResult,
 } from "@/lib/calendar-api";
-import {
-  buildDateToWeekNumberMap,
-  mergeLectureWeekRecords,
-} from "@/lib/lecture-weeks-resolve";
+import { fetchCalendarSession } from "@/lib/calendar-api-server";
+import { mergeLectureWeekRecords } from "@/lib/lecture-weeks-resolve";
 import { resolveSessionsForProgram } from "@/lib/calendar-session-resolve";
 import { fetchMetaCachedEntireForRsc } from "@/lib/calendar-server-meta";
 import type { CalendarSnapshot } from "@/lib/calendar-store";
@@ -20,6 +17,7 @@ import {
   getProgramFromRoute,
   type ProgramValue,
 } from "@/lib/route-utils";
+import { buildHydrateKey } from "@/lib/calendar-hydrate-key";
 
 function resolveProgramForServer(
   programFromRoute: string,
@@ -91,42 +89,8 @@ export interface InitialCalendarLoadResult {
   lectureWeekByDate: Record<string, number> | null;
 }
 
-async function loadLectureWeekDateMapForSessions(
-  sessionIds: SessionId[]
-): Promise<Record<string, number> | null> {
-  if (sessionIds.length === 0) return null;
-  try {
-    const responses = await Promise.all(
-      sessionIds.map((id) =>
-        fetchLectureWeeks(id).catch(() => ({ weeks: [] }))
-      )
-    );
-    const records = responses.map((res) => {
-      const map = buildDateToWeekNumberMap(res.weeks);
-      const rec: Record<string, number> = {};
-      map.forEach((weekNum, date) => {
-        rec[date] = weekNum;
-      });
-      return rec;
-    });
-    const merged = mergeLectureWeekRecords(records);
-    return Object.keys(merged).length > 0 ? merged : null;
-  } catch {
-    return null;
-  }
-}
-
-function buildHydrateKey(program: ProgramValue, sessionIds: SessionId[]): string {
-  return `${program}|${[...sessionIds].sort().join(",")}`;
-}
-
-/** Session ids embedded in `hydrateKey` (must match client `selectedSessions` order for loadKey). */
-export function parseSessionIdsFromHydrateKey(hydrateKey: string): SessionId[] {
-  const pipe = hydrateKey.indexOf("|");
-  if (pipe < 0) return [];
-  const tail = hydrateKey.slice(pipe + 1);
-  if (!tail) return [];
-  return tail.split(",").filter(Boolean) as SessionId[];
+function buildHydrateKeyForProgram(program: ProgramValue, sessionIds: SessionId[]): string {
+  return buildHydrateKey(program, sessionIds);
 }
 
 /**
@@ -149,7 +113,7 @@ export async function loadInitialCalendarSnapshot(params: {
       meta,
       params.currentDateStr
     );
-    const hydrateKey = buildHydrateKey(program, selectedSessions);
+    const hydrateKey = buildHydrateKeyForProgram(program, selectedSessions);
     const group = getGroupFromProgram(program);
     const programQ = calendarProgramQueryForRoute(program);
     const targets = selectedSessions.filter((id) => id.startsWith(`${group}-`));
@@ -159,6 +123,7 @@ export async function loadInitialCalendarSnapshot(params: {
       programOptions: meta.programOptions,
       defaultSession: meta.defaultSession,
       sessions: {} as Record<string, { activities: Activity[] }>,
+      lectureWeekByDate: {} as Record<string, number>,
     };
 
     if (targets.length === 0) {
@@ -170,31 +135,39 @@ export async function loadInitialCalendarSnapshot(params: {
       };
     }
 
-    const [lectureWeekByDate, sessionResults] = await Promise.all([
-      loadLectureWeekDateMapForSessions(targets),
-      Promise.all(
-        targets.map(async (sid) => {
-          const g = sid.startsWith("A-") ? "A" : "B";
-          const acts = await fetchCalendarSession({
-            sessionId: sid,
-            group: g,
-            program: g === "B" ? (programQ ?? "All") : undefined,
-          });
-          return [sid, { activities: acts }] as const;
-        })
-      ),
-    ]);
+    const sessionResults = await Promise.all(
+      targets.map(async (sid) => {
+        const g = sid.startsWith("A-") ? "A" : "B";
+        const result = await fetchCalendarSession({
+          sessionId: sid,
+          group: g,
+          program: g === "B" ? (programQ ?? "All") : undefined,
+        }).catch((): CalendarSessionResult => ({ activities: [] }));
+        return [sid, result] as const;
+      })
+    );
 
     const merges: Record<string, { activities: Activity[] }> = {};
+    const weekRecords: Record<string, number>[] = [];
     for (const [sid, payload] of sessionResults) {
-      merges[sid] = payload;
+      merges[sid] = { activities: payload.activities };
+      if (payload.lectureWeekByDate) {
+        weekRecords.push(payload.lectureWeekByDate);
+      }
     }
 
+    const lectureWeekByDate = mergeLectureWeekRecords(weekRecords);
+    const hasWeeks = Object.keys(lectureWeekByDate).length > 0;
+
     return {
-      snapshot: { ...baseSnapshot, sessions: merges },
+      snapshot: {
+        ...baseSnapshot,
+        sessions: merges,
+        lectureWeekByDate: hasWeeks ? lectureWeekByDate : {},
+      },
       programUsed: program,
       hydrateKey,
-      lectureWeekByDate,
+      lectureWeekByDate: hasWeeks ? lectureWeekByDate : null,
     };
   } catch {
     return {

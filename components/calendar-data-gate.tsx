@@ -16,7 +16,7 @@ import {
   type MetaResponse,
 } from "@/lib/calendar-api";
 import { resolveSessionsForProgram } from "@/lib/calendar-session-resolve";
-import { getSnapshot, mergeSessions, setMeta } from "@/lib/calendar-store";
+import { getSnapshot, mergeLectureWeekByDate, mergeSessions, setMeta } from "@/lib/calendar-store";
 import type { Activity, SessionId } from "@/lib/data";
 import type { ProgramValue } from "@/lib/route-utils";
 
@@ -273,12 +273,15 @@ export function CalendarDataGate({
         await Promise.all(
           sessionsToFetch.map(async (sid) => {
             try {
-              const acts = await fetchCalendarSession({
+              const sessionResult = await fetchCalendarSession({
                 sessionId: sid,
                 group,
                 program: group === "B" ? (programQ ?? "All") : undefined,
               });
-              merges[sid] = { activities: acts };
+              merges[sid] = { activities: sessionResult.activities };
+              if (sessionResult.lectureWeekByDate) {
+                mergeLectureWeekByDate(sessionResult.lectureWeekByDate);
+              }
             } catch (e) {
               if (e instanceof CalendarApiError && e.status === 400) {
                 const fallback = resolveSessionsForProgram({
@@ -287,12 +290,15 @@ export function CalendarDataGate({
                   candidates: [],
                   dateStr: currentDateStr,
                 }).sessions[0]!;
-                const acts = await fetchCalendarSession({
+                const sessionResult = await fetchCalendarSession({
                   sessionId: fallback,
                   group,
                   program: group === "B" ? (programQ ?? "All") : undefined,
                 });
-                merges[fallback] = { activities: acts };
+                merges[fallback] = { activities: sessionResult.activities };
+                if (sessionResult.lectureWeekByDate) {
+                  mergeLectureWeekByDate(sessionResult.lectureWeekByDate);
+                }
                 const idx = effectiveSessions.indexOf(sid);
                 if (idx >= 0) {
                   effectiveSessions[idx] = fallback;

@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi, afterEach } from "vitest";
 import { NextRequest } from "next/server";
-import { buildForwardedSearch } from "@/lib/calendar-proxy-forward";
+import { buildForwardedSearch, calendarProxyForward } from "@/lib/calendar-proxy-forward";
 
 describe("calendar-proxy-forward", () => {
   it("whitelists meta query keys and ignores unknown params", () => {
@@ -23,5 +23,55 @@ describe("calendar-proxy-forward", () => {
   it("normalizes boolean allSessions query", () => {
     const request = new NextRequest("http://localhost/api/v1/calendar?allSessions=yes");
     expect(buildForwardedSearch("v1/calendar", request)).toBe("?allSessions=true");
+  });
+});
+
+describe("calendarProxyForward lecture week enrichment", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("merges lectureWeekByDate into calendar responses with session", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes("/api/v1/calendar")) {
+        return new Response(
+          JSON.stringify({
+            activities: [{ name: "Kuliah", startDate: "2026-01-05", type: "lecture" }],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      if (url.includes("/api/v1/lecture-weeks")) {
+        return new Response(
+          JSON.stringify({
+            weeks: [
+              {
+                weekNumber: 1,
+                weekStart: "2026-01-05",
+                weekEnd: "2026-01-11",
+                rangeLabel: "Week 1",
+                days: [{ date: "2026-01-05", weekday: "Mon", label: "Mon" }],
+              },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      return new Response("not found", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const request = new NextRequest(
+      "http://localhost/api/v1/calendar?session=B-20263&group=B&program=All"
+    );
+    const response = await calendarProxyForward(request, "v1/calendar");
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      activities: unknown[];
+      lectureWeekByDate?: Record<string, number>;
+    };
+    expect(body.activities).toHaveLength(1);
+    expect(body.lectureWeekByDate).toEqual({ "2026-01-05": 1 });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

@@ -1,12 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { fetchLectureWeeks } from "@/lib/calendar-api";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { getMalaysiaDateHeaderParts, getTodayISO } from "@/lib/chat/dates";
+import { getSnapshot, subscribe } from "@/lib/calendar-store";
 import type { ProgramGroup, SessionId } from "@/lib/data";
-import { getGroupFromSession } from "@/lib/data";
 import {
-  buildDateToWeekNumberMap,
   getLectureWeekNumberForDate,
   lectureWeekMapFromRecord,
 } from "@/lib/lecture-weeks-resolve";
@@ -24,20 +22,11 @@ interface CalendarHeaderProps {
   initialLectureWeekByDate?: Record<string, number> | null;
 }
 
-function filterSessionsForGroup(
-  sessions: SessionId[],
-  group: ProgramGroup
-): SessionId[] {
-  return sessions.filter((id) => getGroupFromSession(id) === group);
-}
-
 const calendarHeaderBadgeClass =
   "mb-2 text-xs px-3 py-1.5 rounded-full border border-border bg-secondary/50 dark:bg-[#2A2A2A] text-foreground transition-none whitespace-nowrap";
 const calendarHeaderBadgeStyle = { transition: "none" } as const;
 
 export function CalendarHeader({
-  selectedSessions = [],
-  programGroup,
   initialCurrentDate,
   initialDayShort,
   initialDateLabel,
@@ -54,14 +43,18 @@ export function CalendarHeader({
   const [currentDateStr, setCurrentDateStr] = useState(
     () => initialCurrentDate ?? ""
   );
-  const [lectureWeekByDate, setLectureWeekByDate] = useState(
-    () => lectureWeekMapFromRecord(initialLectureWeekByDate)
+
+  const storeLectureWeekByDate = useSyncExternalStore(
+    subscribe,
+    () => getSnapshot().lectureWeekByDate,
+    () => initialLectureWeekByDate ?? {}
   );
 
-  const groupSessionIdsKey = useMemo(() => {
-    const ids = filterSessionsForGroup(selectedSessions, programGroup);
-    return [...ids].sort().join(",");
-  }, [selectedSessions, programGroup]);
+  const lectureWeekByDate = useMemo(() => {
+    const fromStore = lectureWeekMapFromRecord(storeLectureWeekByDate);
+    if (fromStore && fromStore.size > 0) return fromStore;
+    return lectureWeekMapFromRecord(initialLectureWeekByDate);
+  }, [storeLectureWeekByDate, initialLectureWeekByDate]);
 
   useEffect(() => {
     const sync = () => setCurrentDateStr(getTodayISO());
@@ -69,29 +62,6 @@ export function CalendarHeader({
     const interval = setInterval(sync, 60000);
     return () => clearInterval(interval);
   }, []);
-
-  useEffect(() => {
-    if (!groupSessionIdsKey) {
-      setLectureWeekByDate(null);
-      return;
-    }
-    const ids = groupSessionIdsKey.split(",") as SessionId[];
-    let cancelled = false;
-    Promise.all(
-      ids.map((id) => fetchLectureWeeks(id).catch(() => ({ weeks: [] })))
-    ).then((responses) => {
-      if (cancelled) return;
-      const merged = new Map<string, number>();
-      for (const res of responses) {
-        const m = buildDateToWeekNumberMap(res.weeks);
-        m.forEach((weekNum, date) => merged.set(date, weekNum));
-      }
-      setLectureWeekByDate(merged.size > 0 ? merged : null);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [groupSessionIdsKey]);
 
   const weekNum = useMemo(() => {
     const dateStr = currentDateStr || initialCurrentDate;

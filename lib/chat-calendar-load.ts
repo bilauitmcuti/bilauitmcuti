@@ -1,8 +1,8 @@
 import {
   fetchMetaCached,
   fetchCalendarSession,
-  type MetaResponse,
-} from "./calendar-api";
+} from "./calendar-api-server";
+import type { MetaResponse } from "./calendar-api";
 import {
   getSnapshot,
   mergeSessions,
@@ -53,7 +53,7 @@ async function fetchAndCacheSession(
       group,
       program: group === "B" ? program : undefined,
     });
-    return { activities };
+    return { activities: activities.activities };
   } catch {
     return { activities: [] };
   }

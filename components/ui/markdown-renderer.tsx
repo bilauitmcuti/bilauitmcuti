@@ -26,6 +26,16 @@ interface MarkdownRendererProps {
   isComplete?: boolean;
 }
 
+function isSafeExternalHref(href: string | undefined): boolean {
+  if (!href?.trim()) return false;
+  try {
+    const protocol = new URL(href, "https://bilauitmcuti.com").protocol;
+    return protocol === "https:" || protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
 const COMPONENTS: Components = {
   h1: ({ children }) => (
     <p className="mt-2 font-semibold text-foreground first:mt-0">{children}</p>
@@ -57,16 +67,22 @@ const COMPONENTS: Components = {
     </ol>
   ),
   li: ({ children }) => <li className="pl-1">{children}</li>,
-  a: ({ children, href }) => (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-primary underline underline-offset-2"
-    >
-      {children}
-    </a>
-  ),
+  a: ({ children, href }) => {
+    if (!isSafeExternalHref(href)) {
+      return <span className="text-primary">{children}</span>;
+    }
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-primary underline underline-offset-2"
+      >
+        {children}
+      </a>
+    );
+  },
+  img: () => null,
   strong: ({ children }) => (
     <strong className="font-semibold text-foreground">{children}</strong>
   ),

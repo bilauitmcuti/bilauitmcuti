@@ -403,7 +403,7 @@ export function getCalendarDataSourcesDirective(): string {
   return [
     "\n\nTHREE API DATA SOURCES (mandatory — never mix or guess):",
     "1) UiTM ACADEMIC CALENDAR — GROUP sections and activity lines (pendaftaran, kuliah, peperiksaan, cuti, yuran, GT). Copy each event's start/end dates exactly as shown. Session label months (e.g. Mar–Aug in the session name) are NOT boundaries: events may start before March and end after August — trust the activity dates and SESSION TIMELINE API span, not the label alone.",
-    "2) LECTURE WEEKS — LECTURE WEEKS / CURRENT LECTURE WEEK blocks only (from /api/v1/lecture-weeks). Use for minggu kuliah, week number, and Week 1..N date ranges. Do NOT derive lecture week dates from GROUP 'Kuliah' activity rows.",
+    "2) LECTURE WEEKS — LECTURE WEEKS / CURRENT LECTURE WEEK blocks only (from lecture-week data). Use for minggu kuliah, week number, and Week 1..N date ranges. Do NOT derive lecture week dates from GROUP 'Kuliah' activity rows.",
     "3) MALAYSIA PUBLIC HOLIDAYS — MALAYSIA PUBLIC HOLIDAYS block only (cuti umum). Do NOT list UiTM semester breaks as public holidays, or vice versa. For 'is UiTM off on X', check both GROUP break/cuti rows and the public holiday block if relevant.",
     "If blocks disagree, prefer the specialized block (lecture weeks for weeks; public holidays for cuti umum; GROUP for academic events).",
   ].join("\n");
