@@ -2,11 +2,15 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { getMalaysiaDateHeaderParts, getTodayISO } from "@/lib/chat/dates";
-import { getSnapshot, subscribe } from "@/lib/calendar-store";
+import {
+  EMPTY_LECTURE_WEEK_BY_SESSION,
+  getSnapshot,
+  subscribe,
+} from "@/lib/calendar-store";
 import type { ProgramGroup, SessionId } from "@/lib/data";
 import {
   getLectureWeekNumberForDate,
-  lectureWeekMapFromRecord,
+  resolveLectureWeekMapForSessions,
 } from "@/lib/lecture-weeks-resolve";
 import {
   calendarTitleH1Class,
@@ -27,6 +31,7 @@ const calendarHeaderBadgeClass =
 const calendarHeaderBadgeStyle = { transition: "none" } as const;
 
 export function CalendarHeader({
+  selectedSessions = [],
   initialCurrentDate,
   initialDayShort,
   initialDateLabel,
@@ -44,17 +49,21 @@ export function CalendarHeader({
     () => initialCurrentDate ?? ""
   );
 
-  const storeLectureWeekByDate = useSyncExternalStore(
+  const storeLectureWeekBySession = useSyncExternalStore(
     subscribe,
-    () => getSnapshot().lectureWeekByDate,
-    () => initialLectureWeekByDate ?? {}
+    () => getSnapshot().lectureWeekBySession,
+    () => EMPTY_LECTURE_WEEK_BY_SESSION
   );
 
-  const lectureWeekByDate = useMemo(() => {
-    const fromStore = lectureWeekMapFromRecord(storeLectureWeekByDate);
-    if (fromStore && fromStore.size > 0) return fromStore;
-    return lectureWeekMapFromRecord(initialLectureWeekByDate);
-  }, [storeLectureWeekByDate, initialLectureWeekByDate]);
+  const lectureWeekByDate = useMemo(
+    () =>
+      resolveLectureWeekMapForSessions({
+        lectureWeekBySession: storeLectureWeekBySession,
+        selectedSessions,
+        initialLectureWeekByDate,
+      }),
+    [storeLectureWeekBySession, selectedSessions, initialLectureWeekByDate]
+  );
 
   useEffect(() => {
     const sync = () => setCurrentDateStr(getTodayISO());
@@ -138,7 +147,7 @@ export function CalendarHeader({
           suppressHydrationWarning
           style={calendarTitleH1Style}
         >
-          Bila <span className="text-[#8b5cf6]">UiTM</span> Cuti?
+          Bila UiTM Cuti?
         </h1>
       </div>
 

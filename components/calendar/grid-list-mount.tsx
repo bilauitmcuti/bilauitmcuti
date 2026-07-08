@@ -23,6 +23,7 @@ export interface CalendarGridListMountProps {
   onMonthChange: (month: string) => void;
   selectedStates: string[];
   initialCurrentDate?: string;
+  initialLectureWeekByDate?: Record<string, number> | null;
 }
 
 /** Grid/list use committed program + sessions so they stay in sync with the store (see CalendarDataGate). */
@@ -41,6 +42,7 @@ export function CalendarGridListMount({
   onMonthChange,
   selectedStates,
   initialCurrentDate,
+  initialLectureWeekByDate = null,
 }: CalendarGridListMountProps) {
   const calendarDataProgram = useCalendarCommittedProgram();
   const calendarDataSessions = useCalendarCommittedSessions();
@@ -60,6 +62,7 @@ export function CalendarGridListMount({
     onMonthChange,
     selectedStates,
     initialCurrentDate,
+    initialLectureWeekByDate,
   };
 
   return (

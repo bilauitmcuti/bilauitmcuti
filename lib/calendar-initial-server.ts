@@ -124,6 +124,7 @@ export async function loadInitialCalendarSnapshot(params: {
       defaultSession: meta.defaultSession,
       sessions: {} as Record<string, { activities: Activity[] }>,
       lectureWeekByDate: {} as Record<string, number>,
+      lectureWeekBySession: {} as Record<string, Record<string, number>>,
     };
 
     if (targets.length === 0) {
@@ -148,10 +149,12 @@ export async function loadInitialCalendarSnapshot(params: {
     );
 
     const merges: Record<string, { activities: Activity[] }> = {};
+    const lectureWeekBySession: Record<string, Record<string, number>> = {};
     const weekRecords: Record<string, number>[] = [];
     for (const [sid, payload] of sessionResults) {
       merges[sid] = { activities: payload.activities };
       if (payload.lectureWeekByDate) {
+        lectureWeekBySession[sid] = payload.lectureWeekByDate;
         weekRecords.push(payload.lectureWeekByDate);
       }
     }
@@ -164,6 +167,7 @@ export async function loadInitialCalendarSnapshot(params: {
         ...baseSnapshot,
         sessions: merges,
         lectureWeekByDate: hasWeeks ? lectureWeekByDate : {},
+        lectureWeekBySession,
       },
       programUsed: program,
       hydrateKey,

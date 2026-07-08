@@ -20,9 +20,13 @@ import {
 } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { useCalendarHydrationVersion } from '@/components/calendar-hydration-context';
-import { getSnapshot, subscribe } from '@/lib/calendar-store';
+import {
+  EMPTY_LECTURE_WEEK_BY_SESSION,
+  getSnapshot,
+  subscribe,
+} from '@/lib/calendar-store';
 import { getActivitiesForDateMultiSessions, getMonthsForSessions, getDaysUntilStart, formatCountdown, getProgramBadgeConfig, getProgramBadgesConfig, type Activity, type ActivityFilterOptions, type ActivityType, type SessionId } from '@/lib/data';
-import { lectureWeekMapFromRecord } from '@/lib/lecture-weeks-resolve';
+import { resolveLectureWeekMapForSessions } from '@/lib/lecture-weeks-resolve';
 import { useMobileViewport } from '@/lib/use-mobile-viewport';
 import { useEngagementPrompt } from '@/components/engagement-prompt';
 
@@ -354,6 +358,7 @@ interface GridViewProps {
   onMonthChange?: (month: string) => void;
   selectedStates?: string[];
   initialCurrentDate?: string;
+  initialLectureWeekByDate?: Record<string, number> | null;
 }
 
 function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT, onDateClick, selectedDate, showRegistration, showLecture, showSemesterPendek, showKuliahIntersesi, showExamination, showOthersExams, showBreak, showCountdown, selectedStates = [], initialCurrentDate, tooltipOpenKey, hoveredDateStr, setTooltipOpenKey, setHoveredDateStr, tooltipAnchorRef, calendarDataVersion, suppressHoverDuringScrollRef, lectureWeekByDate, useDayActivityDrawer, onOpenActivityDrawer }: { month: number; year: number; selectedProgram: string; selectedSessions: SessionId[]; showKKT: boolean; onDateClick: (date: string) => void; selectedDate: string | null; showRegistration: boolean; showLecture: boolean; showSemesterPendek: boolean; showKuliahIntersesi: boolean; showExamination: boolean; showOthersExams: boolean; showBreak: boolean; showCountdown: boolean; selectedStates?: string[]; initialCurrentDate?: string; tooltipOpenKey: string | null; hoveredDateStr: string | null; setTooltipOpenKey: React.Dispatch<React.SetStateAction<string | null>>; setHoveredDateStr: React.Dispatch<React.SetStateAction<string | null>>; tooltipAnchorRef: React.MutableRefObject<HTMLElement | null>; calendarDataVersion: number; suppressHoverDuringScrollRef: React.MutableRefObject<boolean>; lectureWeekByDate: Map<string, number> | null; useDayActivityDrawer: boolean; onOpenActivityDrawer: (dateStr: string) => void }) {
@@ -826,6 +831,7 @@ export const GridView = memo(function GridView({
   onMonthChange,
   selectedStates = [],
   initialCurrentDate,
+  initialLectureWeekByDate = null,
 }: GridViewProps) {
   const hydrationServerVersion = useCalendarHydrationVersion();
   const calendarDataVersion = useSyncExternalStore(
@@ -837,14 +843,19 @@ export const GridView = memo(function GridView({
   const [tooltipOpenKey, setTooltipOpenKey] = useState<string | null>(null);
   const [hoveredDateStr, setHoveredDateStr] = useState<string | null>(null);
   const tooltipAnchorRef = useRef<HTMLElement | null>(null);
-  const storeLectureWeekRecord = useSyncExternalStore(
+  const storeLectureWeekBySession = useSyncExternalStore(
     subscribe,
-    () => getSnapshot().lectureWeekByDate,
-    () => ({})
+    () => getSnapshot().lectureWeekBySession,
+    () => EMPTY_LECTURE_WEEK_BY_SESSION
   );
   const lectureWeekByDate = useMemo(
-    () => lectureWeekMapFromRecord(storeLectureWeekRecord),
-    [storeLectureWeekRecord]
+    () =>
+      resolveLectureWeekMapForSessions({
+        lectureWeekBySession: storeLectureWeekBySession,
+        selectedSessions,
+        initialLectureWeekByDate,
+      }),
+    [storeLectureWeekBySession, selectedSessions, initialLectureWeekByDate]
   );
   const [drawerDateKey, setDrawerDateKey] = useState<string | null>(null);
   const [drawerCurrentDateStr, setDrawerCurrentDateStr] = useState<string | null>(initialCurrentDate ?? null);

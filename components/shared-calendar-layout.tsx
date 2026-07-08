@@ -574,6 +574,7 @@ export function SharedCalendarLayout({
             onMonthChange={setCurrentMonth}
             selectedStates={selectedStates}
             initialCurrentDate={initialCurrentDate}
+            initialLectureWeekByDate={initialLectureWeekByDate}
           />
         </div>
 

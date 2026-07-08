@@ -43,3 +43,42 @@ export function mergeLectureWeekRecords(
   }
   return merged;
 }
+
+export function mergeLectureWeekRecordsForSessions(
+  lectureWeekBySession: Record<string, Record<string, number>>,
+  sessionIds: readonly string[]
+): Record<string, number> {
+  const records = sessionIds
+    .map((sessionId) => lectureWeekBySession[sessionId])
+    .filter(
+      (record): record is Record<string, number> =>
+        !!record && Object.keys(record).length > 0
+    );
+  return mergeLectureWeekRecords(records);
+}
+
+export function resolveLectureWeekMapForSessions(params: {
+  lectureWeekBySession: Record<string, Record<string, number>>;
+  selectedSessions: readonly string[];
+  initialLectureWeekByDate?: Record<string, number> | null;
+}): Map<string, number> | null {
+  const merged = mergeLectureWeekRecordsForSessions(
+    params.lectureWeekBySession,
+    params.selectedSessions
+  );
+  if (Object.keys(merged).length > 0) {
+    return lectureWeekMapFromRecord(merged);
+  }
+
+  const hasLoadedSessionWeeks =
+    Object.keys(params.lectureWeekBySession).length > 0;
+  if (
+    !hasLoadedSessionWeeks &&
+    params.initialLectureWeekByDate &&
+    params.selectedSessions.length > 0
+  ) {
+    return lectureWeekMapFromRecord(params.initialLectureWeekByDate);
+  }
+
+  return null;
+}

@@ -16,7 +16,7 @@ import {
   type MetaResponse,
 } from "@/lib/calendar-api";
 import { resolveSessionsForProgram } from "@/lib/calendar-session-resolve";
-import { getSnapshot, mergeLectureWeekByDate, mergeSessions, setMeta } from "@/lib/calendar-store";
+import { getSnapshot, mergeLectureWeekForSession, mergeSessions, setMeta } from "@/lib/calendar-store";
 import type { Activity, SessionId } from "@/lib/data";
 import type { ProgramValue } from "@/lib/route-utils";
 
@@ -280,7 +280,7 @@ export function CalendarDataGate({
               });
               merges[sid] = { activities: sessionResult.activities };
               if (sessionResult.lectureWeekByDate) {
-                mergeLectureWeekByDate(sessionResult.lectureWeekByDate);
+                mergeLectureWeekForSession(sid, sessionResult.lectureWeekByDate);
               }
             } catch (e) {
               if (e instanceof CalendarApiError && e.status === 400) {
@@ -297,7 +297,7 @@ export function CalendarDataGate({
                 });
                 merges[fallback] = { activities: sessionResult.activities };
                 if (sessionResult.lectureWeekByDate) {
-                  mergeLectureWeekByDate(sessionResult.lectureWeekByDate);
+                  mergeLectureWeekForSession(fallback, sessionResult.lectureWeekByDate);
                 }
                 const idx = effectiveSessions.indexOf(sid);
                 if (idx >= 0) {
