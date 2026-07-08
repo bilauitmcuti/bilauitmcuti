@@ -25,6 +25,7 @@ interface ChatMessageRowProps {
   message: ChatMessageItem;
   scrollAnchor: boolean;
   isLastUserMessage: boolean;
+  showStreamingShell: boolean;
   copiedId: string | null;
   reaction: "up" | "down" | null | undefined;
   onCopy: (msgId: string, content: string) => void;
@@ -37,6 +38,7 @@ export function ChatMessageRow({
   message,
   scrollAnchor,
   isLastUserMessage,
+  showStreamingShell,
   copiedId,
   reaction,
   onCopy,
@@ -49,7 +51,23 @@ export function ChatMessageRow({
     message.isComplete === false &&
     !message.content.trim()
   ) {
-    return null;
+    if (!showStreamingShell) return null;
+
+    return (
+      <MessageScrollerItem messageId={message.id} scrollAnchor={scrollAnchor}>
+        <Message align="start">
+          <MessageContent>
+            <Bubble variant="ghost">
+              <BubbleContent className="px-1 py-1">
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  <span className="inline-block h-4 w-0.5 animate-pulse bg-muted-foreground align-middle" />
+                </p>
+              </BubbleContent>
+            </Bubble>
+          </MessageContent>
+        </Message>
+      </MessageScrollerItem>
+    );
   }
 
   const assistantFinished =

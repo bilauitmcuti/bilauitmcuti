@@ -48,14 +48,16 @@ export interface ChatStreamResetPayload {
  */
 export function createMarkdownStreamPainter(
   onFlush: (chunk: string) => void,
-  options?: { maxChunkChars?: number }
+  options?: { maxChunkChars?: number; firstFlushChars?: number }
 ): {
   push: (token: string) => void;
   reset: () => void;
   flush: () => void;
 } {
   const maxChunkChars = options?.maxChunkChars ?? 64;
+  const firstFlushChars = options?.firstFlushChars ?? 12;
   let buf = "";
+  let hasFlushed = false;
 
   function takeFlushablePrefix(): string | null {
     if (!buf) return null;
@@ -68,10 +70,23 @@ export function createMarkdownStreamPainter(
       return chunk;
     }
 
-    const sentenceMatch = buf.match(/^[\s\S]{8,}?[.!?…](?:\s+|$)/);
+    const sentenceMatch = buf.match(/^[\s\S]{4,}?[.!?…](?:\s+|$)/);
     if (sentenceMatch?.[0]) {
       const chunk = sentenceMatch[0];
       buf = buf.slice(chunk.length);
+      return chunk;
+    }
+
+    if (!hasFlushed && buf.length >= firstFlushChars) {
+      const window = buf.slice(0, firstFlushChars);
+      const breakAt = Math.max(
+        window.lastIndexOf("\n"),
+        window.lastIndexOf(" "),
+        window.lastIndexOf("|")
+      );
+      const cut = breakAt >= 4 ? breakAt + 1 : firstFlushChars;
+      const chunk = buf.slice(0, cut);
+      buf = buf.slice(cut);
       return chunk;
     }
 
@@ -97,15 +112,18 @@ export function createMarkdownStreamPainter(
       buf += token;
       let chunk = takeFlushablePrefix();
       while (chunk) {
+        hasFlushed = true;
         onFlush(chunk);
         chunk = takeFlushablePrefix();
       }
     },
     reset() {
       buf = "";
+      hasFlushed = false;
     },
     flush() {
       if (!buf) return;
+      hasFlushed = true;
       onFlush(buf);
       buf = "";
     },
