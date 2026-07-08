@@ -5,10 +5,10 @@ import {
   parseLectureWeeksResponse,
 } from "@/lib/calendar-upstream";
 
-export type CalendarProxyApiSuffix = "v1/meta" | "v1/calendar";
+export type CalendarProxyApiSuffix = "v1/meta" | "v1/calendar" | "v1/public-holiday";
 
 /** Allowed upstream API suffixes only — not an open proxy. */
-const ALLOWED_PATHS = new Set<string>(["v1/meta", "v1/calendar"]);
+const ALLOWED_PATHS = new Set<string>(["v1/meta", "v1/calendar", "v1/public-holiday"]);
 
 /** Meta: only these are forwarded; other keys (e.g. Next.js `_rsc`) are ignored. */
 const META_QUERY_KEYS = ["group", "all"] as const;
@@ -21,6 +21,8 @@ const CALENDAR_QUERY_KEYS = [
   "allSessions",
   "type",
 ] as const;
+
+const PUBLIC_HOLIDAY_QUERY_KEYS = ["coverage", "year"] as const;
 
 function upstreamOrigin(): string {
   return getCalendarApiBase();
@@ -54,6 +56,21 @@ export function buildForwardedSearch(
     }
     const group = out.get("group");
     if (group !== null && group !== "A" && group !== "B") {
+      return "__invalid__";
+    }
+    const qs = out.toString();
+    return qs ? `?${qs}` : "";
+  }
+
+  if (apiSuffix === "v1/public-holiday") {
+    const out = new URLSearchParams();
+    for (const key of PUBLIC_HOLIDAY_QUERY_KEYS) {
+      const v = inParams.get(key);
+      if (v === null || v === "") continue;
+      out.set(key, v);
+    }
+    const coverage = out.get("coverage");
+    if (coverage !== null && coverage !== "all") {
       return "__invalid__";
     }
     const qs = out.toString();

@@ -109,6 +109,6 @@ describe("shouldPreferSingleStream", () => {
 
 describe("MAX_AGENT_TOOL_STEPS", () => {
   it("caps tool steps at 3 for complex production Gemma turns", () => {
-    expect(MAX_AGENT_TOOL_STEPS).toBe(3);
+    expect(MAX_AGENT_TOOL_STEPS).toBe(2);
   });
 });

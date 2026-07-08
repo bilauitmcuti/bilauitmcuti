@@ -21,9 +21,7 @@ interface ChatTranscriptProps {
   messages: ChatMessageItem[];
   isLoading: boolean;
   showLoadingMarker: boolean;
-  shimmerCapExpired: boolean;
   streamStatusPhrase: string;
-  loadingPhrase: string;
   lastUserMsgId: string | null;
   copiedId: string | null;
   reactions: Record<string, "up" | "down" | null>;
@@ -43,9 +41,7 @@ export function ChatTranscript({
   messages,
   isLoading,
   showLoadingMarker,
-  shimmerCapExpired,
   streamStatusPhrase,
-  loadingPhrase,
   lastUserMsgId,
   copiedId,
   reactions,
@@ -88,13 +84,6 @@ export function ChatTranscript({
                 message={msg}
                 scrollAnchor={false}
                 isLastUserMessage={msg.id === lastUserMsgId}
-                showStreamingShell={
-                  shimmerCapExpired &&
-                  msg.role === "assistant" &&
-                  msg.isComplete === false &&
-                  !msg.content.trim()
-                }
-                streamStatusPhrase={streamStatusPhrase}
                 copiedId={copiedId}
                 reaction={reactions[msg.id]}
                 onCopy={onCopy}
@@ -103,11 +92,11 @@ export function ChatTranscript({
                 onDelete={onDelete}
               />
             ))}
-            {showLoadingMarker && loadingPhrase ? (
+            {showLoadingMarker ? (
               <MessageScrollerItem messageId="__loading__">
                 <Marker role="status">
                   <MarkerContent className="shimmer text-sm text-muted-foreground">
-                    {loadingPhrase}
+                    {streamStatusPhrase || "Thinking…"}
                   </MarkerContent>
                 </Marker>
               </MessageScrollerItem>

@@ -14,7 +14,9 @@ import {
   type FetchMetaOptions,
   type MetaResponse,
   type ProgramOptionRow,
+  type PublicHolidaysResponse,
   type SessionOptionRow,
+  parsePublicHolidaysResponse,
 } from "@/lib/calendar-api";
 import type { LectureWeeksResponse } from "@/lib/calendar-api";
 
@@ -67,6 +69,43 @@ export async function fetchLectureWeeks(
   })();
 
   lectureWeeksInflight.set(sessionId, promise);
+  return promise;
+}
+
+const publicHolidaysInflight = new Map<string, Promise<PublicHolidaysResponse>>();
+const publicHolidaysCache = new Map<
+  string,
+  { data: PublicHolidaysResponse; at: number }
+>();
+const PUBLIC_HOLIDAYS_TTL_MS = 5 * 60 * 1000;
+
+/** Server-only upstream fetch for chat (never routed through the browser proxy). */
+export async function fetchPublicHolidays(
+  options?: { coverage?: "all"; year?: number }
+): Promise<PublicHolidaysResponse> {
+  const q = new URLSearchParams({ coverage: options?.coverage ?? "all" });
+  if (options?.year != null) q.set("year", String(options.year));
+  const cacheKey = q.toString();
+
+  const now = Date.now();
+  const cached = publicHolidaysCache.get(cacheKey);
+  if (cached && now - cached.at < PUBLIC_HOLIDAYS_TTL_MS) return cached.data;
+
+  const existing = publicHolidaysInflight.get(cacheKey);
+  if (existing) return existing;
+
+  const promise = (async () => {
+    try {
+      const data = await fetchUpstreamJson("v1/public-holiday", q);
+      const result = parsePublicHolidaysResponse(data);
+      publicHolidaysCache.set(cacheKey, { data: result, at: Date.now() });
+      return result;
+    } finally {
+      publicHolidaysInflight.delete(cacheKey);
+    }
+  })();
+
+  publicHolidaysInflight.set(cacheKey, promise);
   return promise;
 }
 

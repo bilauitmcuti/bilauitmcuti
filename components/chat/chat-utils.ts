@@ -1,4 +1,5 @@
 import { CHAT_MAX_HISTORY_CONTENT_LENGTH, CHAT_MAX_MESSAGE_LENGTH } from "@/lib/chat/limits";
+export { CHAT_TURNSTILE_COOKIE } from "@/lib/chat/parse-request";
 export { consumeChatStream, createMarkdownStreamPainter } from "@/lib/chat/sse";
 export type { ChatStreamDonePayload } from "@/lib/chat/sse";
 
@@ -29,19 +30,6 @@ export async function parseChatResponse(res: Response): Promise<{
   }
 }
 
-export const LOADING_PHRASES = [
-  "Processing your request...",
-  "Working on your query...",
-  "Searching for information...",
-  "Analyzing your input...",
-  "Looking for answers...",
-  "Gathering data...",
-  "Compiling response...",
-  "Please wait...",
-  "Retrieving information...",
-  "Checking details...",
-];
-
 /** Timeout until HTTP headers are received (time-to-first-byte). */
 export const FETCH_HEADERS_TIMEOUT_MS = 60_000;
 /** Timeout covering the full SSE stream read after headers arrive. */
@@ -49,9 +37,6 @@ export const FETCH_STREAM_TIMEOUT_MS = 120_000;
 /** Backwards-compatible alias for callers that only need a single timeout. */
 export const FETCH_TIMEOUT_MS = FETCH_HEADERS_TIMEOUT_MS;
 export const RETRY_DELAYS_MS = [400, 800, 1600];
-/** Maximum time the shimmer loading marker stays visible per request (ms). */
-export const LOADING_SHIMMER_MAX_MS = 2_000;
-export const CHAT_TURNSTILE_COOKIE = "chat_turnstile_verified";
 export const MAX_CHAT_MESSAGE_LENGTH = CHAT_MAX_MESSAGE_LENGTH;
 export const MAX_HISTORY_CONTENT_LENGTH = CHAT_MAX_HISTORY_CONTENT_LENGTH;
 export const MAX_HISTORY_ITEMS = 4;
@@ -71,11 +56,6 @@ export interface MentionMatch {
   start: number;
   end: number;
   query: string;
-}
-
-export function getRandomLoadingPhrase(exclude?: string): string {
-  const available = LOADING_PHRASES.filter((p) => p !== exclude);
-  return available[Math.floor(Math.random() * available.length)];
 }
 
 export function prepareHistory(messages: ChatMessageItem[]): { role: "user" | "assistant"; content: string }[] {

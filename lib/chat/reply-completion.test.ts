@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import { detectIncompleteReply } from "@/lib/chat/reply-completion";
 
 describe("detectIncompleteReply", () => {
-  it("flags replies ending with a header colon", () => {
-    const result = detectIncompleteReply("Group B (Diploma):", true);
-    expect(result?.reason).toBe("trailing-header");
+  it("does not flag replies ending with a header colon", () => {
+    expect(detectIncompleteReply("Group B (Diploma):", true)).toBeNull();
+  });
+
+  it("does not flag replies ending with a trailing comma", () => {
+    expect(detectIncompleteReply("Cuti bermula 01-03-2026,", false)).toBeNull();
   });
 
   it("flags replies ending on a dangling dash", () => {

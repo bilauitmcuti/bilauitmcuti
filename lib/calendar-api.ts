@@ -359,7 +359,7 @@ const publicHolidaysInflight = new Map<string, Promise<PublicHolidaysResponse>>(
 const publicHolidaysCache = new Map<string, { data: PublicHolidaysResponse; at: number }>();
 const PUBLIC_HOLIDAYS_TTL_MS = 5 * 60 * 1000;
 
-function parsePublicHolidaysResponse(data: unknown): PublicHolidaysResponse {
+export function parsePublicHolidaysResponse(data: unknown): PublicHolidaysResponse {
   if (!data || typeof data !== "object") {
     return { defaultYear: new Date().getFullYear(), year: new Date().getFullYear(), total: 0, holidays: [] };
   }
