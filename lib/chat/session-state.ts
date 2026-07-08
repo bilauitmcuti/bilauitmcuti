@@ -1,14 +1,25 @@
 import { getSessionForCurrentDate } from "@/lib/data";
 import type { SessionId } from "@/lib/data";
-import type { FilterStates } from "@/lib/cookie-utils";
+import {
+  getFiltersFromCookie,
+  setFiltersToCookie,
+  type FilterStates,
+} from "@/lib/cookie-utils";
 import { isProgramValue, type ProgramValue } from "@/lib/route-utils";
 import {
+  areSessionListsEqual,
   getGroupFromProgram,
   getSessionMemoryKey,
   normalizeSessionsForGroup,
 } from "@/lib/session-memory";
 
 export type ProgramSessionMap = Partial<Record<ProgramValue, SessionId[]>>;
+
+export interface ChatHomepageHydration {
+  program: ProgramValue;
+  sessionsByProgram: ProgramSessionMap;
+  selectedSessions: SessionId[];
+}
 
 export function resolveSessionsForProgram(
   program: ProgramValue,
@@ -72,4 +83,104 @@ export function getInitialChatSessions(program: string): SessionId[] {
   const dateStr =
     typeof window !== "undefined" ? new Date().toISOString().slice(0, 10) : "2026-03-15";
   return [getSessionForCurrentDate(group, dateStr)];
+}
+
+export function areProgramSessionMapsEqual(
+  left: ProgramSessionMap,
+  right: ProgramSessionMap
+): boolean {
+  const keys = new Set([
+    ...Object.keys(left),
+    ...Object.keys(right),
+  ] as ProgramValue[]);
+  for (const key of keys) {
+    const leftIds = left[key] ?? [];
+    const rightIds = right[key] ?? [];
+    if (!areSessionListsEqual(leftIds, rightIds)) return false;
+  }
+  return true;
+}
+
+/** Read cookie + localStorage the same way chat hydrates from the homepage. */
+export function resolveHomepageChatHydration(
+  dateStr = new Date().toISOString().slice(0, 10)
+): ChatHomepageHydration | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const filters = getFiltersFromCookie();
+    const raw =
+      localStorage.getItem("sessionIdsByProgram") ??
+      localStorage.getItem("chatSessionIdsByProgram");
+    const parsed = raw
+      ? (JSON.parse(raw) as Partial<Record<ProgramValue, SessionId[]>>)
+      : null;
+
+    const merged = mergeSessionMapsFromHomepage(parsed, filters);
+    const sessionsByProgram: ProgramSessionMap = {
+      All: getInitialChatSessions("All"),
+      ...merged,
+    };
+
+    const storedProgram = localStorage.getItem("selectedProgram");
+    const program: ProgramValue =
+      filters.selectedProgram && isProgramValue(filters.selectedProgram)
+        ? filters.selectedProgram
+        : storedProgram && isProgramValue(storedProgram)
+          ? storedProgram
+          : "All";
+
+    const selectedSessions = resolveSessionsForProgram(
+      program,
+      [],
+      sessionsByProgram,
+      dateStr
+    );
+
+    return { program, sessionsByProgram, selectedSessions };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Persist chat program/session selection to localStorage + `calendar-filters`
+ * cookie (merge existing homepage filter toggles so showKKT etc. are preserved).
+ */
+export function persistChatProgramSessions(params: {
+  program: ProgramValue;
+  sessionsByProgram: ProgramSessionMap;
+  selectedSessions: SessionId[];
+}): void {
+  if (typeof window === "undefined") return;
+  const { program, sessionsByProgram, selectedSessions } = params;
+  if (selectedSessions.length === 0) return;
+
+  try {
+    localStorage.setItem("selectedProgram", program);
+    localStorage.setItem("sessionIdsByProgram", JSON.stringify(sessionsByProgram));
+    localStorage.setItem("chatSessionIdsByProgram", JSON.stringify(sessionsByProgram));
+  } catch {
+    // Ignore storage errors (private mode / quota).
+  }
+
+  const existing = getFiltersFromCookie();
+  setFiltersToCookie({
+    ...existing,
+    sessionId: selectedSessions[0],
+    sessionIds: selectedSessions,
+    sessionIdsByProgram: sessionsByProgram,
+    selectedProgram: program,
+  });
+}
+
+/** True when homepage sources already match the live chat selection (skip overwrite). */
+export function isChatSelectionInSyncWithHomepage(
+  current: ChatHomepageHydration,
+  fromHomepage: ChatHomepageHydration
+): boolean {
+  return (
+    current.program === fromHomepage.program &&
+    areSessionListsEqual(current.selectedSessions, fromHomepage.selectedSessions) &&
+    areProgramSessionMapsEqual(current.sessionsByProgram, fromHomepage.sessionsByProgram)
+  );
 }
