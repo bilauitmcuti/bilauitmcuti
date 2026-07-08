@@ -6,22 +6,18 @@
  * leave the user with a half-finished list.
  */
 
-const TRAILING_HEADER_RE = /(^|\n)[^\n]{0,80}:\s*$/;
 const TRAILING_DASH_RE = /(^|\n)-\s*$/;
 const TRAILING_NUMBER_RE = /(^|\n)\d+\.\s*$/;
 const TRAILING_OPEN_PAREN_RE = /\(\s*$/;
-const TRAILING_COMMA_RE = /,\s*$/;
 const SENTENCE_END_RE = /[.!?\]"')]\s*$/;
 
 const MIN_REPLY_LENGTH_FOR_LIST_CHECK = 40;
 
 export interface IncompletenessReason {
   reason:
-    | "trailing-header"
     | "trailing-dash"
     | "trailing-number"
     | "trailing-paren"
-    | "trailing-comma"
     | "unclosed-table"
     | "no-sentence-end";
 }
@@ -43,11 +39,9 @@ export function detectIncompleteReply(
   const closeTable = (trimmed.match(/\[\/TABLE\]/gi) ?? []).length;
   if (openTable > closeTable) return { reason: "unclosed-table" };
 
-  if (TRAILING_HEADER_RE.test(trimmed)) return { reason: "trailing-header" };
   if (TRAILING_DASH_RE.test(trimmed)) return { reason: "trailing-dash" };
   if (TRAILING_NUMBER_RE.test(trimmed)) return { reason: "trailing-number" };
   if (TRAILING_OPEN_PAREN_RE.test(trimmed)) return { reason: "trailing-paren" };
-  if (TRAILING_COMMA_RE.test(trimmed)) return { reason: "trailing-comma" };
 
   if (
     expectsList &&

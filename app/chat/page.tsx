@@ -39,8 +39,6 @@ import {
   escapeRegExp,
   getActiveMentionMatch,
   getChatErrorMessage,
-  getRandomLoadingPhrase,
-  LOADING_SHIMMER_MAX_MS,
   consumeChatStream,
   createMarkdownStreamPainter,
   MAX_CHAT_MESSAGE_LENGTH,
@@ -214,33 +212,10 @@ export default function ChatPage() {
   useLayoutEffect(() => {
     setSuggestions(getRandomSuggestions(suggestionGroup, []));
   }, [suggestionGroup]);
-  const [loadingPhrase, setLoadingPhrase] = useState("");
   const [streamStatusPhrase, setStreamStatusPhrase] = useState("");
-  const [shimmerCapExpired, setShimmerCapExpired] = useState(false);
-  const shimmerCapExpiredRef = useRef(false);
-  const shimmerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const startLoadingState = useCallback(() => {
-    setLoadingPhrase(getRandomLoadingPhrase());
     setStreamStatusPhrase("Thinking…");
-  }, []);
-
-  const startShimmerCapTimer = useCallback(() => {
-    if (shimmerTimerRef.current) clearTimeout(shimmerTimerRef.current);
-    setShimmerCapExpired(false);
-    shimmerCapExpiredRef.current = false;
-    shimmerTimerRef.current = setTimeout(() => {
-      setShimmerCapExpired(true);
-      shimmerCapExpiredRef.current = true;
-      shimmerTimerRef.current = null;
-    }, LOADING_SHIMMER_MAX_MS);
-  }, []);
-
-  const clearShimmerCapTimer = useCallback(() => {
-    if (shimmerTimerRef.current) {
-      clearTimeout(shimmerTimerRef.current);
-      shimmerTimerRef.current = null;
-    }
   }, []);
 
   const handleSessionToggle = useCallback(
@@ -377,8 +352,8 @@ export default function ChatPage() {
         m.content.trim().length > 0
     );
 
-    return isLoading && !hasStreamingContent && !shimmerCapExpired;
-  }, [isLoading, messages, shimmerCapExpired]);
+    return isLoading && !hasStreamingContent;
+  }, [isLoading, messages]);
 
   useEffect(() => {
     if (!isLoading) {
@@ -397,18 +372,6 @@ export default function ChatPage() {
       setStreamStatusPhrase("");
     }
   }, [messages]);
-
-  useEffect(() => {
-    if (!showLoadingMarker) {
-      setLoadingPhrase("");
-      return;
-    }
-    setLoadingPhrase(getRandomLoadingPhrase());
-    const interval = setInterval(() => {
-      setLoadingPhrase((prev) => getRandomLoadingPhrase(prev));
-    }, 1500);
-    return () => clearInterval(interval);
-  }, [showLoadingMarker]);
 
   useEffect(() => {
     adjustTextareaHeight();
@@ -462,7 +425,6 @@ export default function ChatPage() {
     setInput("");
     setIsLoading(true);
     startLoadingState();
-    startShimmerCapTimer();
     recordEngagementAction("chat_send");
     let didAttemptFetch = false;
 
@@ -614,9 +576,6 @@ export default function ChatPage() {
                 onStatus: (payload) => {
                   const phrase = payload.message || payload.phase;
                   if (!phrase) return;
-                  if (!shimmerCapExpiredRef.current) {
-                    setLoadingPhrase(phrase);
-                  }
                   setStreamStatusPhrase(phrase);
                 },
               },
@@ -756,11 +715,9 @@ export default function ChatPage() {
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
-      clearShimmerCapTimer();
       setIsLoading(false);
     }
   }, [
-    clearShimmerCapTimer,
     isLoading,
     isTurnstileSessionVerified,
     messages,
@@ -769,7 +726,6 @@ export default function ChatPage() {
     selectedProgram,
     selectedSessions,
     startLoadingState,
-    startShimmerCapTimer,
     turnstileToken,
     waitForTurnstileConfig,
   ]);
@@ -995,9 +951,7 @@ export default function ChatPage() {
             messages={messages}
             isLoading={isLoading}
             showLoadingMarker={showLoadingMarker}
-            shimmerCapExpired={shimmerCapExpired}
             streamStatusPhrase={streamStatusPhrase}
-            loadingPhrase={loadingPhrase}
             lastUserMsgId={lastUserMsgId}
             copiedId={copiedId}
             reactions={reactions}

@@ -1,8 +1,5 @@
-import {
-  fetchPublicHolidays,
-  type PublicHolidayRow,
-  type PublicHolidaysResponse,
-} from "@/lib/calendar-api";
+import { fetchPublicHolidays } from "@/lib/calendar-api-server";
+import type { PublicHolidayRow, PublicHolidaysResponse } from "@/lib/calendar-api";
 import { normalizeDateString, toComparableDateValue, toDateFormat } from "@/lib/chat/dates";
 import {
   getSessionActivityDateRange,

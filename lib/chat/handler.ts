@@ -111,8 +111,21 @@ import { mapChatError } from "@/lib/chat/map-error";
 
 /** Soft deadline for compact / single-stream turns (under Pages Edge limits). */
 const CHAT_SERVER_DEADLINE_MS = 25_000;
-/** Longer budget for Gemma tool-agent turns (up to 5 tool steps + synthesis). */
-const CHAT_AGENT_DEADLINE_MS = 40_000;
+/** Longer budget for Gemma tool-agent turns (tool steps + synthesis). */
+const CHAT_AGENT_DEADLINE_MS = 55_000;
+
+const AGENT_CALENDAR_TOOLS = new Set([
+  "search_calendar_activities",
+  "get_academic_calendar",
+  "get_upcoming_events",
+  "get_session_timeline",
+  "get_lecture_weeks",
+  "get_public_holidays",
+]);
+
+function agentUsedCalendarTools(toolsUsed: string[]): boolean {
+  return toolsUsed.some((tool) => AGENT_CALENDAR_TOOLS.has(tool));
+}
 
 export type ChatExecutionMode = "single_stream" | "agent";
 
@@ -634,12 +647,34 @@ export async function POST(request: NextRequest) {
     const allowedDates = !useResearchOnly
       ? collectAllowedDateTokens(validationActivityPool)
       : new Set<string>();
-    if (!useResearchOnly && !useAgentTools) {
+    if (!useResearchOnly) {
       addDatesFromContextText(allowedDates, dataContextFull);
       addDatesFromContextText(allowedDates, primaryContext);
     }
 
     const streamTokensToClient = shouldStreamTokensToClient(requestHost);
+
+    const runPromptRetry = async (
+      promptSuffix: string,
+      onToken: (token: string) => void | Promise<void>,
+      budget = modelBudget
+    ): Promise<string> => {
+      const prompt = systemPromptWithCompletion + promptSuffix;
+      if (wantStream) {
+        return streamAiWithRetry(
+          sanitizedMessage,
+          prompt,
+          sanitizedHistory,
+          { ...budget, requestHost, correlationId, onToken, emitTokensToClient: streamTokensToClient }
+        );
+      }
+      return askAiWithRetry(
+        sanitizedMessage,
+        prompt,
+        sanitizedHistory,
+        { ...budget, requestHost, correlationId }
+      );
+    };
 
     const runLegacyLlm = async (
       prompt: string,
@@ -738,15 +773,12 @@ export async function POST(request: NextRequest) {
         !useResearchOnly &&
         !hasMatchedActivity &&
         allowedDates.size > 0 &&
+        !(useAgentTools && agentUsedCalendarTools(turnToolsUsed)) &&
         replyHasUnknownCalendarDates(rawReply, allowedDates)
       ) {
         await onProgress?.onRetry?.("dates");
         if (useAgentTools) {
-          // Single synthesis retry with full legacy context — avoid re-running the agent loop.
-          const legacyPrompt = await getLegacyFallbackPromptWithCompletion(
-            DATE_VALIDATION_RETRY_NUDGE
-          );
-          rawReply = await runLegacyLlm(legacyPrompt, onToken);
+          rawReply = await runPromptRetry(DATE_VALIDATION_RETRY_NUDGE, onToken);
         } else if (wantStream) {
           rawReply = await streamAiWithRetry(
             sanitizedMessage,
@@ -774,10 +806,11 @@ export async function POST(request: NextRequest) {
         };
         let retryReply: string;
         if (useAgentTools) {
-          const legacyPrompt = await getLegacyFallbackPromptWithCompletion(
-            REPLY_COMPLETION_RETRY_NUDGE
+          retryReply = await runPromptRetry(
+            REPLY_COMPLETION_RETRY_NUDGE,
+            onToken,
+            bumpedBudget
           );
-          retryReply = await runLegacyLlm(legacyPrompt, onToken, bumpedBudget);
         } else if (wantStream) {
           retryReply = await streamAiWithRetry(
             sanitizedMessage,

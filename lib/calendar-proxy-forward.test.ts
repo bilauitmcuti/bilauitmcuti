@@ -24,6 +24,18 @@ describe("calendar-proxy-forward", () => {
     const request = new NextRequest("http://localhost/api/v1/calendar?allSessions=yes");
     expect(buildForwardedSearch("v1/calendar", request)).toBe("?allSessions=true");
   });
+
+  it("whitelists public-holiday query keys", () => {
+    const request = new NextRequest(
+      "http://localhost/api/v1/public-holiday?coverage=all&year=2026&foo=bar"
+    );
+    expect(buildForwardedSearch("v1/public-holiday", request)).toBe("?coverage=all&year=2026");
+  });
+
+  it("rejects invalid public-holiday coverage", () => {
+    const request = new NextRequest("http://localhost/api/v1/public-holiday?coverage=state");
+    expect(buildForwardedSearch("v1/public-holiday", request)).toBe("__invalid__");
+  });
 });
 
 describe("calendarProxyForward lecture week enrichment", () => {
