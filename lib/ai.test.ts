@@ -54,8 +54,8 @@ describe("resolveProductionChatModelChain", () => {
     ]);
   });
 
-  it("does not stream tokens to the chat client (batched markdown after done)", () => {
-    expect(shouldStreamTokensToClient("bilauitmcuti.com")).toBe(false);
-    expect(shouldStreamTokensToClient("localhost:3000")).toBe(false);
+  it("streams tokens to the chat client (progressive paint, done replaces full reply)", () => {
+    expect(shouldStreamTokensToClient("bilauitmcuti.com")).toBe(true);
+    expect(shouldStreamTokensToClient("localhost:3000")).toBe(true);
   });
 });

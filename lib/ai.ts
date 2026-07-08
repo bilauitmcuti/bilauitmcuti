@@ -163,12 +163,11 @@ export function resolveWorkersAiTierForModelId(
 }
 
 /**
- * Progressive token painting is off: partial markdown (`#`, `|`, `**`) looks
- * broken mid-stream. The client still receives SSE `status` + a single `done`
- * with the full reply, then renders markdown once.
+ * Progressive token painting is on: client paints SSE `token` events as they
+ * arrive. The final `done` event still replaces content with the cleaned full reply.
  */
 export function shouldStreamTokensToClient(_requestHost?: string | null): boolean {
-  return false;
+  return true;
 }
 
 export function getWorkersAiTierLimits(tier: WorkersAiModelTier): WorkersAiTierLimits {
