@@ -60,14 +60,11 @@ export async function runChatAgent(options: RunChatAgentOptions): Promise<AgentR
   const toolsUsed: string[] = [];
 
   if (options.ctx.activityMatches.length > 0) {
-    const preloadedResult = await executeChatTool(
-      "search_calendar_activities",
-      { query: options.ctx.message },
-      options.ctx
-    );
-    toolsUsed.push("search_calendar_activities");
-    extraDirectives += `\n\n=== PRELOADED CALENDAR MATCH (authoritative — do not re-search same activity) ===\n${preloadedResult}`;
-    availableTools = availableTools.filter((t) => t !== "search_calendar_activities");
+    const preloadedResult = formatMatchedActivitiesBlock(options.ctx.activityMatches);
+    if (preloadedResult) {
+      extraDirectives += `\n\n=== PRELOADED CALENDAR MATCH (authoritative — do not re-search same activity) ===\n${preloadedResult}`;
+      availableTools = availableTools.filter((t) => t !== "search_calendar_activities");
+    }
   }
 
   const schemas = schemasForTools(availableTools);

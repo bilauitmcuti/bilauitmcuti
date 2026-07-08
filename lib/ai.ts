@@ -162,9 +162,9 @@ export function resolveWorkersAiTierForModelId(
   return resolveWorkersAiModelTier(requestHost);
 }
 
-/** Chat UI shows the full reply only after loading; never stream partial tokens to the client. */
+/** Stream synthesis tokens to the chat client for progressive display. */
 export function shouldStreamTokensToClient(_requestHost?: string | null): boolean {
-  return false;
+  return true;
 }
 
 export function getWorkersAiTierLimits(tier: WorkersAiModelTier): WorkersAiTierLimits {

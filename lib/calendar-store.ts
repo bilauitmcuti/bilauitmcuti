@@ -7,10 +7,24 @@ export interface CalendarSnapshot {
   programOptions: ProgramOptionRow[];
   defaultSession: string;
   sessions: Record<string, { activities: Activity[] }>;
+  /** Merged union of all loaded sessions (legacy; prefer lectureWeekBySession + selected ids). */
   lectureWeekByDate: Record<string, number>;
+  lectureWeekBySession: Record<string, Record<string, number>>;
 }
 
 const FALLBACK_DEFAULT_SESSION = "B-20263";
+
+/** Stable empty record for useSyncExternalStore getServerSnapshot (must not allocate per call). */
+export const EMPTY_LECTURE_WEEK_BY_DATE: Record<string, number> = {};
+
+/** Stable empty per-session map for useSyncExternalStore getServerSnapshot. */
+export const EMPTY_LECTURE_WEEK_BY_SESSION: Record<string, Record<string, number>> = {};
+
+export function getLectureWeekByDateServerSnapshot(
+  initialLectureWeekByDate: Record<string, number> | null | undefined
+): Record<string, number> {
+  return initialLectureWeekByDate ?? EMPTY_LECTURE_WEEK_BY_DATE;
+}
 
 const emptySnapshot: CalendarSnapshot = {
   version: 0,
@@ -18,7 +32,8 @@ const emptySnapshot: CalendarSnapshot = {
   programOptions: [],
   defaultSession: FALLBACK_DEFAULT_SESSION,
   sessions: {},
-  lectureWeekByDate: {},
+  lectureWeekByDate: EMPTY_LECTURE_WEEK_BY_DATE,
+  lectureWeekBySession: EMPTY_LECTURE_WEEK_BY_SESSION,
 };
 
 let snapshot: CalendarSnapshot = { ...emptySnapshot, sessions: {} };
@@ -64,6 +79,23 @@ export function mergeSessions(
   emit();
 }
 
+export function mergeLectureWeekForSession(
+  sessionId: string,
+  partial: Record<string, number>
+): void {
+  if (Object.keys(partial).length === 0) return;
+  snapshot = {
+    ...snapshot,
+    version: snapshot.version + 1,
+    lectureWeekBySession: {
+      ...snapshot.lectureWeekBySession,
+      [sessionId]: { ...partial },
+    },
+  };
+  emit();
+}
+
+/** @deprecated Use mergeLectureWeekForSession so week data stays scoped per session. */
 export function mergeLectureWeekByDate(
   partial: Record<string, number>
 ): void {
@@ -82,7 +114,8 @@ export function resetSessionActivitiesCache(): void {
     ...snapshot,
     version: snapshot.version + 1,
     sessions: {},
-    lectureWeekByDate: {},
+    lectureWeekByDate: EMPTY_LECTURE_WEEK_BY_DATE,
+    lectureWeekBySession: EMPTY_LECTURE_WEEK_BY_SESSION,
   };
   emit();
 }
@@ -99,6 +132,7 @@ export function assignCalendarStoreSnapshot(next: CalendarSnapshot): void {
     defaultSession: next.defaultSession || FALLBACK_DEFAULT_SESSION,
     sessions: { ...next.sessions },
     lectureWeekByDate: { ...next.lectureWeekByDate },
+    lectureWeekBySession: { ...(next.lectureWeekBySession ?? EMPTY_LECTURE_WEEK_BY_SESSION) },
   };
 }
 

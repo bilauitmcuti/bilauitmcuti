@@ -40,6 +40,7 @@ export function ChatScrollSync({ messages }: ChatScrollSyncProps) {
       contentLength !== lastContentLengthRef.current
     ) {
       lastContentLengthRef.current = contentLength;
+      scrollToEnd({ behavior: "smooth" });
     }
   }, [messages, scrollToEnd]);
 

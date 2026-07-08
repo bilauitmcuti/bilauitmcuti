@@ -40,7 +40,6 @@ import {
   getChatErrorMessage,
   getRandomLoadingPhrase,
   consumeChatStream,
-  LOADING_INDICATOR_DELAY_MS,
   MAX_CHAT_MESSAGE_LENGTH,
   parseChatResponse,
   prepareHistory,
@@ -229,23 +228,10 @@ export default function ChatPage() {
     setSuggestions(getRandomSuggestions(suggestionGroup, []));
   }, [suggestionGroup]);
   const [loadingPhrase, setLoadingPhrase] = useState("");
-  const [showThinkingIndicator, setShowThinkingIndicator] = useState(false);
-  const thinkingDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const clearThinkingDelay = useCallback(() => {
-    if (thinkingDelayRef.current) {
-      clearTimeout(thinkingDelayRef.current);
-      thinkingDelayRef.current = null;
-    }
+  const startLoadingState = useCallback(() => {
+    setLoadingPhrase(getRandomLoadingPhrase());
   }, []);
-
-  const startThinkingDelay = useCallback(() => {
-    clearThinkingDelay();
-    setShowThinkingIndicator(false);
-    thinkingDelayRef.current = setTimeout(() => {
-      setShowThinkingIndicator(true);
-    }, LOADING_INDICATOR_DELAY_MS);
-  }, [clearThinkingDelay]);
 
   const handleSessionToggle = useCallback(
     (programValue: ProgramValue, sessionId: SessionId, group: "A" | "B") => {
@@ -374,9 +360,6 @@ export default function ChatPage() {
   }, [messages]);
 
   const showLoadingMarker = useMemo(() => {
-    const isAwaitingAssistant = messages.some(
-      (m) => m.role === "assistant" && m.isComplete === false
-    );
     const hasStreamingContent = messages.some(
       (m) =>
         m.role === "assistant" &&
@@ -384,12 +367,8 @@ export default function ChatPage() {
         m.content.trim().length > 0
     );
 
-    return (
-      isLoading &&
-      ((showThinkingIndicator && !isAwaitingAssistant) ||
-        (isAwaitingAssistant && !hasStreamingContent))
-    );
-  }, [isLoading, showThinkingIndicator, messages]);
+    return isLoading && !hasStreamingContent;
+  }, [isLoading, messages]);
 
   useEffect(() => {
     if (!showLoadingMarker) {
@@ -402,8 +381,6 @@ export default function ChatPage() {
     }, 3000);
     return () => clearInterval(interval);
   }, [showLoadingMarker]);
-
-  useEffect(() => () => clearThinkingDelay(), [clearThinkingDelay]);
 
   useEffect(() => {
     adjustTextareaHeight();
@@ -448,7 +425,7 @@ export default function ChatPage() {
     setMessages(updatedMessages);
     setInput("");
     setIsLoading(true);
-    startThinkingDelay();
+    startLoadingState();
     recordEngagementAction("chat_send");
     let didAttemptFetch = false;
 
@@ -527,8 +504,6 @@ export default function ChatPage() {
             });
             await consumeChatStream(res, {
               onToken: (token) => {
-                clearThinkingDelay();
-                setShowThinkingIndicator(false);
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantId
@@ -540,8 +515,6 @@ export default function ChatPage() {
               onDone: (payload) => {
                 content = payload.reply;
                 chatRequestSucceeded = true;
-                clearThinkingDelay();
-                setShowThinkingIndicator(false);
                 const doneAt = Date.now();
                 const replyText = payload.reply ?? "";
 
@@ -605,8 +578,6 @@ export default function ChatPage() {
               continue;
             }
           } else {
-            clearThinkingDelay();
-            setShowThinkingIndicator(false);
             content = data.reply || "Sorry, I could not get a response.";
             correlationId = data.correlationId;
             chatRequestSucceeded = true;
@@ -695,12 +666,9 @@ export default function ChatPage() {
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
-      clearThinkingDelay();
-      setShowThinkingIndicator(false);
       setIsLoading(false);
     }
   }, [
-    clearThinkingDelay,
     isLoading,
     isTurnstileSessionVerified,
     messages,
@@ -708,7 +676,7 @@ export default function ChatPage() {
     requiresTurnstile,
     selectedProgram,
     selectedSessions,
-    startThinkingDelay,
+    startLoadingState,
     turnstileToken,
     waitForTurnstileConfig,
   ]);

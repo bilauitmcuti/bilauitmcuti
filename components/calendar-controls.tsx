@@ -660,15 +660,15 @@ export function CalendarControls({
                         <span className="text-sm font-medium text-foreground">Show</span>
                         <div className="flex gap-1 pointer-events-none select-none">
                           <Avatar className="h-5 w-5">
-                            <AvatarImage src="/flags/kedah.png" alt="Kedah" draggable={false} />
+                            <AvatarImage src="/flags/kedah.webp" alt="Kedah" draggable={false} />
                             <AvatarFallback>KD</AvatarFallback>
                           </Avatar>
                           <Avatar className="h-5 w-5">
-                            <AvatarImage src="/flags/kelantan.png" alt="Kelantan" draggable={false} />
+                            <AvatarImage src="/flags/kelantan.webp" alt="Kelantan" draggable={false} />
                             <AvatarFallback>KT</AvatarFallback>
                           </Avatar>
                           <Avatar className="h-5 w-5">
-                            <AvatarImage src="/flags/terengganu.png" alt="Terengganu" draggable={false} />
+                            <AvatarImage src="/flags/terengganu.webp" alt="Terengganu" draggable={false} />
                             <AvatarFallback>TG</AvatarFallback>
                           </Avatar>
                         </div>

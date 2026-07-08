@@ -76,6 +76,7 @@ import {
   usesResearchStylePrompt,
 } from "@/lib/chat/chat-prompt";
 import { routeChatTopics } from "@/lib/chat/topic-router";
+import { buildPublicHolidayChatContext } from "@/lib/chat/public-holiday-context";
 import {
   getCalendarUnderstandingDirective,
   getCompletionInstruction,
@@ -256,26 +257,6 @@ export async function POST(request: NextRequest) {
     const topicRoute = routeChatTopics(sanitizedMessage, hasMatchedActivity);
     const useIntentFilter = shouldUseCalendarIntentFilter(topicRoute, activityMatches.length);
 
-    const secondaryActivitiesRaw =
-      primaryGroup === "A"
-        ? getFilteredGroupBActivities(selectedProgram, [getDefaultSessionForGroup("B")])
-        : getActivitiesForSession(getDefaultSessionForGroup("A"));
-    const secondaryActivities = narrowActivitiesForSecondaryReference(secondaryActivitiesRaw);
-
-    const primaryContext = formatPrimaryCalendarContext(
-      contextSessionIds,
-      selectedProgram,
-      primaryGroup,
-      contextIntent,
-      { useIntentFilter }
-    );
-    const secondaryContext = formatActivitiesAsContext(secondaryActivities);
-    const sessionListContext = buildSessionListContext(primaryGroup, effectiveSessions);
-    const multipleSessionsSelected = effectiveSessions.length > 1;
-    const comparisonContext = multipleSessionsSelected
-      ? buildComparisonContext(effectiveSessions, selectedProgram, primaryGroup)
-      : "";
-
     const sanitizedHistory: ChatMessage[] = (history ?? [])
       .slice(-4)
       .map((msg) => ({
@@ -284,124 +265,16 @@ export async function POST(request: NextRequest) {
           msg.role === "user" ? sanitizeMessage(msg.content) : msg.content,
       }));
 
-    const origin = new URL(request.url).origin;
-    await getSystemRules(origin);
-
-    const useCalendarPrompt = topicNeedsCalendarPrompt(topicRoute.topics);
-
-    const { dataContext, publicHolidayDirective } = await buildDataContextForTurn({
-      message: sanitizedMessage,
-      todayISO,
-      route: topicRoute,
-      contextSessionIds,
-      primaryGroup,
-      program: selectedProgram,
-      queryScope,
-      effectiveSessions,
-      primaryActivities,
-      contextIntent,
-      useIntentFilter,
-    });
-
-    let dataContextFull = dataContext;
-    if (comparisonContext) {
-      dataContextFull = dataContextFull
-        ? `${dataContextFull}\n\n=== SESSION COMPARISON ===\n${comparisonContext}`
-        : comparisonContext;
-    }
-
-    const isCompareRequested =
-      multipleSessionsSelected && isComparisonQuestion(sanitizedMessage);
-    const wantsTableOutput =
-      isCompareRequested || isTableFormatRequested(sanitizedMessage);
-    const isSimple = isSimpleCalendarQuestion(sanitizedMessage, { hasMatchedActivity });
-    const asksDetail = messageAsksDetail(sanitizedMessage);
-    const needsList = messageNeedsListOrSchedule(sanitizedMessage);
-
-    const includeSecondary =
-      useCalendarPrompt && needsSecondaryGroupContext(sanitizedMessage, primaryGroup);
-    const includeUitmSupplement =
-      topicRoute.topics.includes("uitm_general") ||
-      needsUitmKnowledgeSupplement(sanitizedMessage);
-
-    const maxPrimaryChars = needsList || hasMatchedActivity
-      ? MAX_PRIMARY_CONTEXT_CHARS
-      : MAX_PRIMARY_CONTEXT_CHARS;
-
-    const useResearchOnly =
-      usesResearchStylePrompt(topicRoute.topics) && !useCalendarPrompt;
-
     const requestHost = request.headers.get("host");
     const useAgentPath = isChatAgentEnabled();
     const modelChain = resolveProductionChatModelChain(requestHost);
     const agentMode = useAgentPath ? agentModeForModelChain(modelChain) : "compact";
+    const isAgentToolsPath = useAgentPath && agentMode === "tools";
 
-    const agentTurnContext = buildAgentTurnContext({
-      message: sanitizedMessage,
-      todayISO,
-      todayFormatted,
-      program: selectedProgram,
-      programLabel,
-      primaryGroup,
-      secondaryGroup,
-      effectiveSessions,
-      contextSessionIds,
-      topicRoute,
-      activityMatches: activityMatches,
-      queryScope,
-      contextIntent,
-      useIntentFilter,
-      primaryActivities,
-      sessionListContext,
-      comparisonContext,
-      includeSecondary,
-    });
-
-    const buildLegacyContextSystemPrompt = () =>
-      useResearchOnly
-        ? buildResearchSystemPrompt(todayFormatted) +
-          (dataContextFull ? `\n\n${dataContextFull}` : "")
-        : buildChatAssistantSystemPrompt({
-            programLabel,
-            primaryGroup,
-            secondaryGroup,
-            todayFormatted,
-            sessionListContext,
-            primaryContext,
-            secondaryContext: includeSecondary ? secondaryContext : "",
-            dataContext: dataContextFull,
-            topics: topicRoute.topics,
-            selectedSessionCount: effectiveSessions.length,
-            forceTableOutput: wantsTableOutput,
-            multipleSessionsSelected,
-            uitmSupplement: includeUitmSupplement ? UITM_GENERAL_INFO : "",
-            includeSecondaryContext: includeSecondary,
-            maxPrimaryChars,
-          });
-
-    let systemPrompt = "";
-    let legacyFallbackSystemPrompt = "";
-    if (!useAgentPath || agentMode !== "tools") {
-      if (useAgentPath && agentMode === "compact") {
-        systemPrompt = await buildCompactFallbackSystemPrompt({
-          ctx: agentTurnContext,
-          sessionListContext,
-          secondaryContext,
-          comparisonContext,
-          includeSecondary,
-          includeUitmSupplement,
-          uitmSupplement: UITM_GENERAL_INFO,
-          wantsTableOutput,
-          multipleSessionsSelected,
-          contextIntent,
-          useIntentFilter,
-        });
-      } else {
-        systemPrompt = buildLegacyContextSystemPrompt();
-      }
-    } else {
-      legacyFallbackSystemPrompt = buildLegacyContextSystemPrompt();
-    }
+    const multipleSessionsSelected = effectiveSessions.length > 1;
+    const wantsTableOutput =
+      (multipleSessionsSelected && isComparisonQuestion(sanitizedMessage)) ||
+      isTableFormatRequested(sanitizedMessage);
 
     const cacheKey = [
       useAgentPath ? `agent:${agentMode}` : "legacy",
@@ -420,7 +293,167 @@ export async function POST(request: NextRequest) {
       return withVerifiedCookie(jsonChatReply(cachedReply, correlationId, "cache"));
     }
 
-    const aiBinding = await getAiBinding();
+    const aiBindingPromise = getAiBinding();
+    const origin = new URL(request.url).origin;
+
+    const useCalendarPrompt = topicNeedsCalendarPrompt(topicRoute.topics);
+    const isSimple = isSimpleCalendarQuestion(sanitizedMessage, { hasMatchedActivity });
+    const asksDetail = messageAsksDetail(sanitizedMessage);
+    const needsList = messageNeedsListOrSchedule(sanitizedMessage);
+    const includeSecondary =
+      useCalendarPrompt && needsSecondaryGroupContext(sanitizedMessage, primaryGroup);
+    const includeUitmSupplement =
+      topicRoute.topics.includes("uitm_general") ||
+      needsUitmKnowledgeSupplement(sanitizedMessage);
+    const maxPrimaryChars = MAX_PRIMARY_CONTEXT_CHARS;
+    const useResearchOnly =
+      usesResearchStylePrompt(topicRoute.topics) && !useCalendarPrompt;
+
+    let dataContextFull = "";
+    let publicHolidayDirective = "";
+    let primaryContext = "";
+    let secondaryContext = "";
+    let sessionListContext = "";
+    let comparisonContext = multipleSessionsSelected
+      ? buildComparisonContext(effectiveSessions, selectedProgram, primaryGroup)
+      : "";
+    let systemPrompt = "";
+
+    if (isAgentToolsPath) {
+      sessionListContext = buildSessionListContext(primaryGroup, effectiveSessions);
+
+      if (topicRoute.topics.includes("public_holiday")) {
+        const phCtx = await buildPublicHolidayChatContext(
+          sanitizedMessage,
+          todayISO,
+          { sessionIds: contextSessionIds }
+        );
+        publicHolidayDirective = phCtx.directive;
+      }
+    } else {
+      const secondaryActivitiesRaw =
+        primaryGroup === "A"
+          ? getFilteredGroupBActivities(selectedProgram, [getDefaultSessionForGroup("B")])
+          : getActivitiesForSession(getDefaultSessionForGroup("A"));
+      const secondaryActivities = narrowActivitiesForSecondaryReference(secondaryActivitiesRaw);
+
+      primaryContext = formatPrimaryCalendarContext(
+        contextSessionIds,
+        selectedProgram,
+        primaryGroup,
+        contextIntent,
+        { useIntentFilter }
+      );
+      secondaryContext = formatActivitiesAsContext(secondaryActivities);
+      sessionListContext = buildSessionListContext(primaryGroup, effectiveSessions);
+
+      const [dataCtx] = await Promise.all([
+        buildDataContextForTurn({
+          message: sanitizedMessage,
+          todayISO,
+          route: topicRoute,
+          contextSessionIds,
+          primaryGroup,
+          program: selectedProgram,
+          queryScope,
+          effectiveSessions,
+          primaryActivities,
+          contextIntent,
+          useIntentFilter,
+        }),
+        getSystemRules(origin),
+      ]);
+
+      publicHolidayDirective = dataCtx.publicHolidayDirective;
+      dataContextFull = dataCtx.dataContext;
+      if (comparisonContext) {
+        dataContextFull = dataContextFull
+          ? `${dataContextFull}\n\n=== SESSION COMPARISON ===\n${comparisonContext}`
+          : comparisonContext;
+      }
+
+      const buildLegacyContextSystemPrompt = () =>
+        useResearchOnly
+          ? buildResearchSystemPrompt(todayFormatted) +
+            (dataContextFull ? `\n\n${dataContextFull}` : "")
+          : buildChatAssistantSystemPrompt({
+              programLabel,
+              primaryGroup,
+              secondaryGroup,
+              todayFormatted,
+              sessionListContext,
+              primaryContext,
+              secondaryContext: includeSecondary ? secondaryContext : "",
+              dataContext: dataContextFull,
+              topics: topicRoute.topics,
+              selectedSessionCount: effectiveSessions.length,
+              forceTableOutput: wantsTableOutput,
+              multipleSessionsSelected,
+              uitmSupplement: includeUitmSupplement ? UITM_GENERAL_INFO : "",
+              includeSecondaryContext: includeSecondary,
+              maxPrimaryChars,
+            });
+
+      if (useAgentPath && agentMode === "compact") {
+        systemPrompt = await buildCompactFallbackSystemPrompt({
+          ctx: buildAgentTurnContext({
+            message: sanitizedMessage,
+            todayISO,
+            todayFormatted,
+            program: selectedProgram,
+            programLabel,
+            primaryGroup,
+            secondaryGroup,
+            effectiveSessions,
+            contextSessionIds,
+            topicRoute,
+            activityMatches,
+            queryScope,
+            contextIntent,
+            useIntentFilter,
+            primaryActivities,
+            sessionListContext,
+            comparisonContext,
+            includeSecondary,
+          }),
+          sessionListContext,
+          secondaryContext,
+          comparisonContext,
+          includeSecondary,
+          includeUitmSupplement,
+          uitmSupplement: UITM_GENERAL_INFO,
+          wantsTableOutput,
+          multipleSessionsSelected,
+          contextIntent,
+          useIntentFilter,
+        });
+      } else {
+        systemPrompt = buildLegacyContextSystemPrompt();
+      }
+    }
+
+    const agentTurnContext = buildAgentTurnContext({
+      message: sanitizedMessage,
+      todayISO,
+      todayFormatted,
+      program: selectedProgram,
+      programLabel,
+      primaryGroup,
+      secondaryGroup,
+      effectiveSessions,
+      contextSessionIds,
+      topicRoute,
+      activityMatches,
+      queryScope,
+      contextIntent,
+      useIntentFilter,
+      primaryActivities,
+      sessionListContext,
+      comparisonContext,
+      includeSecondary,
+    });
+
+    const aiBinding = await aiBindingPromise;
     if (!aiBinding) {
       const noAi = mapChatError(
         Object.assign(new Error("Workers AI binding not available"), { status: 503 })
@@ -450,8 +483,74 @@ export async function POST(request: NextRequest) {
       languageDirective;
 
     const systemPromptWithCompletion = systemPrompt + completionSuffix;
-    const legacyFallbackPromptWithCompletion =
-      legacyFallbackSystemPrompt + completionSuffix;
+
+    let cachedLegacyFallbackBase: string | null = null;
+    const getLegacyFallbackPromptWithCompletion = async (
+      extraSuffix = ""
+    ): Promise<string> => {
+      if (!isAgentToolsPath) return "";
+      if (!cachedLegacyFallbackBase) {
+        await getSystemRules(origin);
+        const secondaryActivitiesRaw =
+          primaryGroup === "A"
+            ? getFilteredGroupBActivities(selectedProgram, [getDefaultSessionForGroup("B")])
+            : getActivitiesForSession(getDefaultSessionForGroup("A"));
+        const secondaryActivities =
+          narrowActivitiesForSecondaryReference(secondaryActivitiesRaw);
+        const fallbackPrimaryContext = formatPrimaryCalendarContext(
+          contextSessionIds,
+          selectedProgram,
+          primaryGroup,
+          contextIntent,
+          { useIntentFilter }
+        );
+        const fallbackSecondaryContext = formatActivitiesAsContext(secondaryActivities);
+        const fallbackSessionListContext = buildSessionListContext(
+          primaryGroup,
+          effectiveSessions
+        );
+        const { dataContext } = await buildDataContextForTurn({
+          message: sanitizedMessage,
+          todayISO,
+          route: topicRoute,
+          contextSessionIds,
+          primaryGroup,
+          program: selectedProgram,
+          queryScope,
+          effectiveSessions,
+          primaryActivities,
+          contextIntent,
+          useIntentFilter,
+        });
+        let fallbackDataContextFull = dataContext;
+        if (comparisonContext) {
+          fallbackDataContextFull = fallbackDataContextFull
+            ? `${fallbackDataContextFull}\n\n=== SESSION COMPARISON ===\n${comparisonContext}`
+            : comparisonContext;
+        }
+        cachedLegacyFallbackBase = useResearchOnly
+          ? buildResearchSystemPrompt(todayFormatted) +
+            (fallbackDataContextFull ? `\n\n${fallbackDataContextFull}` : "")
+          : buildChatAssistantSystemPrompt({
+              programLabel,
+              primaryGroup,
+              secondaryGroup,
+              todayFormatted,
+              sessionListContext: fallbackSessionListContext,
+              primaryContext: fallbackPrimaryContext,
+              secondaryContext: includeSecondary ? fallbackSecondaryContext : "",
+              dataContext: fallbackDataContextFull,
+              topics: topicRoute.topics,
+              selectedSessionCount: effectiveSessions.length,
+              forceTableOutput: wantsTableOutput,
+              multipleSessionsSelected,
+              uitmSupplement: includeUitmSupplement ? UITM_GENERAL_INFO : "",
+              includeSecondaryContext: includeSecondary,
+              maxPrimaryChars,
+            });
+      }
+      return cachedLegacyFallbackBase + completionSuffix + extraSuffix;
+    };
 
     const validationActivityPool = !useResearchOnly
       ? getActivitiesFromSessions(loadSessions, selectedProgram, primaryGroup)
@@ -459,7 +558,7 @@ export async function POST(request: NextRequest) {
     const allowedDates = !useResearchOnly
       ? collectAllowedDateTokens(validationActivityPool)
       : new Set<string>();
-    if (!useResearchOnly) {
+    if (!useResearchOnly && !isAgentToolsPath) {
       addDatesFromContextText(allowedDates, dataContextFull);
       addDatesFromContextText(allowedDates, primaryContext);
     }
@@ -491,9 +590,11 @@ export async function POST(request: NextRequest) {
       agentReply: string,
       toolsUsed: string[],
       onToken: (token: string) => void | Promise<void>,
-      legacyPrompt: string
+      extraSuffix = ""
     ): Promise<string> => {
-      if (!legacyPrompt.trim() || agentReply.trim()) return agentReply;
+      if (agentReply.trim()) return agentReply;
+      const legacyPrompt = await getLegacyFallbackPromptWithCompletion(extraSuffix);
+      if (!legacyPrompt.trim()) return agentReply;
       logger.warn("Chat agent empty reply, using legacy context fallback", {
         correlationId,
         toolsUsed,
@@ -526,8 +627,7 @@ export async function POST(request: NextRequest) {
         rawReply = await resolveAgentReplyWithFallback(
           agentResult.reply,
           agentResult.toolsUsed,
-          onToken,
-          legacyFallbackPromptWithCompletion
+          onToken
         );
       } else if (wantStream) {
         rawReply = await streamAiWithRetry(
@@ -569,7 +669,7 @@ export async function POST(request: NextRequest) {
             agentRetry.reply,
             agentRetry.toolsUsed,
             onToken,
-            legacyFallbackPromptWithCompletion + DATE_VALIDATION_RETRY_NUDGE
+            DATE_VALIDATION_RETRY_NUDGE
           );
         } else if (wantStream) {
           rawReply = await streamAiWithRetry(
@@ -614,7 +714,7 @@ export async function POST(request: NextRequest) {
             agentCompletion.reply,
             agentCompletion.toolsUsed,
             onToken,
-            legacyFallbackPromptWithCompletion + REPLY_COMPLETION_RETRY_NUDGE
+            REPLY_COMPLETION_RETRY_NUDGE
           );
         } else if (wantStream) {
           retryReply = await streamAiWithRetry(

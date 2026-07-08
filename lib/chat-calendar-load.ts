@@ -17,7 +17,21 @@ const FALLBACK_META: MetaResponse = {
   programOptions: [],
 };
 
+function metaSignature(meta: MetaResponse): string {
+  return JSON.stringify({
+    defaultSession: meta.defaultSession,
+    sessionOptions: meta.sessionOptions.map((s) => s.id),
+    programOptions: meta.programOptions.map((p) => p.value),
+  });
+}
+
 export async function loadMetaIntoStore(): Promise<MetaResponse> {
+  const prevSignature = metaSignature({
+    defaultSession: getSnapshot().defaultSession,
+    sessionOptions: getSnapshot().sessionOptions,
+    programOptions: getSnapshot().programOptions,
+  });
+
   let meta: MetaResponse;
   try {
     meta = await fetchMetaCached({ entire: true });
@@ -28,7 +42,9 @@ export async function loadMetaIntoStore(): Promise<MetaResponse> {
     setMeta(meta);
   }
 
-  resetSessionActivitiesCache();
+  if (metaSignature(meta) !== prevSignature) {
+    resetSessionActivitiesCache();
+  }
   return meta;
 }
 
