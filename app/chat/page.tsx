@@ -215,12 +215,14 @@ export default function ChatPage() {
     setSuggestions(getRandomSuggestions(suggestionGroup, []));
   }, [suggestionGroup]);
   const [loadingPhrase, setLoadingPhrase] = useState("");
+  const [streamStatusPhrase, setStreamStatusPhrase] = useState("");
   const [shimmerCapExpired, setShimmerCapExpired] = useState(false);
   const shimmerCapExpiredRef = useRef(false);
   const shimmerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const startLoadingState = useCallback(() => {
     setLoadingPhrase(getRandomLoadingPhrase());
+    setStreamStatusPhrase("Thinking…");
   }, []);
 
   const startShimmerCapTimer = useCallback(() => {
@@ -377,6 +379,24 @@ export default function ChatPage() {
 
     return isLoading && !hasStreamingContent && !shimmerCapExpired;
   }, [isLoading, messages, shimmerCapExpired]);
+
+  useEffect(() => {
+    if (!isLoading) {
+      setStreamStatusPhrase("");
+    }
+  }, [isLoading]);
+
+  useEffect(() => {
+    const hasStreamingContent = messages.some(
+      (m) =>
+        m.role === "assistant" &&
+        m.isComplete === false &&
+        m.content.trim().length > 0
+    );
+    if (hasStreamingContent) {
+      setStreamStatusPhrase("");
+    }
+  }, [messages]);
 
   useEffect(() => {
     if (!showLoadingMarker) {
@@ -592,9 +612,12 @@ export default function ChatPage() {
                   }
                 },
                 onStatus: (payload) => {
-                  if (shimmerCapExpiredRef.current) return;
                   const phrase = payload.message || payload.phase;
-                  if (phrase) setLoadingPhrase(phrase);
+                  if (!phrase) return;
+                  if (!shimmerCapExpiredRef.current) {
+                    setLoadingPhrase(phrase);
+                  }
+                  setStreamStatusPhrase(phrase);
                 },
               },
               { signal: controller.signal }
@@ -973,6 +996,7 @@ export default function ChatPage() {
             isLoading={isLoading}
             showLoadingMarker={showLoadingMarker}
             shimmerCapExpired={shimmerCapExpired}
+            streamStatusPhrase={streamStatusPhrase}
             loadingPhrase={loadingPhrase}
             lastUserMsgId={lastUserMsgId}
             copiedId={copiedId}
