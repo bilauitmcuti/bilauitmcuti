@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   consumeChatStream,
+  createMarkdownStreamPainter,
   encodeSseEvent,
   parseSseBuffer,
 } from "@/lib/chat/sse";
@@ -36,6 +37,30 @@ function streamResponse(chunks: string[]): Response {
     headers: { "Content-Type": "text/event-stream; charset=utf-8" },
   });
 }
+
+describe("createMarkdownStreamPainter", () => {
+  it("flushes on sentence boundaries and leaves a short remainder until flush", () => {
+    const chunks: string[] = [];
+    const painter = createMarkdownStreamPainter((c) => chunks.push(c), {
+      maxChunkChars: 64,
+    });
+    painter.push("Hello there. ");
+    painter.push("More");
+    expect(chunks).toEqual(["Hello there. "]);
+    painter.flush();
+    expect(chunks).toEqual(["Hello there. ", "More"]);
+  });
+
+  it("resets buffered partial without painting it", () => {
+    const chunks: string[] = [];
+    const painter = createMarkdownStreamPainter((c) => chunks.push(c));
+    painter.push("partial junk");
+    painter.reset();
+    painter.push("Clean answer.");
+    painter.flush();
+    expect(chunks.join("")).toBe("Clean answer.");
+  });
+});
 
 describe("consumeChatStream", () => {
   it("emits tokens, status, and done for a complete stream", async () => {
@@ -78,6 +103,34 @@ describe("consumeChatStream", () => {
     });
     expect(error?.status).toBe(502);
     expect(error?.error).toContain("Connection closed");
+  });
+
+  it("clears tokens on reset before continuing", async () => {
+    const res = streamResponse([
+      encodeSseEvent("token", { token: "partial " }),
+      encodeSseEvent("reset", { reason: "incomplete" }),
+      encodeSseEvent("token", { token: "final" }),
+      encodeSseEvent("done", { reply: "final", correlationId: "c1" }),
+    ]);
+    const tokens: string[] = [];
+    let resetCount = 0;
+    let done: { reply: string } | undefined;
+
+    await consumeChatStream(res, {
+      onToken: (t) => tokens.push(t),
+      onReset: () => {
+        resetCount += 1;
+        tokens.length = 0;
+      },
+      onDone: (p) => {
+        done = p;
+      },
+      onError: () => {},
+    });
+
+    expect(resetCount).toBe(1);
+    expect(tokens).toEqual(["final"]);
+    expect(done?.reply).toBe("final");
   });
 
   it("emits a 504 error when the abort signal fires mid-stream", async () => {

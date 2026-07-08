@@ -1,6 +1,9 @@
 import { CHAT_LONG_MESSAGE_THRESHOLD_CHARS } from "@/lib/chat/limits";
 import { CHAT_IN_SCOPE_COMPLETION_HINT } from "@/lib/chat/response-format";
 
+/** Soft cap for "simple date Q" completion style (not a hard block on fast path). */
+const SIMPLE_QUESTION_MAX_CHARS = CHAT_LONG_MESSAGE_THRESHOLD_CHARS * 2; // 640
+
 const PUBLIC_HOLIDAY_KEYWORDS = [
   "public holiday",
   "cuti umum",
@@ -297,7 +300,7 @@ export function isSimpleCalendarQuestion(
   ];
   const hasSimpleHint = simpleHints.some((kw) => lower.includes(kw));
   if (!hasSimpleHint) return false;
-  if (lower.length > 120) return false;
+  if (lower.length > SIMPLE_QUESTION_MAX_CHARS) return false;
   if (messageNeedsListOrSchedule(message)) return false;
   if (messageAsksDetail(message)) return false;
   if (isTableFormatRequested(message)) return false;

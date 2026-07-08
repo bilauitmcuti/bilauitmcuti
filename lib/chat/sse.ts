@@ -32,9 +32,84 @@ export interface ChatStreamTokenPayload {
 }
 
 export interface ChatStreamStatusPayload {
-  /** Server-side phase hint: "searching" | "generating" | etc. */
+  /** Server-side phase hint: "searching" | "generating" | "retry" | etc. */
   phase?: string;
   message?: string;
+}
+
+/** Clears partial assistant content before a server-side regenerate (date/incomplete retry). */
+export interface ChatStreamResetPayload {
+  reason?: string;
+}
+
+/**
+ * Buffers raw model tokens into sentence/paragraph-sized chunks so mid-stream
+ * markdown paints less broken while preserving an early first paint.
+ */
+export function createMarkdownStreamPainter(
+  onFlush: (chunk: string) => void,
+  options?: { maxChunkChars?: number }
+): {
+  push: (token: string) => void;
+  reset: () => void;
+  flush: () => void;
+} {
+  const maxChunkChars = options?.maxChunkChars ?? 64;
+  let buf = "";
+
+  function takeFlushablePrefix(): string | null {
+    if (!buf) return null;
+
+    const paraIdx = buf.indexOf("\n\n");
+    if (paraIdx >= 0) {
+      const end = paraIdx + 2;
+      const chunk = buf.slice(0, end);
+      buf = buf.slice(end);
+      return chunk;
+    }
+
+    const sentenceMatch = buf.match(/^[\s\S]{8,}?[.!?…](?:\s+|$)/);
+    if (sentenceMatch?.[0]) {
+      const chunk = sentenceMatch[0];
+      buf = buf.slice(chunk.length);
+      return chunk;
+    }
+
+    if (buf.length >= maxChunkChars) {
+      const window = buf.slice(0, maxChunkChars);
+      const breakAt = Math.max(
+        window.lastIndexOf("\n"),
+        window.lastIndexOf(" "),
+        window.lastIndexOf("|")
+      );
+      const cut = breakAt >= 12 ? breakAt + 1 : maxChunkChars;
+      const chunk = buf.slice(0, cut);
+      buf = buf.slice(cut);
+      return chunk;
+    }
+
+    return null;
+  }
+
+  return {
+    push(token: string) {
+      if (!token) return;
+      buf += token;
+      let chunk = takeFlushablePrefix();
+      while (chunk) {
+        onFlush(chunk);
+        chunk = takeFlushablePrefix();
+      }
+    },
+    reset() {
+      buf = "";
+    },
+    flush() {
+      if (!buf) return;
+      onFlush(buf);
+      buf = "";
+    },
+  };
 }
 
 /** Parse SSE lines from a chunk buffer (handles partial lines across reads). */
@@ -68,6 +143,8 @@ export interface ChatStreamHandlers {
   onDone: (payload: ChatStreamDonePayload) => void | Promise<void>;
   onError: (payload: ChatStreamErrorPayload) => void;
   onStatus?: (payload: ChatStreamStatusPayload) => void;
+  /** Fired before a server regenerates so the UI can drop partial tokens. */
+  onReset?: (payload: ChatStreamResetPayload) => void;
 }
 
 export async function consumeChatStream(
@@ -124,6 +201,8 @@ export async function consumeChatStream(
     } else if (event === "error") {
       receivedError = true;
       handlers.onError(data as ChatStreamErrorPayload);
+    } else if (event === "reset") {
+      handlers.onReset?.(data as ChatStreamResetPayload);
     } else if (event === "status") {
       handlers.onStatus?.(data as ChatStreamStatusPayload);
     }

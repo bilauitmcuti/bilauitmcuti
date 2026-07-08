@@ -41,6 +41,7 @@ import {
   getChatErrorMessage,
   getRandomLoadingPhrase,
   consumeChatStream,
+  createMarkdownStreamPainter,
   MAX_CHAT_MESSAGE_LENGTH,
   parseChatResponse,
   prepareHistory,
@@ -500,19 +501,31 @@ export default function ChatPage() {
               ];
             });
             let lastErrorStatus: number | undefined;
+            const streamPainter = createMarkdownStreamPainter((chunk) => {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId
+                    ? { ...m, content: m.content + chunk }
+                    : m
+                )
+              );
+            });
             await consumeChatStream(
               res,
               {
                 onToken: (token) => {
+                  streamPainter.push(token);
+                },
+                onReset: () => {
+                  streamPainter.reset();
                   setMessages((prev) =>
                     prev.map((m) =>
-                      m.id === assistantId
-                        ? { ...m, content: m.content + token }
-                        : m
+                      m.id === assistantId ? { ...m, content: "" } : m
                     )
                   );
                 },
                 onDone: (payload) => {
+                  streamPainter.flush();
                   content = payload.reply;
                   chatRequestSucceeded = true;
                   const doneAt = Date.now();
@@ -552,6 +565,7 @@ export default function ChatPage() {
                   turnstileRef.current?.reset();
                 },
                 onError: (payload) => {
+                  streamPainter.flush();
                   content = payload.error;
                   lastErrorStatus = payload.status;
                   if (payload.status === 503 && maxAttempts === 3) {

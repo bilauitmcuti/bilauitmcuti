@@ -118,17 +118,45 @@ export type ChatExecutionMode = "single_stream" | "agent";
 
 export interface ChatExecutionModeInput {
   isAgentToolsPath: boolean;
+  /** Matched activity or simple date Q — one LLM call, no tool loop. */
+  preferSingleStream?: boolean;
 }
 
 /**
- * Production Gemma (`isAgentToolsPath`) always uses the tool agent — including
- * simple / matched questions (matched rows are preloaded inside the agent).
- * Llama compact / legacy stays on single_stream.
+ * Production Gemma (`isAgentToolsPath`) uses the tool agent for uitm_general /
+ * knowledge turns. Calendar-only turns (any length) short-circuit to
+ * single_stream with prebuilt DATA CONTEXT. Llama compact / legacy stays on
+ * single_stream.
  */
 export function resolveChatExecutionMode(
   input: ChatExecutionModeInput
 ): ChatExecutionMode {
-  return input.isAgentToolsPath ? "agent" : "single_stream";
+  if (!input.isAgentToolsPath) return "single_stream";
+  if (input.preferSingleStream) return "single_stream";
+  return "agent";
+}
+
+/**
+ * Prefer one LLM call when the handler can already supply authoritative
+ * calendar context. Message length does not matter — long calendar questions
+ * still short-circuit. Multi-topic calendar stays single_stream; only
+ * uitm_general (knowledge / research tools) keeps the agent loop.
+ */
+export function shouldPreferSingleStream(input: {
+  hasMatchedActivity: boolean;
+  isSimple: boolean;
+  topics: string[];
+}): boolean {
+  if (input.hasMatchedActivity || input.isSimple) return true;
+  const { topics } = input;
+  if (topics.length === 0) return false;
+  if (topics.includes("uitm_general")) return false;
+  return topics.every(
+    (t) =>
+      t === "academic_calendar" ||
+      t === "lecture_weeks" ||
+      t === "public_holiday"
+  );
 }
 
 async function runWithServerDeadline<T>(
@@ -317,9 +345,14 @@ export async function POST(request: NextRequest) {
     const isSimple = isSimpleCalendarQuestion(sanitizedMessage, { hasMatchedActivity });
     const asksDetail = messageAsksDetail(sanitizedMessage);
     const needsList = messageNeedsListOrSchedule(sanitizedMessage);
-    const executionMode = resolveChatExecutionMode({ isAgentToolsPath });
-    // Always-agent on production Gemma (4b1723a-style). Matched/simple turns still
-    // enter the agent; activity matches are preloaded in runChatAgent.
+    const executionMode = resolveChatExecutionMode({
+      isAgentToolsPath,
+      preferSingleStream: shouldPreferSingleStream({
+        hasMatchedActivity,
+        isSimple,
+        topics: topicRoute.topics,
+      }),
+    });
     const useAgentTools = executionMode === "agent";
 
     const cacheKey = [
@@ -650,6 +683,8 @@ export async function POST(request: NextRequest) {
       onProgress?: {
         onToolStep?: (step: number, maxSteps: number) => void | Promise<void>;
         onSynthesis?: () => void | Promise<void>;
+        /** Clear client partial content before a regenerate. */
+        onRetry?: (reason: string) => void | Promise<void>;
       }
     ): Promise<string> => {
       const turnStartMs = Date.now();
@@ -705,6 +740,7 @@ export async function POST(request: NextRequest) {
         allowedDates.size > 0 &&
         replyHasUnknownCalendarDates(rawReply, allowedDates)
       ) {
+        await onProgress?.onRetry?.("dates");
         if (useAgentTools) {
           // Single synthesis retry with full legacy context — avoid re-running the agent loop.
           const legacyPrompt = await getLegacyFallbackPromptWithCompletion(
@@ -731,6 +767,7 @@ export async function POST(request: NextRequest) {
       const cleanedFirst = normalizeAssistantTables(cleanAiReply(rawReply));
       const incomplete = detectIncompleteReply(cleanedFirst, needsList || asksDetail);
       if (incomplete) {
+        await onProgress?.onRetry?.("incomplete");
         const bumpedBudget = {
           ...modelBudget,
           maxTokens: maxOutputTokens,
@@ -811,6 +848,15 @@ export async function POST(request: NextRequest) {
                 })
               );
             };
+            const onRetry = (reason: string) => {
+              enqueue(encodeSseEvent("reset", { reason }));
+              enqueue(
+                encodeSseEvent("status", {
+                  phase: "retry",
+                  message: "Refining your answer…",
+                })
+              );
+            };
             enqueue(
               encodeSseEvent("status", {
                 phase: useAgentTools ? "searching" : "generating",
@@ -819,7 +865,7 @@ export async function POST(request: NextRequest) {
             );
             const reply = await runWithServerDeadline(
               useAgentTools ? CHAT_AGENT_DEADLINE_MS : CHAT_SERVER_DEADLINE_MS,
-              () => runLlm(onToken, { onToolStep, onSynthesis })
+              () => runLlm(onToken, { onToolStep, onSynthesis, onRetry })
             );
             setCachedReply(cacheKey, reply);
             enqueue(
