@@ -51,10 +51,20 @@ describe("createMarkdownStreamPainter", () => {
     expect(chunks).toEqual(["Hello there. ", "More"]);
   });
 
+  it("flushes early on first chunk before sentence boundary", () => {
+    const chunks: string[] = [];
+    const painter = createMarkdownStreamPainter((c) => chunks.push(c), {
+      maxChunkChars: 32,
+      firstFlushChars: 12,
+    });
+    painter.push("Hello world!");
+    expect(chunks).toEqual(["Hello world!"]);
+  });
+
   it("resets buffered partial without painting it", () => {
     const chunks: string[] = [];
     const painter = createMarkdownStreamPainter((c) => chunks.push(c));
-    painter.push("partial junk");
+    painter.push("partial");
     painter.reset();
     painter.push("Clean answer.");
     painter.flush();

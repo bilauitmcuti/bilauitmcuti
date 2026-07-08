@@ -40,6 +40,7 @@ import {
   getActiveMentionMatch,
   getChatErrorMessage,
   getRandomLoadingPhrase,
+  LOADING_SHIMMER_MAX_MS,
   consumeChatStream,
   createMarkdownStreamPainter,
   MAX_CHAT_MESSAGE_LENGTH,
@@ -214,9 +215,30 @@ export default function ChatPage() {
     setSuggestions(getRandomSuggestions(suggestionGroup, []));
   }, [suggestionGroup]);
   const [loadingPhrase, setLoadingPhrase] = useState("");
+  const [shimmerCapExpired, setShimmerCapExpired] = useState(false);
+  const shimmerCapExpiredRef = useRef(false);
+  const shimmerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const startLoadingState = useCallback(() => {
     setLoadingPhrase(getRandomLoadingPhrase());
+  }, []);
+
+  const startShimmerCapTimer = useCallback(() => {
+    if (shimmerTimerRef.current) clearTimeout(shimmerTimerRef.current);
+    setShimmerCapExpired(false);
+    shimmerCapExpiredRef.current = false;
+    shimmerTimerRef.current = setTimeout(() => {
+      setShimmerCapExpired(true);
+      shimmerCapExpiredRef.current = true;
+      shimmerTimerRef.current = null;
+    }, LOADING_SHIMMER_MAX_MS);
+  }, []);
+
+  const clearShimmerCapTimer = useCallback(() => {
+    if (shimmerTimerRef.current) {
+      clearTimeout(shimmerTimerRef.current);
+      shimmerTimerRef.current = null;
+    }
   }, []);
 
   const handleSessionToggle = useCallback(
@@ -353,8 +375,8 @@ export default function ChatPage() {
         m.content.trim().length > 0
     );
 
-    return isLoading && !hasStreamingContent;
-  }, [isLoading, messages]);
+    return isLoading && !hasStreamingContent && !shimmerCapExpired;
+  }, [isLoading, messages, shimmerCapExpired]);
 
   useEffect(() => {
     if (!showLoadingMarker) {
@@ -364,7 +386,7 @@ export default function ChatPage() {
     setLoadingPhrase(getRandomLoadingPhrase());
     const interval = setInterval(() => {
       setLoadingPhrase((prev) => getRandomLoadingPhrase(prev));
-    }, 3000);
+    }, 1500);
     return () => clearInterval(interval);
   }, [showLoadingMarker]);
 
@@ -400,6 +422,7 @@ export default function ChatPage() {
     }
 
     const now = Date.now();
+    const assistantId = (now + 1).toString();
     const userMessage: Message = {
       id: now.toString(),
       role: "user",
@@ -407,27 +430,38 @@ export default function ChatPage() {
       timestamp: now,
     };
 
-    const updatedMessages = [...messages, userMessage];
-    setMessages(updatedMessages);
+    const assistantPlaceholder: Message = {
+      id: assistantId,
+      role: "assistant",
+      content: "",
+      isComplete: false,
+      timestamp: now,
+    };
+
+    setMessages([...messages, userMessage, assistantPlaceholder]);
     setInput("");
     setIsLoading(true);
     startLoadingState();
+    startShimmerCapTimer();
     recordEngagementAction("chat_send");
     let didAttemptFetch = false;
 
     try {
       if (typeof navigator !== "undefined" && !navigator.onLine) {
         const offlineNow = Date.now();
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: (offlineNow + 1).toString(),
-            role: "assistant",
-            content:
-              "Tiada sambungan internet. Semak rangkaian anda dan cuba lagi. / No internet connection. Check your network and try again.",
-            timestamp: offlineNow,
-          },
-        ]);
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? {
+                  ...m,
+                  content:
+                    "Tiada sambungan internet. Semak rangkaian anda dan cuba lagi. / No internet connection. Check your network and try again.",
+                  timestamp: offlineNow,
+                  isComplete: true,
+                }
+              : m
+          )
+        );
         return;
       }
 
@@ -444,11 +478,8 @@ export default function ChatPage() {
         turnstileToken: trimmedToken ? trimmedToken : undefined,
       });
       let content: string | null = null;
-      let correlationId: string | undefined;
       let maxAttempts = 3;
       let chatRequestSucceeded = false;
-      let usedStreamPlaceholder = false;
-      const assistantId = (now + 1).toString();
       const isRetryableStatus = (s: number) =>
         s === 429 || s === 500 || s === 502 || s === 503 || s === 504;
 
@@ -485,31 +516,19 @@ export default function ChatPage() {
             clearTimeout(timeoutId);
             timeoutId = setTimeout(() => controller.abort(), FETCH_STREAM_TIMEOUT_MS);
 
-            usedStreamPlaceholder = true;
-
-            setMessages((prev) => {
-              if (prev.some((m) => m.id === assistantId)) return prev;
-              return [
-                ...prev,
-                {
-                  id: assistantId,
-                  role: "assistant",
-                  content: "",
-                  isComplete: false,
-                  timestamp: Date.now(),
-                },
-              ];
-            });
             let lastErrorStatus: number | undefined;
-            const streamPainter = createMarkdownStreamPainter((chunk) => {
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantId
-                    ? { ...m, content: m.content + chunk }
-                    : m
-                )
-              );
-            });
+            const streamPainter = createMarkdownStreamPainter(
+              (chunk) => {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? { ...m, content: m.content + chunk }
+                      : m
+                  )
+                );
+              },
+              { maxChunkChars: 32, firstFlushChars: 12 }
+            );
             await consumeChatStream(
               res,
               {
@@ -573,6 +592,7 @@ export default function ChatPage() {
                   }
                 },
                 onStatus: (payload) => {
+                  if (shimmerCapExpiredRef.current) return;
                   const phrase = payload.message || payload.phase;
                   if (phrase) setLoadingPhrase(phrase);
                 },
@@ -588,8 +608,13 @@ export default function ChatPage() {
               isRetryableStatus(lastErrorStatus) &&
               attempt < maxAttempts - 1
             ) {
-              setMessages((prev) => prev.filter((m) => m.id !== assistantId));
-              usedStreamPlaceholder = false;
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId
+                    ? { ...m, content: "", isComplete: false }
+                    : m
+                )
+              );
               await new Promise((r) =>
                 setTimeout(
                   r,
@@ -620,9 +645,24 @@ export default function ChatPage() {
               continue;
             }
           } else {
-            content = data.reply || "Sorry, I could not get a response.";
-            correlationId = data.correlationId;
+            const replyText = data.reply || "Sorry, I could not get a response.";
+            content = replyText;
             chatRequestSucceeded = true;
+            const doneAt = Date.now();
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? {
+                      ...m,
+                      content: replyText,
+                      correlationId: data.correlationId,
+                      userPrompt: trimmed,
+                      isComplete: true,
+                      timestamp: doneAt,
+                    }
+                  : m
+              )
+            );
             setIsTurnstileSessionVerified(true);
             setTurnstileToken("");
             turnstileRef.current?.reset();
@@ -675,21 +715,6 @@ export default function ChatPage() {
             },
           ];
         });
-      } else if (!usedStreamPlaceholder) {
-        const assistantNow = Date.now();
-        const assistantMessage: Message = {
-          id: assistantId,
-          role: "assistant",
-          content: content || "Sorry, I could not get a response.",
-          timestamp: assistantNow,
-          userPrompt: trimmed,
-          correlationId,
-          isComplete: true,
-        };
-        setMessages((prev) => {
-          if (prev.some((m) => m.id === assistantId)) return prev;
-          return [...prev, assistantMessage];
-        });
       }
 
       if (chatRequestSucceeded) {
@@ -708,9 +733,11 @@ export default function ChatPage() {
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
+      clearShimmerCapTimer();
       setIsLoading(false);
     }
   }, [
+    clearShimmerCapTimer,
     isLoading,
     isTurnstileSessionVerified,
     messages,
@@ -719,6 +746,7 @@ export default function ChatPage() {
     selectedProgram,
     selectedSessions,
     startLoadingState,
+    startShimmerCapTimer,
     turnstileToken,
     waitForTurnstileConfig,
   ]);
@@ -944,6 +972,7 @@ export default function ChatPage() {
             messages={messages}
             isLoading={isLoading}
             showLoadingMarker={showLoadingMarker}
+            shimmerCapExpired={shimmerCapExpired}
             loadingPhrase={loadingPhrase}
             lastUserMsgId={lastUserMsgId}
             copiedId={copiedId}
