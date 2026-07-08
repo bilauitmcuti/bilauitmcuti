@@ -22,6 +22,7 @@ interface ChatTranscriptProps {
   isLoading: boolean;
   showLoadingMarker: boolean;
   shimmerCapExpired: boolean;
+  streamStatusPhrase: string;
   loadingPhrase: string;
   lastUserMsgId: string | null;
   copiedId: string | null;
@@ -43,6 +44,7 @@ export function ChatTranscript({
   isLoading,
   showLoadingMarker,
   shimmerCapExpired,
+  streamStatusPhrase,
   loadingPhrase,
   lastUserMsgId,
   copiedId,
@@ -92,6 +94,7 @@ export function ChatTranscript({
                   msg.isComplete === false &&
                   !msg.content.trim()
                 }
+                streamStatusPhrase={streamStatusPhrase}
                 copiedId={copiedId}
                 reaction={reactions[msg.id]}
                 onCopy={onCopy}

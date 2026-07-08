@@ -26,6 +26,7 @@ interface ChatMessageRowProps {
   scrollAnchor: boolean;
   isLastUserMessage: boolean;
   showStreamingShell: boolean;
+  streamStatusPhrase: string;
   copiedId: string | null;
   reaction: "up" | "down" | null | undefined;
   onCopy: (msgId: string, content: string) => void;
@@ -39,6 +40,7 @@ export function ChatMessageRow({
   scrollAnchor,
   isLastUserMessage,
   showStreamingShell,
+  streamStatusPhrase,
   copiedId,
   reaction,
   onCopy,
@@ -60,6 +62,9 @@ export function ChatMessageRow({
             <Bubble variant="ghost">
               <BubbleContent className="px-1 py-1">
                 <p className="text-sm leading-relaxed text-muted-foreground">
+                  {streamStatusPhrase ? (
+                    <span>{streamStatusPhrase}</span>
+                  ) : null}
                   <span className="inline-block h-4 w-0.5 animate-pulse bg-muted-foreground align-middle" />
                 </p>
               </BubbleContent>
