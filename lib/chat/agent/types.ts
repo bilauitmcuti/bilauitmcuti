@@ -55,6 +55,7 @@ export interface AgentRunResult {
 }
 
 export const MAX_TOOL_OUTPUT_CHARS = 3_000;
+/** Default agent tool-step ceiling (production Gemma, matching 4b1723a). */
 export const MAX_AGENT_TOOL_STEPS = 5;
 
 export function truncateToolOutput(text: string, max = MAX_TOOL_OUTPUT_CHARS): string {

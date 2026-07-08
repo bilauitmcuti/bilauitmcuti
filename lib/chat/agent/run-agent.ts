@@ -41,6 +41,8 @@ export interface RunChatAgentOptions {
   extraSystemDirectives?: string;
   onToken?: (token: string) => void | Promise<void>;
   emitTokensToClient?: boolean;
+  onToolStep?: (step: number, maxSteps: number) => void | Promise<void>;
+  onSynthesis?: () => void | Promise<void>;
 }
 
 export async function runChatAgent(options: RunChatAgentOptions): Promise<AgentRunResult> {
@@ -88,6 +90,8 @@ export async function runChatAgent(options: RunChatAgentOptions): Promise<AgentR
     maxToolSteps: MAX_AGENT_TOOL_STEPS,
     onToken: options.onToken,
     emitTokensToClient: options.emitTokensToClient,
+    onToolStep: options.onToolStep,
+    onSynthesis: options.onSynthesis,
     executeTool: async (name, args) => {
       const toolName = name as ChatToolName;
       if (!availableTools.includes(toolName)) {

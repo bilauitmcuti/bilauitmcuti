@@ -34,6 +34,8 @@ import { useDesktopViewport } from "@/lib/use-mobile-viewport";
 import {
   CHAT_TURNSTILE_COOKIE,
   FETCH_TIMEOUT_MS,
+  FETCH_HEADERS_TIMEOUT_MS,
+  FETCH_STREAM_TIMEOUT_MS,
   RETRY_DELAYS_MS,
   escapeRegExp,
   getActiveMentionMatch,
@@ -468,7 +470,7 @@ export default function ChatPage() {
 
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+        let timeoutId = setTimeout(() => controller.abort(), FETCH_HEADERS_TIMEOUT_MS);
         try {
           const res = await fetch("/chat/api", {
             method: "POST",
@@ -477,15 +479,27 @@ export default function ChatPage() {
             signal: controller.signal,
             credentials: "include",
           });
-          clearTimeout(timeoutId);
 
           const responseType = res.headers.get("content-type") ?? "";
 
           if (responseType.includes("text/event-stream")) {
             if (!res.ok) {
+              clearTimeout(timeoutId);
               content = getChatErrorMessage(res, "Something went wrong. Please try again.");
+              if (isRetryableStatus(res.status) && attempt < maxAttempts - 1) {
+                await new Promise((r) =>
+                  setTimeout(
+                    r,
+                    RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)]
+                  )
+                );
+                continue;
+              }
               break;
             }
+
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => controller.abort(), FETCH_STREAM_TIMEOUT_MS);
 
             usedStreamPlaceholder = true;
 
@@ -502,64 +516,95 @@ export default function ChatPage() {
                 },
               ];
             });
-            await consumeChatStream(res, {
-              onToken: (token) => {
-                setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === assistantId
-                      ? { ...m, content: m.content + token }
-                      : m
-                  )
-                );
-              },
-              onDone: (payload) => {
-                content = payload.reply;
-                chatRequestSucceeded = true;
-                const doneAt = Date.now();
-                const replyText = payload.reply ?? "";
+            let lastErrorStatus: number | undefined;
+            await consumeChatStream(
+              res,
+              {
+                onToken: (token) => {
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === assistantId
+                        ? { ...m, content: m.content + token }
+                        : m
+                    )
+                  );
+                },
+                onDone: (payload) => {
+                  content = payload.reply;
+                  chatRequestSucceeded = true;
+                  const doneAt = Date.now();
+                  const replyText = payload.reply ?? "";
 
-                setMessages((prev) => {
-                  const hasMsg = prev.some((m) => m.id === assistantId);
-                  if (!hasMsg) {
-                    return [
-                      ...prev,
-                      {
-                        id: assistantId,
-                        role: "assistant",
-                        content: replyText,
-                        correlationId: payload.correlationId,
-                        userPrompt: trimmed,
-                        isComplete: true,
-                        timestamp: doneAt,
-                      },
-                    ];
-                  }
-                  return prev.map((m) =>
-                    m.id === assistantId
-                      ? {
-                          ...m,
+                  setMessages((prev) => {
+                    const hasMsg = prev.some((m) => m.id === assistantId);
+                    if (!hasMsg) {
+                      return [
+                        ...prev,
+                        {
+                          id: assistantId,
+                          role: "assistant",
                           content: replyText,
                           correlationId: payload.correlationId,
                           userPrompt: trimmed,
                           isComplete: true,
                           timestamp: doneAt,
-                        }
-                      : m
-                  );
-                });
-                setIsTurnstileSessionVerified(true);
-                setTurnstileToken("");
-                turnstileRef.current?.reset();
+                        },
+                      ];
+                    }
+                    return prev.map((m) =>
+                      m.id === assistantId
+                        ? {
+                            ...m,
+                            content: replyText,
+                            correlationId: payload.correlationId,
+                            userPrompt: trimmed,
+                            isComplete: true,
+                            timestamp: doneAt,
+                          }
+                        : m
+                    );
+                  });
+                  setIsTurnstileSessionVerified(true);
+                  setTurnstileToken("");
+                  turnstileRef.current?.reset();
+                },
+                onError: (payload) => {
+                  content = payload.error;
+                  lastErrorStatus = payload.status;
+                  if (payload.status === 503 && maxAttempts === 3) {
+                    maxAttempts = 4;
+                  }
+                },
+                onStatus: (payload) => {
+                  const phrase = payload.message || payload.phase;
+                  if (phrase) setLoadingPhrase(phrase);
+                },
               },
-              onError: (payload) => {
-                content = payload.error;
-                if (payload.status === 503 && maxAttempts === 3) {
-                  maxAttempts = 4;
-                }
-              },
-            });
+              { signal: controller.signal }
+            );
+            clearTimeout(timeoutId);
+
+            if (chatRequestSucceeded) break;
+
+            if (
+              lastErrorStatus &&
+              isRetryableStatus(lastErrorStatus) &&
+              attempt < maxAttempts - 1
+            ) {
+              setMessages((prev) => prev.filter((m) => m.id !== assistantId));
+              usedStreamPlaceholder = false;
+              await new Promise((r) =>
+                setTimeout(
+                  r,
+                  RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)]
+                )
+              );
+              continue;
+            }
             break;
           }
+
+          clearTimeout(timeoutId);
 
           const data = await parseChatResponse(res);
 
