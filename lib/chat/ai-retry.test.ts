@@ -45,4 +45,26 @@ describe("getModelResponseBudget", () => {
     const budget = getModelResponseBudget("What faculties are at UiTM?", false, false, ceiling);
     expect(budget.maxTokens).toBe(3072);
   });
+
+  it("bounds matched-activity answers for fast, consistent replies", () => {
+    const budget = getModelResponseBudget(
+      "When is Fee Deferment?",
+      true,
+      false,
+      ceiling,
+      { hasMatchedActivity: true }
+    );
+    expect(budget.maxTokens).toBe(2048);
+    expect(budget.temperature).toBe(0.1);
+  });
+
+  it("bounds normal calendar answers (non-simple, non-list, non-table)", () => {
+    const budget = getModelResponseBudget(
+      "Ceritakan tentang cuti semester ini",
+      true,
+      false,
+      ceiling
+    );
+    expect(budget.maxTokens).toBe(2048);
+  });
 });

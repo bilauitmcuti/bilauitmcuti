@@ -13,8 +13,7 @@ import {
   getGroupFromSession,
 } from "@/lib/data";
 import type { SessionId } from "@/lib/data";
-import { getFiltersFromCookie } from "@/lib/cookie-utils";
-import { getRoutePath, isProgramValue, type ProgramValue } from "@/lib/route-utils";
+import { getRoutePath, type ProgramValue } from "@/lib/route-utils";
 import {
   areSessionListsEqual,
   getGroupFromProgram,
@@ -34,6 +33,8 @@ import { useDesktopViewport } from "@/lib/use-mobile-viewport";
 import {
   CHAT_TURNSTILE_COOKIE,
   FETCH_TIMEOUT_MS,
+  FETCH_HEADERS_TIMEOUT_MS,
+  FETCH_STREAM_TIMEOUT_MS,
   RETRY_DELAYS_MS,
   escapeRegExp,
   getActiveMentionMatch,
@@ -48,7 +49,9 @@ import {
 } from "@/components/chat/chat-utils";
 import {
   getInitialChatSessions,
-  mergeSessionMapsFromHomepage,
+  isChatSelectionInSyncWithHomepage,
+  persistChatProgramSessions,
+  resolveHomepageChatHydration,
   resolveSessionsForProgram,
   type ProgramSessionMap,
 } from "@/lib/chat/session-state";
@@ -89,6 +92,16 @@ export default function ChatPage() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
   const keepDropdownOpenRef = useRef(false);
+  const selectionRef = useRef({
+    program: selectedProgram,
+    sessionsByProgram,
+    selectedSessions,
+  });
+  selectionRef.current = {
+    program: selectedProgram,
+    sessionsByProgram,
+    selectedSessions,
+  };
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [headerVisible, setHeaderVisible] = useState(true);
@@ -124,52 +137,33 @@ export default function ChatPage() {
   }, []);
 
   const hydrateChatFromHomepageSources = useCallback(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const filters = getFiltersFromCookie();
-      const raw =
-        localStorage.getItem("sessionIdsByProgram") ??
-        localStorage.getItem("chatSessionIdsByProgram");
-      const parsed = raw
-        ? (JSON.parse(raw) as Partial<Record<ProgramValue, SessionId[]>>)
-        : null;
-
-      const merged = mergeSessionMapsFromHomepage(parsed, filters);
-      const dateStr = new Date().toISOString().slice(0, 10);
-      const mergedMap: ProgramSessionMap = {
-        All: getInitialChatSessions("All"),
-        ...merged,
-      };
-
-      const storedProgram = localStorage.getItem("selectedProgram");
-      const nextProgram: ProgramValue =
-        filters.selectedProgram && isProgramValue(filters.selectedProgram)
-          ? filters.selectedProgram
-          : storedProgram && isProgramValue(storedProgram)
-            ? storedProgram
-            : "All";
-
-      const resolvedSessions = resolveSessionsForProgram(
-        nextProgram,
-        [],
-        mergedMap,
-        dateStr
-      );
-      setSessionsByProgram(mergedMap);
-      setSelectedProgram(nextProgram);
-      setSelectedSessions(resolvedSessions);
-    } catch {
-      // Ignore parse errors and continue with defaults.
-    }
+    const hydration = resolveHomepageChatHydration();
+    if (!hydration) return;
+    setSessionsByProgram(hydration.sessionsByProgram);
+    setSelectedProgram(hydration.program);
+    setSelectedSessions(hydration.selectedSessions);
   }, []);
 
-  useEffect(() => {
+  const [selectionReady, setSelectionReady] = useState(false);
+
+  // Hydrate before paint; gate persist until the next render so defaults never wipe the cookie.
+  useLayoutEffect(() => {
     hydrateChatFromHomepageSources();
-  }, [hydrateChatFromHomepageSources, calendarDataVersion]);
+    setSelectionReady(true);
+  }, [hydrateChatFromHomepageSources]);
 
   useEffect(() => {
     const onVisible = () => {
-      if (document.visibilityState === "visible") hydrateChatFromHomepageSources();
+      if (document.visibilityState !== "visible") return;
+      const fromHomepage = resolveHomepageChatHydration();
+      if (!fromHomepage) return;
+      // Apply only when homepage sources differ from live chat (e.g. other tab).
+      if (isChatSelectionInSyncWithHomepage(selectionRef.current, fromHomepage)) {
+        return;
+      }
+      setSessionsByProgram(fromHomepage.sessionsByProgram);
+      setSelectedProgram(fromHomepage.program);
+      setSelectedSessions(fromHomepage.selectedSessions);
     };
     const onStorage = (e: StorageEvent) => {
       if (e.key === "sessionIdsByProgram" || e.key === "selectedProgram") {
@@ -184,24 +178,15 @@ export default function ChatPage() {
     };
   }, [hydrateChatFromHomepageSources]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem("sessionIdsByProgram", JSON.stringify(sessionsByProgram));
-      localStorage.setItem("chatSessionIdsByProgram", JSON.stringify(sessionsByProgram));
-    } catch {
-      // Ignore storage errors (private mode / quota).
-    }
-  }, [sessionsByProgram]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem("selectedProgram", selectedProgram);
-    } catch {
-      // Ignore storage errors (private mode / quota).
-    }
-  }, [selectedProgram]);
+  // Persist after hydrate has committed (selectionReady), keeping cookie ↔ homepage in sync.
+  useLayoutEffect(() => {
+    if (!selectionReady) return;
+    persistChatProgramSessions({
+      program: selectedProgram,
+      sessionsByProgram,
+      selectedSessions,
+    });
+  }, [selectionReady, selectedProgram, sessionsByProgram, selectedSessions]);
 
   useEffect(() => {
     router.prefetch(getRoutePath(selectedProgram, "grid"));
@@ -468,7 +453,7 @@ export default function ChatPage() {
 
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+        let timeoutId = setTimeout(() => controller.abort(), FETCH_HEADERS_TIMEOUT_MS);
         try {
           const res = await fetch("/chat/api", {
             method: "POST",
@@ -477,15 +462,27 @@ export default function ChatPage() {
             signal: controller.signal,
             credentials: "include",
           });
-          clearTimeout(timeoutId);
 
           const responseType = res.headers.get("content-type") ?? "";
 
           if (responseType.includes("text/event-stream")) {
             if (!res.ok) {
+              clearTimeout(timeoutId);
               content = getChatErrorMessage(res, "Something went wrong. Please try again.");
+              if (isRetryableStatus(res.status) && attempt < maxAttempts - 1) {
+                await new Promise((r) =>
+                  setTimeout(
+                    r,
+                    RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)]
+                  )
+                );
+                continue;
+              }
               break;
             }
+
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => controller.abort(), FETCH_STREAM_TIMEOUT_MS);
 
             usedStreamPlaceholder = true;
 
@@ -502,64 +499,95 @@ export default function ChatPage() {
                 },
               ];
             });
-            await consumeChatStream(res, {
-              onToken: (token) => {
-                setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === assistantId
-                      ? { ...m, content: m.content + token }
-                      : m
-                  )
-                );
-              },
-              onDone: (payload) => {
-                content = payload.reply;
-                chatRequestSucceeded = true;
-                const doneAt = Date.now();
-                const replyText = payload.reply ?? "";
+            let lastErrorStatus: number | undefined;
+            await consumeChatStream(
+              res,
+              {
+                onToken: (token) => {
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === assistantId
+                        ? { ...m, content: m.content + token }
+                        : m
+                    )
+                  );
+                },
+                onDone: (payload) => {
+                  content = payload.reply;
+                  chatRequestSucceeded = true;
+                  const doneAt = Date.now();
+                  const replyText = payload.reply ?? "";
 
-                setMessages((prev) => {
-                  const hasMsg = prev.some((m) => m.id === assistantId);
-                  if (!hasMsg) {
-                    return [
-                      ...prev,
-                      {
-                        id: assistantId,
-                        role: "assistant",
-                        content: replyText,
-                        correlationId: payload.correlationId,
-                        userPrompt: trimmed,
-                        isComplete: true,
-                        timestamp: doneAt,
-                      },
-                    ];
-                  }
-                  return prev.map((m) =>
-                    m.id === assistantId
-                      ? {
-                          ...m,
+                  setMessages((prev) => {
+                    const hasMsg = prev.some((m) => m.id === assistantId);
+                    if (!hasMsg) {
+                      return [
+                        ...prev,
+                        {
+                          id: assistantId,
+                          role: "assistant",
                           content: replyText,
                           correlationId: payload.correlationId,
                           userPrompt: trimmed,
                           isComplete: true,
                           timestamp: doneAt,
-                        }
-                      : m
-                  );
-                });
-                setIsTurnstileSessionVerified(true);
-                setTurnstileToken("");
-                turnstileRef.current?.reset();
+                        },
+                      ];
+                    }
+                    return prev.map((m) =>
+                      m.id === assistantId
+                        ? {
+                            ...m,
+                            content: replyText,
+                            correlationId: payload.correlationId,
+                            userPrompt: trimmed,
+                            isComplete: true,
+                            timestamp: doneAt,
+                          }
+                        : m
+                    );
+                  });
+                  setIsTurnstileSessionVerified(true);
+                  setTurnstileToken("");
+                  turnstileRef.current?.reset();
+                },
+                onError: (payload) => {
+                  content = payload.error;
+                  lastErrorStatus = payload.status;
+                  if (payload.status === 503 && maxAttempts === 3) {
+                    maxAttempts = 4;
+                  }
+                },
+                onStatus: (payload) => {
+                  const phrase = payload.message || payload.phase;
+                  if (phrase) setLoadingPhrase(phrase);
+                },
               },
-              onError: (payload) => {
-                content = payload.error;
-                if (payload.status === 503 && maxAttempts === 3) {
-                  maxAttempts = 4;
-                }
-              },
-            });
+              { signal: controller.signal }
+            );
+            clearTimeout(timeoutId);
+
+            if (chatRequestSucceeded) break;
+
+            if (
+              lastErrorStatus &&
+              isRetryableStatus(lastErrorStatus) &&
+              attempt < maxAttempts - 1
+            ) {
+              setMessages((prev) => prev.filter((m) => m.id !== assistantId));
+              usedStreamPlaceholder = false;
+              await new Promise((r) =>
+                setTimeout(
+                  r,
+                  RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)]
+                )
+              );
+              continue;
+            }
             break;
           }
+
+          clearTimeout(timeoutId);
 
           const data = await parseChatResponse(res);
 

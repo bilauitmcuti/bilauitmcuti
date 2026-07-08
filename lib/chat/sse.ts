@@ -31,6 +31,12 @@ export interface ChatStreamTokenPayload {
   token: string;
 }
 
+export interface ChatStreamStatusPayload {
+  /** Server-side phase hint: "searching" | "generating" | etc. */
+  phase?: string;
+  message?: string;
+}
+
 /** Parse SSE lines from a chunk buffer (handles partial lines across reads). */
 export function parseSseBuffer(
   buffer: string,
@@ -57,13 +63,17 @@ export function parseSseBuffer(
   return remainder;
 }
 
+export interface ChatStreamHandlers {
+  onToken: (token: string) => void;
+  onDone: (payload: ChatStreamDonePayload) => void | Promise<void>;
+  onError: (payload: ChatStreamErrorPayload) => void;
+  onStatus?: (payload: ChatStreamStatusPayload) => void;
+}
+
 export async function consumeChatStream(
   response: Response,
-  handlers: {
-    onToken: (token: string) => void;
-    onDone: (payload: ChatStreamDonePayload) => void | Promise<void>;
-    onError: (payload: ChatStreamErrorPayload) => void;
-  }
+  handlers: ChatStreamHandlers,
+  options?: { signal?: AbortSignal }
 ): Promise<void> {
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.includes("text/event-stream")) {
@@ -99,30 +109,72 @@ export async function consumeChatStream(
   const decoder = new TextDecoder();
   let buffer = "";
   let donePromise: Promise<void> | undefined;
+  let receivedDone = false;
+  let receivedError = false;
 
   const handleEvent = (event: string, data: unknown) => {
     if (event === "token") {
       const payload = data as ChatStreamTokenPayload;
       if (payload.token) handlers.onToken(payload.token);
     } else if (event === "done") {
+      receivedDone = true;
       donePromise = Promise.resolve(
         handlers.onDone(data as ChatStreamDonePayload)
       );
     } else if (event === "error") {
+      receivedError = true;
       handlers.onError(data as ChatStreamErrorPayload);
+    } else if (event === "status") {
+      handlers.onStatus?.(data as ChatStreamStatusPayload);
     }
   };
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    buffer = parseSseBuffer(buffer, handleEvent);
+  const signal = options?.signal;
+  const onAbort = () => {
+    try {
+      reader.cancel().catch(() => undefined);
+    } catch {
+      /* ignore */
+    }
+  };
+  if (signal) {
+    if (signal.aborted) {
+      onAbort();
+      handlers.onError({ error: "Request took too long. Please try again.", status: 504 });
+      return;
+    }
+    signal.addEventListener("abort", onAbort, { once: true });
   }
 
-  if (buffer.trim()) {
-    parseSseBuffer(`${buffer}\n\n`, handleEvent);
-  }
+  try {
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        buffer = parseSseBuffer(buffer, handleEvent);
+      }
+    } catch {
+      /* read rejected (e.g. abort) — fall through to terminal-state check */
+    }
 
-  if (donePromise) await donePromise;
+    if (buffer.trim()) {
+      parseSseBuffer(`${buffer}\n\n`, handleEvent);
+    }
+
+    if (donePromise) await donePromise;
+
+    if (!receivedDone && !receivedError) {
+      if (signal?.aborted) {
+        handlers.onError({ error: "Request took too long. Please try again.", status: 504 });
+      } else {
+        handlers.onError({
+          error: "Connection closed before response completed. Please try again.",
+          status: 502,
+        });
+      }
+    }
+  } finally {
+    if (signal) signal.removeEventListener("abort", onAbort);
+  }
 }

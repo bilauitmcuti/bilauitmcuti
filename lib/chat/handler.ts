@@ -109,6 +109,45 @@ import { getTodayISO, toPromptDate } from "@/lib/chat/dates";
 import { encodeSseEvent, SSE_HEADERS } from "@/lib/chat/sse";
 import { mapChatError } from "@/lib/chat/map-error";
 
+/** Soft deadline for compact / single-stream turns (under Pages Edge limits). */
+const CHAT_SERVER_DEADLINE_MS = 25_000;
+/** Longer budget for Gemma tool-agent turns (up to 5 tool steps + synthesis). */
+const CHAT_AGENT_DEADLINE_MS = 40_000;
+
+export type ChatExecutionMode = "single_stream" | "agent";
+
+export interface ChatExecutionModeInput {
+  isAgentToolsPath: boolean;
+}
+
+/**
+ * Production Gemma (`isAgentToolsPath`) always uses the tool agent — including
+ * simple / matched questions (matched rows are preloaded inside the agent).
+ * Llama compact / legacy stays on single_stream.
+ */
+export function resolveChatExecutionMode(
+  input: ChatExecutionModeInput
+): ChatExecutionMode {
+  return input.isAgentToolsPath ? "agent" : "single_stream";
+}
+
+async function runWithServerDeadline<T>(
+  deadlineMs: number,
+  task: () => Promise<T>
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeoutError = new Error("The response took too long to generate. Please try again.");
+  Object.assign(timeoutError, { status: 504 });
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(timeoutError), deadlineMs);
+  });
+  try {
+    return await Promise.race([task(), deadline]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 function jsonChatReply(
   reply: string,
   correlationId: string,
@@ -275,6 +314,13 @@ export async function POST(request: NextRequest) {
     const wantsTableOutput =
       (multipleSessionsSelected && isComparisonQuestion(sanitizedMessage)) ||
       isTableFormatRequested(sanitizedMessage);
+    const isSimple = isSimpleCalendarQuestion(sanitizedMessage, { hasMatchedActivity });
+    const asksDetail = messageAsksDetail(sanitizedMessage);
+    const needsList = messageNeedsListOrSchedule(sanitizedMessage);
+    const executionMode = resolveChatExecutionMode({ isAgentToolsPath });
+    // Always-agent on production Gemma (4b1723a-style). Matched/simple turns still
+    // enter the agent; activity matches are preloaded in runChatAgent.
+    const useAgentTools = executionMode === "agent";
 
     const cacheKey = [
       useAgentPath ? `agent:${agentMode}` : "legacy",
@@ -296,10 +342,15 @@ export async function POST(request: NextRequest) {
     const aiBindingPromise = getAiBinding();
     const origin = new URL(request.url).origin;
 
+    const aiBinding = await aiBindingPromise;
+    if (!aiBinding) {
+      const noAi = mapChatError(
+        Object.assign(new Error("Workers AI binding not available"), { status: 503 })
+      );
+      return withVerifiedCookie(jsonError(noAi.message, noAi.status));
+    }
+
     const useCalendarPrompt = topicNeedsCalendarPrompt(topicRoute.topics);
-    const isSimple = isSimpleCalendarQuestion(sanitizedMessage, { hasMatchedActivity });
-    const asksDetail = messageAsksDetail(sanitizedMessage);
-    const needsList = messageNeedsListOrSchedule(sanitizedMessage);
     const includeSecondary =
       useCalendarPrompt && needsSecondaryGroupContext(sanitizedMessage, primaryGroup);
     const includeUitmSupplement =
@@ -319,7 +370,7 @@ export async function POST(request: NextRequest) {
       : "";
     let systemPrompt = "";
 
-    if (isAgentToolsPath) {
+    if (useAgentTools) {
       sessionListContext = buildSessionListContext(primaryGroup, effectiveSessions);
 
       if (topicRoute.topics.includes("public_holiday")) {
@@ -453,14 +504,6 @@ export async function POST(request: NextRequest) {
       includeSecondary,
     });
 
-    const aiBinding = await aiBindingPromise;
-    if (!aiBinding) {
-      const noAi = mapChatError(
-        Object.assign(new Error("Workers AI binding not available"), { status: 503 })
-      );
-      return withVerifiedCookie(jsonError(noAi.message, noAi.status));
-    }
-
     const modelTier = resolveWorkersAiModelTier(requestHost);
     const maxOutputTokens = getMaxOutputTokensForHost(requestHost);
     const modelBudget = getModelResponseBudget(
@@ -488,7 +531,7 @@ export async function POST(request: NextRequest) {
     const getLegacyFallbackPromptWithCompletion = async (
       extraSuffix = ""
     ): Promise<string> => {
-      if (!isAgentToolsPath) return "";
+      if (!useAgentTools) return "";
       if (!cachedLegacyFallbackBase) {
         await getSystemRules(origin);
         const secondaryActivitiesRaw =
@@ -558,7 +601,7 @@ export async function POST(request: NextRequest) {
     const allowedDates = !useResearchOnly
       ? collectAllowedDateTokens(validationActivityPool)
       : new Set<string>();
-    if (!useResearchOnly && !isAgentToolsPath) {
+    if (!useResearchOnly && !useAgentTools) {
       addDatesFromContextText(allowedDates, dataContextFull);
       addDatesFromContextText(allowedDates, primaryContext);
     }
@@ -603,10 +646,16 @@ export async function POST(request: NextRequest) {
     };
 
     const runLlm = async (
-      onToken: (token: string) => void | Promise<void>
+      onToken: (token: string) => void | Promise<void>,
+      onProgress?: {
+        onToolStep?: (step: number, maxSteps: number) => void | Promise<void>;
+        onSynthesis?: () => void | Promise<void>;
+      }
     ): Promise<string> => {
+      const turnStartMs = Date.now();
+      let turnToolsUsed: string[] = [];
       let rawReply: string;
-      if (useAgentPath && agentMode === "tools") {
+      if (useAgentTools) {
         const agentResult = await askAgentWithRetry({
           userMessage: sanitizedMessage,
           history: sanitizedHistory,
@@ -618,11 +667,16 @@ export async function POST(request: NextRequest) {
           extraSystemDirectives: systemPromptWithCompletion,
           onToken,
           emitTokensToClient: streamTokensToClient,
+          onToolStep: onProgress?.onToolStep,
+          onSynthesis: onProgress?.onSynthesis,
         });
+        turnToolsUsed = agentResult.toolsUsed;
         logger.info("Chat agent reply", {
           correlationId,
           agentMode,
+          executionMode,
           toolsUsed: agentResult.toolsUsed,
+          durationMs: Date.now() - turnStartMs,
         });
         rawReply = await resolveAgentReplyWithFallback(
           agentResult.reply,
@@ -651,26 +705,12 @@ export async function POST(request: NextRequest) {
         allowedDates.size > 0 &&
         replyHasUnknownCalendarDates(rawReply, allowedDates)
       ) {
-        if (useAgentPath && agentMode === "tools") {
-          const agentRetry = await askAgentWithRetry({
-            userMessage: sanitizedMessage,
-            history: sanitizedHistory,
-            ctx: agentTurnContext,
-            requestHost,
-            correlationId,
-            maxTokens: modelBudget.maxTokens,
-            temperature: modelBudget.temperature,
-            extraSystemDirectives:
-              systemPromptWithCompletion + DATE_VALIDATION_RETRY_NUDGE,
-            onToken,
-            emitTokensToClient: streamTokensToClient,
-          });
-          rawReply = await resolveAgentReplyWithFallback(
-            agentRetry.reply,
-            agentRetry.toolsUsed,
-            onToken,
+        if (useAgentTools) {
+          // Single synthesis retry with full legacy context — avoid re-running the agent loop.
+          const legacyPrompt = await getLegacyFallbackPromptWithCompletion(
             DATE_VALIDATION_RETRY_NUDGE
           );
+          rawReply = await runLegacyLlm(legacyPrompt, onToken);
         } else if (wantStream) {
           rawReply = await streamAiWithRetry(
             sanitizedMessage,
@@ -696,26 +736,11 @@ export async function POST(request: NextRequest) {
           maxTokens: maxOutputTokens,
         };
         let retryReply: string;
-        if (useAgentPath && agentMode === "tools") {
-          const agentCompletion = await askAgentWithRetry({
-            userMessage: sanitizedMessage,
-            history: sanitizedHistory,
-            ctx: agentTurnContext,
-            requestHost,
-            correlationId,
-            maxTokens: bumpedBudget.maxTokens,
-            temperature: bumpedBudget.temperature,
-            extraSystemDirectives:
-              systemPromptWithCompletion + REPLY_COMPLETION_RETRY_NUDGE,
-            onToken,
-            emitTokensToClient: streamTokensToClient,
-          });
-          retryReply = await resolveAgentReplyWithFallback(
-            agentCompletion.reply,
-            agentCompletion.toolsUsed,
-            onToken,
+        if (useAgentTools) {
+          const legacyPrompt = await getLegacyFallbackPromptWithCompletion(
             REPLY_COMPLETION_RETRY_NUDGE
           );
+          retryReply = await runLegacyLlm(legacyPrompt, onToken, bumpedBudget);
         } else if (wantStream) {
           retryReply = await streamAiWithRetry(
             sanitizedMessage,
@@ -739,10 +764,23 @@ export async function POST(request: NextRequest) {
         }
         const cleanedRetry = normalizeAssistantTables(cleanAiReply(retryReply));
         if (cleanedRetry.length >= cleanedFirst.length) {
+          logger.info("Chat turn completed", {
+            correlationId,
+            executionMode,
+            toolsUsed: turnToolsUsed,
+            retried: "incomplete",
+            durationMs: Date.now() - turnStartMs,
+          });
           return cleanedRetry;
         }
       }
 
+      logger.info("Chat turn completed", {
+        correlationId,
+        executionMode,
+        toolsUsed: turnToolsUsed,
+        durationMs: Date.now() - turnStartMs,
+      });
       return cleanedFirst;
     };
 
@@ -757,7 +795,32 @@ export async function POST(request: NextRequest) {
                   enqueue(encodeSseEvent("token", { token }));
                 }
               : () => {};
-            const reply = await runLlm(onToken);
+            const onToolStep = (step: number, maxSteps: number) => {
+              enqueue(
+                encodeSseEvent("status", {
+                  phase: "searching",
+                  message: `Searching calendar… (${step + 1}/${maxSteps})`,
+                })
+              );
+            };
+            const onSynthesis = () => {
+              enqueue(
+                encodeSseEvent("status", {
+                  phase: "generating",
+                  message: "Writing your answer…",
+                })
+              );
+            };
+            enqueue(
+              encodeSseEvent("status", {
+                phase: useAgentTools ? "searching" : "generating",
+                message: useAgentTools ? "Searching calendar…" : "Thinking…",
+              })
+            );
+            const reply = await runWithServerDeadline(
+              useAgentTools ? CHAT_AGENT_DEADLINE_MS : CHAT_SERVER_DEADLINE_MS,
+              () => runLlm(onToken, { onToolStep, onSynthesis })
+            );
             setCachedReply(cacheKey, reply);
             enqueue(
               encodeSseEvent("done", {
@@ -776,6 +839,7 @@ export async function POST(request: NextRequest) {
               modelTier,
               modelChain: modelChain.join(" → "),
               agentMode,
+              executionMode,
             });
             enqueue(encodeSseEvent("error", { error: mapped.message, status: mapped.status }));
             controller.close();

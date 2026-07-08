@@ -162,9 +162,13 @@ export function resolveWorkersAiTierForModelId(
   return resolveWorkersAiModelTier(requestHost);
 }
 
-/** Stream synthesis tokens to the chat client for progressive display. */
+/**
+ * Progressive token painting is off: partial markdown (`#`, `|`, `**`) looks
+ * broken mid-stream. The client still receives SSE `status` + a single `done`
+ * with the full reply, then renders markdown once.
+ */
 export function shouldStreamTokensToClient(_requestHost?: string | null): boolean {
-  return true;
+  return false;
 }
 
 export function getWorkersAiTierLimits(tier: WorkersAiModelTier): WorkersAiTierLimits {
@@ -1017,6 +1021,9 @@ async function runAgentCompletionWithOptionalStream(params: {
   } = params;
   const synthesisMessages = appendAgentSynthesisNudge(messages, synthesisNudge);
 
+  // Single-path synthesis: stream first; only fall back to a buffered call when
+  // streaming itself throws. An empty (but successful) stream is treated as a
+  // hard error so we don't silently chain into a second inference + legacy fallback.
   try {
     const streamInput = buildAgentModelRunInput(
       modelId,
@@ -1038,8 +1045,15 @@ async function runAgentCompletionWithOptionalStream(params: {
       if (emitTokens && onToken) await onToken(token);
     }
     if (full.trim()) return full.trim();
-  } catch {
-    /* fall through to buffered completion */
+    throw new Error("Empty response from model");
+  } catch (streamError) {
+    if (
+      streamError instanceof Error &&
+      streamError.message === "Empty response from model"
+    ) {
+      throw streamError;
+    }
+    /* streaming threw — retry once as a buffered (non-stream) completion */
   }
 
   const input = buildAgentModelRunInput(
@@ -1060,7 +1074,7 @@ async function runAgentCompletionWithOptionalStream(params: {
     if (emitTokens && onToken) await onToken(full);
     return full;
   }
-  return "";
+  throw new Error("Empty response from model");
 }
 
 export interface RunWorkersAiAgentParams {
@@ -1077,6 +1091,10 @@ export interface RunWorkersAiAgentParams {
   executeTool: (name: string, args: Record<string, unknown>) => Promise<string>;
   onToken?: (token: string) => void | Promise<void>;
   emitTokensToClient?: boolean;
+  /** Notified at the start of each tool step so callers can emit progress. */
+  onToolStep?: (step: number, maxSteps: number) => void | Promise<void>;
+  /** Notified when synthesis (final answer generation) begins. */
+  onSynthesis?: () => void | Promise<void>;
 }
 
 /** Tool-calling agent loop; uses the first FC-capable model in the host chain. */
@@ -1129,7 +1147,9 @@ export async function runWorkersAiAgent(params: RunWorkersAiAgentParams): Promis
     content: truncate(params.userMessage, limits.maxUserPromptChars),
   });
 
+  let lastAssistantContent: string | null = null;
   for (let step = 0; step < params.maxToolSteps; step++) {
+    if (params.onToolStep) await params.onToolStep(step, params.maxToolSteps);
     const input = buildAgentModelRunInput(
       modelId,
       workingMessages,
@@ -1151,9 +1171,14 @@ export async function runWorkersAiAgent(params: RunWorkersAiAgentParams): Promis
       }
       break;
     }
+    // Capture any content emitted alongside tool calls — if the loop exhausts
+    // maxToolSteps, this lets us return a meaningful answer without a 6th
+    // synthesis call (faster, more consistent).
+    const stepContent = tryExtractWorkersAiContent(result);
+    if (stepContent?.trim()) lastAssistantContent = stepContent;
     workingMessages.push({
       role: "assistant",
-      content: "",
+      content: stepContent ?? "",
       tool_calls: toolCalls,
     });
     const toolResults = await Promise.all(
@@ -1172,6 +1197,14 @@ export async function runWorkersAiAgent(params: RunWorkersAiAgentParams): Promis
     }
   }
 
+  // The tool budget is exhausted but the last step already produced a usable
+  // answer — return it directly instead of paying for an extra synthesis call.
+  if (lastAssistantContent && lastAssistantContent.trim()) {
+    if (emitTokens && params.onToken) await params.onToken(lastAssistantContent);
+    return lastAssistantContent;
+  }
+
+  if (params.onSynthesis) await params.onSynthesis();
   return runAgentCompletionWithOptionalStream({
     ai,
     modelId,

@@ -42,7 +42,12 @@ export const LOADING_PHRASES = [
   "Checking details...",
 ];
 
-export const FETCH_TIMEOUT_MS = 60_000;
+/** Timeout until HTTP headers are received (time-to-first-byte). */
+export const FETCH_HEADERS_TIMEOUT_MS = 60_000;
+/** Timeout covering the full SSE stream read after headers arrive. */
+export const FETCH_STREAM_TIMEOUT_MS = 120_000;
+/** Backwards-compatible alias for callers that only need a single timeout. */
+export const FETCH_TIMEOUT_MS = FETCH_HEADERS_TIMEOUT_MS;
 export const RETRY_DELAYS_MS = [400, 800, 1600];
 /** Show loading marker only if the response takes longer than this (ms). */
 export const LOADING_INDICATOR_DELAY_MS = 450;
