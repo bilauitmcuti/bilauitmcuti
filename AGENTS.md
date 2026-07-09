@@ -10,20 +10,20 @@ pnpm install
 
 ## Required Environment
 
-- **Workers AI binding** — required for chat. In Cloudflare Pages: Settings → Bindings → Add → **Workers AI** → variable name `AI` (production + preview). Local: `pnpm run preview` after `build:pages`. Also declared in [`wrangler.jsonc`](wrangler.jsonc). No API key secret for inference. **Production** (`bilauitmcuti.com` only): **Gemma 4** (`@cf/google/gemma-4-26b-a4b-it`). **Local + Pages preview** (default): **Llama 3.2 3B** (`@cf/meta/llama-3.2-3b-instruct`). Optional localhost-only Gemma test: `WORKERS_AI_USE_PRODUCTION_MODEL=1`. Overrides: `WORKERS_AI_MODEL`, `WORKERS_AI_USE_DEV_MODEL=1`. See `lib/ai.ts` (`resolveWorkersAiModelTier`, `resolveProductionChatModelChain`).
+- **Workers AI binding** — required for chat. In Cloudflare Pages: Settings → Bindings → Add → **Workers AI** → variable name `AI` (production + preview). Local: `pnpm run preview` after `build:pages`. Also declared in [`wrangler.jsonc`](wrangler.jsonc). No API key secret for inference. **Production** (`bilauitmcuti.com`) and **Pages preview** (`*.pages.dev`): **Gemma 4** (`@cf/google/gemma-4-26b-a4b-it`). **Localhost only** (default): **Llama 3.2 3B** (`@cf/meta/llama-3.2-3b-instruct`). Optional localhost-only Gemma test: `WORKERS_AI_USE_PRODUCTION_MODEL=1`. Overrides: `WORKERS_AI_MODEL`, `WORKERS_AI_USE_DEV_MODEL=1`. See `lib/ai.ts` (`resolveWorkersAiModelTier`, `resolveProductionChatModelChain`).
 - `NEXT_PUBLIC_TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY` — required for Turnstile on feedback and chat in production. Set `NEXT_PUBLIC_TURNSTILE_SITE_KEY` in **Pages build environment** (inlined into the client bundle), or `TURNSTILE_SITE_KEY` at runtime (client loads via `GET /api/turnstile/config`).
 
 ## Optional Environment
 
 - `DISCORD_WEBHOOK_RATE_FEEDBACK` — optional server-only webhook for star rating and feedback form. `DISCORD_WEBHOOK_CHAT_HELPFUL` / `DISCORD_WEBHOOK_CHAT_NOT_HELPFUL` — chat AI thumbs up/down (`POST /chat/feedback/api`). Do not use `NEXT_PUBLIC_*` or commit URLs.
 - `CALENDAR_API_BASE` — optional server-only override for the calendar API origin (default `https://api.bilauitmcuti.com`). Do not use `NEXT_PUBLIC_*` for this: the upstream URL must not be embedded in client bundles.
-- `CHAT_USE_AGENT` — set to `0` or `false` to disable tool-calling agent globally (legacy full-context path). When enabled (default), production **Gemma** uses the agent loop; dev/preview **Llama** uses compact context fallback. See [`lib/chat/agent/run-agent.ts`](lib/chat/agent/run-agent.ts).
+- `CHAT_USE_AGENT` — set to `0` or `false` to disable tool-calling agent globally (legacy full-context path). When enabled (default), production **Gemma** (production + Pages preview) uses the agent loop for complex/uitm_general turns; simple calendar questions use single_stream. Localhost **Llama** uses compact context fallback. See [`lib/chat/agent/run-agent.ts`](lib/chat/agent/run-agent.ts).
 - `AI_GATEWAY_ID` — AI Gateway name for chat inference (default `bilauitmcuti-chat`). Declared in [`wrangler.jsonc`](wrangler.jsonc) `vars` for production + preview (wrangler-managed Pages). Set to `off` to bypass gateway. See [`lib/ai-gateway.ts`](lib/ai-gateway.ts).
 - `SKIP_AI_GATEWAY=1` — optional bypass in wrangler `vars` or `.dev.vars`; chat calls Workers AI directly without gateway (useful for `pnpm dev` without a gateway configured).
 
 **Browser vs server:** The calendar UI calls **`/api/v1/meta`** and **`/api/v1/calendar`** (same origin); legacy **`/api/calendar-proxy/v1/...`** still works. CSP `connect-src` allows `'self'` only for calendar traffic (not the upstream host). The proxy allowlists those paths and forwards to `CALENDAR_API_BASE`. Chat and other server code call the upstream URL directly.
 
-**Chat API (`POST /chat/api`):** Hybrid responses — cache hits return JSON `{ reply, correlationId, path }`; LLM calls with `stream: true` (default) return **SSE** (`text/event-stream`) with `token` and `done` events. Thumbs feedback posts to **`POST /chat/feedback/api`** with the assistant `correlationId`. Model is chosen by host: **Gemma** on `bilauitmcuti.com`, **Llama** on localhost / `*.pages.dev`.
+**Chat API (`POST /chat/api`):** Hybrid responses — cache hits return JSON `{ reply, correlationId, path }`; LLM calls with `stream: true` (default) return **SSE** (`text/event-stream`) with `token` and `done` events. Thumbs feedback posts to **`POST /chat/feedback/api`** with the assistant `correlationId`. Model is chosen by host: **Gemma** on `bilauitmcuti.com` and `*.pages.dev`; **Llama** on localhost.
 
 **Chat assistant pipeline** ([`lib/chat/handler.ts`](lib/chat/handler.ts)):
 

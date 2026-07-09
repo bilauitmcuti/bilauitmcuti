@@ -138,9 +138,9 @@ export interface ChatExecutionModeInput {
 }
 
 /**
- * Production Gemma (`isAgentToolsPath`) uses the tool agent for most in-scope
- * turns. Only authoritative activity matches short-circuit to single_stream.
- * Llama compact / legacy stays on single_stream.
+ * Production Gemma (`isAgentToolsPath`) uses the tool agent for uitm_general and
+ * other complex turns. Matched activities, simple date questions, and pure
+ * calendar/holiday topics short-circuit to single_stream.
  */
 export function resolveChatExecutionMode(
   input: ChatExecutionModeInput
@@ -151,17 +151,25 @@ export function resolveChatExecutionMode(
 }
 
 /**
- * Prefer one LLM call only when the handler already has an authoritative
- * calendar row match (preloaded in the agent). All other Gemma production
- * turns use the tool agent so the model can search calendar, sessions,
- * holidays, and UiTM knowledge via function calling.
+ * Prefer one LLM call when the handler already has an authoritative calendar row
+ * match, for simple date questions, or for in-scope calendar/holiday topics without
+ * uitm_general. Other Gemma production turns use the tool agent.
  */
 export function shouldPreferSingleStream(input: {
   hasMatchedActivity: boolean;
   isSimple: boolean;
   topics: string[];
 }): boolean {
-  return input.hasMatchedActivity;
+  if (input.hasMatchedActivity || input.isSimple) return true;
+  const { topics } = input;
+  if (topics.length === 0) return false;
+  if (topics.includes("uitm_general")) return false;
+  return topics.every(
+    (t) =>
+      t === "academic_calendar" ||
+      t === "lecture_weeks" ||
+      t === "public_holiday"
+  );
 }
 
 async function runWithServerDeadline<T>(

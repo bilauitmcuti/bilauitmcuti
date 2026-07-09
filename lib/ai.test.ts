@@ -25,6 +25,14 @@ describe("resolveProductionChatModelChain", () => {
     ]);
   });
 
+  it("uses Gemma on Pages preview host", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    expect(resolveProductionChatModelChain("my-branch.pages.dev")).toEqual([
+      MODEL_WORKERS_AI_PRODUCTION,
+    ]);
+    expect(resolveWorkersAiModelTier("my-branch.pages.dev")).toBe("production");
+  });
+
   it("marks production tier for bilauitmcuti.com", () => {
     vi.stubEnv("NODE_ENV", "production");
     expect(resolveWorkersAiModelTier("bilauitmcuti.com")).toBe("production");
@@ -46,11 +54,12 @@ describe("resolveProductionChatModelChain", () => {
     ]);
   });
 
-  it("uses Llama on Pages preview even when WORKERS_AI_USE_PRODUCTION_MODEL=1", () => {
-    vi.stubEnv("WORKERS_AI_USE_PRODUCTION_MODEL", "1");
-    expect(resolveWorkersAiModelTier("my-branch.pages.dev")).toBe("dev");
-    expect(resolveProductionChatModelChain("my-branch.pages.dev")).toEqual([
-      MODEL_WORKERS_AI_DEV,
+  it("uses Gemma on CF Pages preview deploy", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("CF_PAGES_URL", "https://my-branch.pages.dev");
+    expect(resolveWorkersAiModelTier()).toBe("production");
+    expect(resolveProductionChatModelChain()).toEqual([
+      MODEL_WORKERS_AI_PRODUCTION,
     ]);
   });
 

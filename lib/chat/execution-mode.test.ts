@@ -14,7 +14,7 @@ describe("resolveChatExecutionMode", () => {
     expect(resolveChatExecutionMode({ isAgentToolsPath: true })).toBe("agent");
   });
 
-  it("short-circuits matched activity turns to single_stream on tools path", () => {
+  it("short-circuits matched or simple turns to single_stream on tools path", () => {
     expect(
       resolveChatExecutionMode({
         isAgentToolsPath: true,
@@ -31,7 +31,7 @@ describe("resolveChatExecutionMode", () => {
 });
 
 describe("shouldPreferSingleStream", () => {
-  it("prefers single_stream only for matched activities", () => {
+  it("prefers single_stream for matched activities", () => {
     expect(
       shouldPreferSingleStream({
         hasMatchedActivity: true,
@@ -41,34 +41,55 @@ describe("shouldPreferSingleStream", () => {
     ).toBe(true);
   });
 
-  it("uses agent for simple date questions without a matched activity", () => {
+  it("prefers single_stream for simple date questions", () => {
     expect(
       shouldPreferSingleStream({
         hasMatchedActivity: false,
         isSimple: true,
         topics: ["academic_calendar"],
       })
-    ).toBe(false);
+    ).toBe(true);
   });
 
-  it("uses agent for calendar-only topics without a matched activity", () => {
+  it("prefers single_stream for calendar-only topics including long academic questions", () => {
     expect(
       shouldPreferSingleStream({
         hasMatchedActivity: false,
         isSimple: false,
         topics: ["academic_calendar"],
       })
-    ).toBe(false);
+    ).toBe(true);
+    expect(
+      shouldPreferSingleStream({
+        hasMatchedActivity: false,
+        isSimple: false,
+        topics: ["lecture_weeks"],
+      })
+    ).toBe(true);
+    expect(
+      shouldPreferSingleStream({
+        hasMatchedActivity: false,
+        isSimple: false,
+        topics: ["public_holiday"],
+      })
+    ).toBe(true);
     expect(
       shouldPreferSingleStream({
         hasMatchedActivity: false,
         isSimple: false,
         topics: ["lecture_weeks", "public_holiday"],
       })
-    ).toBe(false);
+    ).toBe(true);
+    expect(
+      shouldPreferSingleStream({
+        hasMatchedActivity: false,
+        isSimple: false,
+        topics: ["academic_calendar", "lecture_weeks"],
+      })
+    ).toBe(true);
   });
 
-  it("uses agent when uitm_general is involved without a matched activity", () => {
+  it("keeps the agent when uitm_general is involved", () => {
     expect(
       shouldPreferSingleStream({
         hasMatchedActivity: false,

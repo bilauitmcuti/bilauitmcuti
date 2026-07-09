@@ -66,14 +66,8 @@ function isProductionSiteHost(host: string | null | undefined): boolean {
   return normalizeHost(host) === PRODUCTION_SITE_HOST;
 }
 
-function isLocalOrPreviewHost(host: string): boolean {
-  const h = normalizeHost(host);
-  return (
-    h === "localhost" ||
-    h.endsWith(".localhost") ||
-    h.endsWith(".pages.dev") ||
-    h === "127.0.0.1"
-  );
+function isPagesPreviewHost(host: string): boolean {
+  return normalizeHost(host).endsWith(".pages.dev");
 }
 
 function isStrictLocalDevHost(host: string): boolean {
@@ -92,10 +86,9 @@ function isCloudflarePagesPreviewDeploy(): boolean {
 }
 
 /**
- * Production (bilauitmcuti.com): Gemma 4.
- * Local + Pages preview (*.pages.dev, localhost): Llama 3.2 3B.
- * Optional: WORKERS_AI_MODEL, WORKERS_AI_USE_DEV_MODEL=1,
- * WORKERS_AI_USE_PRODUCTION_MODEL=1 (strict localhost only — test Gemma locally).
+ * Production (bilauitmcuti.com) + Pages preview (*.pages.dev): Gemma 4.
+ * Localhost: Llama 3.2 3B (override with WORKERS_AI_USE_PRODUCTION_MODEL=1).
+ * Optional: WORKERS_AI_MODEL, WORKERS_AI_USE_DEV_MODEL=1.
  */
 export function resolveWorkersAiModelTier(requestHost?: string | null): WorkersAiModelTier {
   const override = process.env.WORKERS_AI_MODEL?.trim();
@@ -109,20 +102,16 @@ export function resolveWorkersAiModelTier(requestHost?: string | null): WorkersA
 
   if (requestHost) {
     if (isProductionSiteHost(requestHost)) return "production";
-    if (isLocalOrPreviewHost(requestHost)) {
-      if (
-        isWorkersAiUseProductionModelLocally() &&
-        isStrictLocalDevHost(requestHost)
-      ) {
-        return "production";
-      }
+    if (isPagesPreviewHost(requestHost)) return "production";
+    if (isStrictLocalDevHost(requestHost)) {
+      if (isWorkersAiUseProductionModelLocally()) return "production";
       return "dev";
     }
   }
 
   if (process.env.NODE_ENV !== "production") return "dev";
 
-  if (isCloudflarePagesPreviewDeploy()) return "dev";
+  if (isCloudflarePagesPreviewDeploy()) return "production";
 
   if (process.env.CF_PAGES === "1") {
     const pagesUrl = process.env.CF_PAGES_URL?.toLowerCase() ?? "";
@@ -132,7 +121,7 @@ export function resolveWorkersAiModelTier(requestHost?: string | null): WorkersA
   return "dev";
 }
 
-/** Ordered model ids for chat completion (production: Gemma only; dev/preview: Llama). */
+/** Ordered model ids for chat completion (production + preview: Gemma; localhost: Llama). */
 export function resolveProductionChatModelChain(requestHost?: string | null): string[] {
   const override = process.env.WORKERS_AI_MODEL?.trim();
   if (override) return [override];
