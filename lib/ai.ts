@@ -8,6 +8,7 @@ import {
   type FlatToolDefinition,
 } from "@/lib/chat/agent/tool-format";
 import { CHAT_MAX_MESSAGE_LENGTH } from "@/lib/chat/limits";
+import { trimHistoryForModel } from "@/lib/chat/history-for-model";
 
 /** Dev / preview / localhost chat model (fast, lower cost). */
 export const MODEL_WORKERS_AI_DEV = "@cf/meta/llama-3.2-3b-instruct" as const;
@@ -33,14 +34,14 @@ interface WorkersAiTierLimits {
 
 const TIER_LIMITS: Record<WorkersAiModelTier, WorkersAiTierLimits> = {
   dev: {
-    maxOutputTokens: 4096,
+    maxOutputTokens: 8192,
     maxSystemChars: 12_000,
     maxHistoryMessages: 8,
     maxMessageChars: CHAT_MAX_MESSAGE_LENGTH,
     maxUserPromptChars: CHAT_MAX_MESSAGE_LENGTH,
   },
   production: {
-    maxOutputTokens: 4096,
+    maxOutputTokens: 8192,
     maxSystemChars: 16_000,
     maxHistoryMessages: 10,
     maxMessageChars: CHAT_MAX_MESSAGE_LENGTH,
@@ -282,7 +283,9 @@ function buildMessages(
   }
 
   if (history && history.length > 0) {
-    const recentHistory = history.slice(-limits.maxHistoryMessages);
+    const recentHistory = trimHistoryForModel(history, {
+      maxMessages: Math.min(4, limits.maxHistoryMessages),
+    });
     for (const msg of recentHistory) {
       messages.push({
         role: msg.role,
@@ -1128,7 +1131,9 @@ export async function runWorkersAiAgent(params: RunWorkersAiAgentParams): Promis
   ];
 
   if (params.history?.length) {
-    const recent = params.history.slice(-limits.maxHistoryMessages);
+    const recent = trimHistoryForModel(params.history, {
+      maxMessages: Math.min(4, limits.maxHistoryMessages),
+    });
     for (const msg of recent) {
       workingMessages.push({
         role: msg.role,

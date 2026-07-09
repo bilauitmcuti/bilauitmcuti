@@ -94,8 +94,8 @@ export function ChatTranscript({
             ))}
             {showLoadingMarker ? (
               <MessageScrollerItem messageId="__loading__">
-                <Marker role="status">
-                  <MarkerContent className="shimmer text-sm text-muted-foreground">
+                <Marker role="status" aria-live="polite">
+                  <MarkerContent className="shimmer text-sm text-muted-foreground select-none">
                     {streamStatusPhrase || "Thinking…"}
                   </MarkerContent>
                 </Marker>

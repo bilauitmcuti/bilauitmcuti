@@ -108,6 +108,7 @@ import { getSystemRules } from "@/lib/chat/system-rules";
 import { getTodayISO, toPromptDate } from "@/lib/chat/dates";
 import { encodeSseEvent, SSE_HEADERS } from "@/lib/chat/sse";
 import { mapChatError } from "@/lib/chat/map-error";
+import { trimHistoryForModel } from "@/lib/chat/history-for-model";
 
 /** Soft deadline for compact / single-stream turns (under Pages Edge limits). */
 const CHAT_SERVER_DEADLINE_MS = 25_000;
@@ -177,7 +178,7 @@ async function runWithServerDeadline<T>(
   task: () => Promise<T>
 ): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeoutError = new Error("The response took too long to generate. Please try again.");
+  const timeoutError = new Error("Request took too long. Please try again.");
   Object.assign(timeoutError, { status: 504 });
   const deadline = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(timeoutError), deadlineMs);
@@ -337,13 +338,13 @@ export async function POST(request: NextRequest) {
     const topicRoute = routeChatTopics(sanitizedMessage, hasMatchedActivity);
     const useIntentFilter = shouldUseCalendarIntentFilter(topicRoute, activityMatches.length);
 
-    const sanitizedHistory: ChatMessage[] = (history ?? [])
-      .slice(-4)
-      .map((msg) => ({
+    const sanitizedHistory: ChatMessage[] = trimHistoryForModel(
+      (history ?? []).map((msg) => ({
         role: msg.role,
         content:
           msg.role === "user" ? sanitizeMessage(msg.content) : msg.content,
-      }));
+      }))
+    );
 
     const requestHost = request.headers.get("host");
     const useAgentPath = isChatAgentEnabled();

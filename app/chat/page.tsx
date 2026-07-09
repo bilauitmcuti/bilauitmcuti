@@ -32,6 +32,7 @@ import { getRandomSuggestions } from "@/components/chat/suggestion-data";
 import { useDesktopViewport } from "@/lib/use-mobile-viewport";
 import {
   CHAT_TURNSTILE_COOKIE,
+  CHAT_TIMEOUT_MESSAGE,
   FETCH_TIMEOUT_MS,
   FETCH_HEADERS_TIMEOUT_MS,
   FETCH_STREAM_TIMEOUT_MS,
@@ -654,7 +655,7 @@ export default function ChatPage() {
           clearTimeout(timeoutId);
           const isAbort = err instanceof Error && err.name === "AbortError";
           content = isAbort
-            ? "Request timed out. Please try again."
+            ? CHAT_TIMEOUT_MESSAGE
             : "Something went wrong. Please try again.";
           if (attempt < maxAttempts - 1) {
             await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
