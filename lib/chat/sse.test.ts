@@ -63,7 +63,10 @@ describe("createMarkdownStreamPainter", () => {
 
   it("resets buffered partial without painting it", () => {
     const chunks: string[] = [];
-    const painter = createMarkdownStreamPainter((c) => chunks.push(c));
+    const painter = createMarkdownStreamPainter((c) => chunks.push(c), {
+      firstFlushChars: 12,
+      maxChunkChars: 64,
+    });
     painter.push("partial");
     painter.reset();
     painter.push("Clean answer.");

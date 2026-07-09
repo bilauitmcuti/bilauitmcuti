@@ -1,3 +1,9 @@
+import {
+  CHAT_RATE_LIMIT_MESSAGE,
+  CHAT_TIMEOUT_MESSAGE,
+  resolveChatErrorMessage,
+} from "@/lib/chat/user-messages";
+
 export const SSE_HEADERS: Record<string, string> = {
   "Content-Type": "text/event-stream; charset=utf-8",
   "Cache-Control": "no-cache, no-transform",
@@ -91,8 +97,8 @@ export function createMarkdownStreamPainter(
   reset: () => void;
   flush: () => void;
 } {
-  const maxChunkChars = options?.maxChunkChars ?? 64;
-  const firstFlushChars = options?.firstFlushChars ?? 12;
+  const maxChunkChars = options?.maxChunkChars ?? 16;
+  const firstFlushChars = options?.firstFlushChars ?? 4;
   let buf = "";
   let hasFlushed = false;
 
@@ -163,6 +169,91 @@ export function createMarkdownStreamPainter(
       hasFlushed = true;
       onFlush(buf);
       buf = "";
+    },
+  };
+}
+
+/** Coalesce stream painter flushes to one update per animation frame. */
+export function createRafMarkdownStreamPainter(
+  onFlush: (chunk: string) => void,
+  options?: { maxChunkChars?: number; firstFlushChars?: number }
+) {
+  let pending = "";
+  let rafId: number | null = null;
+  const inner = createMarkdownStreamPainter((chunk) => {
+    pending += chunk;
+    if (rafId !== null) return;
+    rafId = requestAnimationFrame(() => {
+      rafId = null;
+      if (!pending) return;
+      const chunkToFlush = pending;
+      pending = "";
+      onFlush(chunkToFlush);
+    });
+  }, options);
+
+  return {
+    push: inner.push,
+    reset() {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      pending = "";
+      inner.reset();
+    },
+    flush() {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      inner.flush();
+      if (pending) {
+        onFlush(pending);
+        pending = "";
+      }
+    },
+  };
+}
+
+export function createRafReasoningStreamPainter(
+  onFlush: (chunk: string) => void,
+  options?: { maxChunkChars?: number }
+) {
+  let pending = "";
+  let rafId: number | null = null;
+  const inner = createReasoningStreamPainter((chunk) => {
+    pending += chunk;
+    if (rafId !== null) return;
+    rafId = requestAnimationFrame(() => {
+      rafId = null;
+      if (!pending) return;
+      const chunkToFlush = pending;
+      pending = "";
+      onFlush(chunkToFlush);
+    });
+  }, options);
+
+  return {
+    push: inner.push,
+    reset() {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      pending = "";
+      inner.reset();
+    },
+    flush() {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      inner.flush();
+      if (pending) {
+        onFlush(pending);
+        pending = "";
+      }
     },
   };
 }
@@ -244,6 +335,7 @@ export async function consumeChatStream(
   let donePromise: Promise<void> | undefined;
   let receivedDone = false;
   let receivedError = false;
+  let lastErrorStatus: number | undefined;
 
   const handleEvent = (event: string, data: unknown) => {
     if (event === "token") {
@@ -256,7 +348,9 @@ export async function consumeChatStream(
       );
     } else if (event === "error") {
       receivedError = true;
-      handlers.onError(data as ChatStreamErrorPayload);
+      const payload = data as ChatStreamErrorPayload;
+      lastErrorStatus = payload.status;
+      handlers.onError(payload);
     } else if (event === "reset") {
       handlers.onReset?.(data as ChatStreamResetPayload);
     } else if (event === "status") {
@@ -278,7 +372,10 @@ export async function consumeChatStream(
   if (signal) {
     if (signal.aborted) {
       onAbort();
-      handlers.onError({ error: "Request took too long. Please try again.", status: 504 });
+      handlers.onError({
+        error: resolveChatErrorMessage(lastErrorStatus, undefined),
+        status: lastErrorStatus ?? 504,
+      });
       return;
     }
     signal.addEventListener("abort", onAbort, { once: true });
@@ -304,7 +401,10 @@ export async function consumeChatStream(
 
     if (!receivedDone && !receivedError) {
       if (signal?.aborted) {
-        handlers.onError({ error: "Request took too long. Please try again.", status: 504 });
+        handlers.onError({
+          error: resolveChatErrorMessage(lastErrorStatus, undefined),
+          status: lastErrorStatus ?? 504,
+        });
       } else {
         handlers.onError({
           error: "Connection closed before response completed. Please try again.",

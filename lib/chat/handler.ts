@@ -43,6 +43,7 @@ import {
   askAgentWithRetry,
 } from "@/lib/chat/ai-retry";
 import { toolStatusLabel } from "@/lib/chat/agent/embedded-tools";
+import { runDeterministicPrefetch } from "@/lib/chat/agent/deterministic-prefetch";
 import {
   agentModeForModelChain,
   buildAgentTurnContext,
@@ -112,9 +113,11 @@ import { mapChatError } from "@/lib/chat/map-error";
 import { trimHistoryForModel } from "@/lib/chat/history-for-model";
 
 /** Soft deadline for compact / single-stream turns (under Pages Edge limits). */
-const CHAT_SERVER_DEADLINE_MS = 25_000;
-/** Longer budget for Gemma tool-agent turns (tool steps + synthesis). */
-const CHAT_AGENT_DEADLINE_MS = 55_000;
+const CHAT_SERVER_DEADLINE_MS = 22_000;
+/** Longer budget for rare tool-agent fallback turns. */
+const CHAT_AGENT_DEADLINE_MS = 28_000;
+/** Skip date/incomplete retries when the turn already consumed this much time. */
+const RETRY_BUDGET_SKIP_MS = 18_000;
 
 const AGENT_CALENDAR_TOOLS = new Set([
   "search_calendar_activities",
@@ -168,9 +171,8 @@ export function resolveChatExecutionMode(
 }
 
 /**
- * Prefer one LLM call when the handler already has an authoritative calendar row
- * match, for simple date questions, or for in-scope calendar/holiday topics without
- * uitm_general. Other Gemma production turns use the tool agent.
+ * Prefer one LLM call with deterministic prefetch for all routed topics.
+ * Agent loop is reserved for turns with no topic match.
  */
 export function shouldPreferSingleStream(input: {
   hasMatchedActivity: boolean;
@@ -178,15 +180,7 @@ export function shouldPreferSingleStream(input: {
   topics: string[];
 }): boolean {
   if (input.hasMatchedActivity || input.isSimple) return true;
-  const { topics } = input;
-  if (topics.length === 0) return false;
-  if (topics.includes("uitm_general")) return false;
-  return topics.every(
-    (t) =>
-      t === "academic_calendar" ||
-      t === "lecture_weeks" ||
-      t === "public_holiday"
-  );
+  return input.topics.length > 0;
 }
 
 async function runWithServerDeadline<T>(
@@ -284,6 +278,25 @@ export async function POST(request: NextRequest) {
       shouldSetVerifiedCookie = true;
     }
 
+    const requestHost = request.headers.get("host");
+    const origin = new URL(request.url).origin;
+
+    type StreamHooks = {
+      enqueue: (text: string) => void;
+      emitReasoningLine: (line: string) => void;
+      emitStatus: (phase: string, message: string) => void;
+      onToken: (token: string) => void;
+      onReasoningToken: (token: string) => void;
+      onToolCall: (toolName: string) => void;
+      onSynthesis: () => void;
+      onRetry: (reason: string) => void;
+    };
+
+    const executeChatTurn = async (streamHooks?: StreamHooks): Promise<string> => {
+      if (streamHooks) {
+        streamHooks.emitStatus("loading", "Loading calendar data…");
+      }
+
     const meta = await loadMetaIntoStore();
     const { validSessionIds, validPrograms } = validSetsFromMeta(meta);
 
@@ -362,7 +375,6 @@ export async function POST(request: NextRequest) {
       }))
     );
 
-    const requestHost = request.headers.get("host");
     const useAgentPath = isChatAgentEnabled();
     const modelChain = resolveProductionChatModelChain(requestHost);
     const agentMode = useAgentPath ? agentModeForModelChain(modelChain) : "compact";
@@ -399,18 +411,17 @@ export async function POST(request: NextRequest) {
 
     const cachedReply = getCachedReply(cacheKey);
     if (cachedReply) {
-      return withVerifiedCookie(jsonChatReply(cachedReply, correlationId, "cache"));
+      return cachedReply;
     }
 
     const aiBindingPromise = getAiBinding();
-    const origin = new URL(request.url).origin;
 
     const aiBinding = await aiBindingPromise;
     if (!aiBinding) {
       const noAi = mapChatError(
         Object.assign(new Error("Workers AI binding not available"), { status: 503 })
       );
-      return withVerifiedCookie(jsonError(noAi.message, noAi.status));
+      throw Object.assign(new Error(noAi.message), { status: noAi.status });
     }
 
     const useCalendarPrompt = topicNeedsCalendarPrompt(topicRoute.topics);
@@ -546,6 +557,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    let onPrefetchStatus: (label: string) => void = () => {};
+
     const agentTurnContext = buildAgentTurnContext({
       message: sanitizedMessage,
       todayISO,
@@ -566,6 +579,17 @@ export async function POST(request: NextRequest) {
       comparisonContext,
       includeSecondary,
     });
+
+    let prefetchDirective = "";
+    if (useAgentPath && !useAgentTools) {
+      const prefetch = await runDeterministicPrefetch(
+        agentTurnContext,
+        onPrefetchStatus
+      );
+      if (prefetch.outputBlock) {
+        prefetchDirective = `\n\n=== PREFETCHED TOOL DATA (authoritative) ===\n${prefetch.outputBlock}`;
+      }
+    }
 
     const modelTier = resolveWorkersAiModelTier(requestHost);
     const maxOutputTokens = getMaxOutputTokensForHost(requestHost);
@@ -588,7 +612,8 @@ export async function POST(request: NextRequest) {
       publicHolidayDirective +
       languageDirective;
 
-    const systemPromptWithCompletion = systemPrompt + completionSuffix;
+    const systemPromptWithCompletion =
+      systemPrompt + prefetchDirective + completionSuffix;
 
     let cachedLegacyFallbackBase: string | null = null;
     const getLegacyFallbackPromptWithCompletion = async (
@@ -796,6 +821,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (
+        Date.now() - turnStartMs < RETRY_BUDGET_SKIP_MS &&
         !useResearchOnly &&
         !hasMatchedActivity &&
         allowedDates.size > 0 &&
@@ -823,7 +849,9 @@ export async function POST(request: NextRequest) {
       }
 
       const cleanedFirst = normalizeAssistantTables(cleanAiReply(rawReply));
-      const incomplete = detectIncompleteReply(cleanedFirst, needsList || asksDetail);
+      const incomplete =
+        Date.now() - turnStartMs < RETRY_BUDGET_SKIP_MS &&
+        detectIncompleteReply(cleanedFirst, needsList || asksDetail);
       if (incomplete) {
         await onProgress?.onRetry?.("incomplete");
         const bumpedBudget = {
@@ -880,17 +908,44 @@ export async function POST(request: NextRequest) {
       return cleanedFirst;
     };
 
+    if (streamHooks) {
+      streamHooks.emitReasoningLine(
+        initialReasoningPhrase(useAgentTools, topicRoute.topics)
+      );
+      const streamedReply = await runWithServerDeadline(
+        useAgentTools ? CHAT_AGENT_DEADLINE_MS : CHAT_SERVER_DEADLINE_MS,
+        () =>
+          runLlm(streamHooks.onToken, {
+            onReasoningToken: streamHooks.onReasoningToken,
+            onToolCall: streamHooks.onToolCall,
+            onSynthesis: streamHooks.onSynthesis,
+            onRetry: streamHooks.onRetry,
+          })
+      );
+      setCachedReply(cacheKey, streamedReply);
+      return streamedReply;
+    }
+
+    const bufferedReply = await runLlm(() => undefined);
+    setCachedReply(cacheKey, bufferedReply);
+    return bufferedReply;
+    };
+
     if (wantStream) {
+      const aiBinding = await getAiBinding();
+      if (!aiBinding) {
+        const noAi = mapChatError(
+          Object.assign(new Error("Workers AI binding not available"), { status: 503 })
+        );
+        return withVerifiedCookie(jsonError(noAi.message, noAi.status));
+      }
+
       const sseStream = new ReadableStream<Uint8Array>({
         async start(controller) {
           const encoder = new TextEncoder();
           const enqueue = (text: string) => controller.enqueue(encoder.encode(text));
           try {
-            const onToken = streamTokensToClient
-              ? (token: string) => {
-                  enqueue(encodeSseEvent("token", { token }));
-                }
-              : () => {};
+            enqueue(encodeSseEvent("reasoning", { token: "Thinking…\n" }));
             let reasoningBuffer = "";
             const emitReasoningLine = (line: string) => {
               const merged = appendReasoningLine(reasoningBuffer, line);
@@ -899,38 +954,38 @@ export async function POST(request: NextRequest) {
               reasoningBuffer = merged;
               if (delta) enqueue(encodeSseEvent("reasoning", { token: delta }));
             };
-            const onReasoningToken = (token: string) => {
-              if (!token) return;
-              reasoningBuffer += token;
-              enqueue(encodeSseEvent("reasoning", { token }));
+            const emitStatus = (phase: string, statusMessage: string) => {
+              enqueue(encodeSseEvent("status", { phase, message: statusMessage }));
+              emitReasoningLine(statusMessage);
             };
-            const onToolCall = (toolName: string) => {
-              emitReasoningLine(toolStatusLabel(toolName));
+            const streamHooks: StreamHooks = {
+              enqueue,
+              emitReasoningLine,
+              emitStatus,
+              onToken: (token) => enqueue(encodeSseEvent("token", { token })),
+              onReasoningToken: (token) => {
+                if (!token) return;
+                reasoningBuffer += token;
+                enqueue(encodeSseEvent("reasoning", { token }));
+              },
+              onToolCall: (toolName) => {
+                emitReasoningLine(toolStatusLabel(toolName));
+              },
+              onSynthesis: () => {
+                emitReasoningLine("Writing your answer…");
+              },
+              onRetry: (reason) => {
+                reasoningBuffer = "";
+                enqueue(encodeSseEvent("reset", { reason }));
+                emitReasoningLine(
+                  reason === "dates"
+                    ? "Double-checking calendar dates…"
+                    : "Refining your answer…"
+                );
+              },
             };
-            const onSynthesis = () => {
-              emitReasoningLine("Writing your answer…");
-            };
-            const onRetry = (reason: string) => {
-              reasoningBuffer = "";
-              enqueue(encodeSseEvent("reset", { reason }));
-              emitReasoningLine(
-                reason === "dates"
-                  ? "Double-checking calendar dates…"
-                  : "Refining your answer…"
-              );
-            };
-            emitReasoningLine(initialReasoningPhrase(useAgentTools, topicRoute.topics));
-            const reply = await runWithServerDeadline(
-              useAgentTools ? CHAT_AGENT_DEADLINE_MS : CHAT_SERVER_DEADLINE_MS,
-              () =>
-                runLlm(onToken, {
-                  onReasoningToken,
-                  onToolCall,
-                  onSynthesis,
-                  onRetry,
-                })
-            );
-            setCachedReply(cacheKey, reply);
+
+            const reply = await executeChatTurn(streamHooks);
             enqueue(
               encodeSseEvent("done", {
                 reply,
@@ -945,10 +1000,8 @@ export async function POST(request: NextRequest) {
               errMsg: mapped.message,
               status: mapped.status,
               cause: error instanceof Error ? error.message : String(error),
-              modelTier,
-              modelChain: modelChain.join(" → "),
-              agentMode,
-              executionMode,
+              modelTier: resolveWorkersAiModelTier(requestHost),
+              modelChain: resolveProductionChatModelChain(requestHost).join(" → "),
             });
             enqueue(encodeSseEvent("error", { error: mapped.message, status: mapped.status }));
             controller.close();
@@ -960,8 +1013,7 @@ export async function POST(request: NextRequest) {
       return withVerifiedCookie(response);
     }
 
-    const reply = await runLlm(() => undefined);
-    setCachedReply(cacheKey, reply);
+    const reply = await executeChatTurn();
     return withVerifiedCookie(jsonChatReply(reply, correlationId, "llm"));
   } catch (error: unknown) {
     if (error instanceof SyntaxError || (error instanceof Error && error.message?.includes("JSON"))) {

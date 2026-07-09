@@ -15,14 +15,22 @@ interface MarkdownRendererProps {
 function PlainMarkdownFallback({
   content,
   className,
+  isComplete = true,
 }: {
   content: string;
   className?: string;
+  isComplete?: boolean;
 }) {
   const trimmed = content.trim();
   if (!trimmed) return null;
   return (
-    <p className={cn("text-sm leading-relaxed whitespace-pre-wrap break-words", className)}>
+    <p
+      className={cn(
+        "text-sm leading-relaxed whitespace-pre-wrap break-words",
+        !isComplete && "animate-in fade-in blur-in duration-300 fill-mode-both",
+        className
+      )}
+    >
       {trimmed}
     </p>
   );
@@ -78,7 +86,13 @@ function RichMarkdown({
   }, []);
 
   if (!StreamdownRenderer) {
-    return <PlainMarkdownFallback content={trimmed} className={className} />;
+    return (
+      <PlainMarkdownFallback
+        content={trimmed}
+        className={className}
+        isComplete={isComplete}
+      />
+    );
   }
 
   return (
@@ -101,7 +115,13 @@ export function MarkdownRenderer({
   if (!trimmed) return null;
 
   if (!shouldUseMarkdownRenderer(trimmed)) {
-    return <PlainMarkdownFallback content={trimmed} className={className} />;
+    return (
+      <PlainMarkdownFallback
+        content={trimmed}
+        className={className}
+        isComplete={isComplete}
+      />
+    );
   }
 
   return (

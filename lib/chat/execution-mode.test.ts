@@ -89,19 +89,29 @@ describe("shouldPreferSingleStream", () => {
     ).toBe(true);
   });
 
-  it("keeps the agent when uitm_general is involved", () => {
+  it("prefers single_stream for uitm_general topics", () => {
     expect(
       shouldPreferSingleStream({
         hasMatchedActivity: false,
         isSimple: false,
         topics: ["uitm_general"],
       })
-    ).toBe(false);
+    ).toBe(true);
     expect(
       shouldPreferSingleStream({
         hasMatchedActivity: false,
         isSimple: false,
         topics: ["academic_calendar", "uitm_general"],
+      })
+    ).toBe(true);
+  });
+
+  it("uses agent only when no topics are routed", () => {
+    expect(
+      shouldPreferSingleStream({
+        hasMatchedActivity: false,
+        isSimple: false,
+        topics: [],
       })
     ).toBe(false);
   });
@@ -120,7 +130,7 @@ describe("appendReasoningLine", () => {
 });
 
 describe("MAX_AGENT_TOOL_STEPS", () => {
-  it("caps tool steps at 4 for complex production Gemma turns", () => {
-    expect(MAX_AGENT_TOOL_STEPS).toBe(4);
+  it("caps tool steps at 2 for agent fallback turns", () => {
+    expect(MAX_AGENT_TOOL_STEPS).toBe(2);
   });
 });

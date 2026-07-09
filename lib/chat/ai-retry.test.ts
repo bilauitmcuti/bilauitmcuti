@@ -65,6 +65,6 @@ describe("getModelResponseBudget", () => {
       false,
       ceiling
     );
-    expect(budget.maxTokens).toBe(4096);
+    expect(budget.maxTokens).toBe(2048);
   });
 });

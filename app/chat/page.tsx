@@ -33,6 +33,7 @@ import { useDesktopViewport } from "@/lib/use-mobile-viewport";
 import {
   CHAT_TURNSTILE_COOKIE,
   CHAT_TIMEOUT_MESSAGE,
+  resolveChatErrorMessage,
   FETCH_TIMEOUT_MS,
   FETCH_HEADERS_TIMEOUT_MS,
   FETCH_STREAM_TIMEOUT_MS,
@@ -41,8 +42,8 @@ import {
   getActiveMentionMatch,
   getChatErrorMessage,
   consumeChatStream,
-  createMarkdownStreamPainter,
-  createReasoningStreamPainter,
+  createRafMarkdownStreamPainter,
+  createRafReasoningStreamPainter,
   MAX_CHAT_MESSAGE_LENGTH,
   parseChatResponse,
   prepareHistory,
@@ -214,6 +215,11 @@ export default function ChatPage() {
   useLayoutEffect(() => {
     setSuggestions(getRandomSuggestions(suggestionGroup, []));
   }, [suggestionGroup]);
+
+  useEffect(() => {
+    void import("@/components/ui/streamdown-renderer");
+  }, []);
+
   const [streamStatusPhrase, setStreamStatusPhrase] = useState("");
 
   const startLoadingState = useCallback(() => {
@@ -416,6 +422,7 @@ export default function ChatPage() {
       id: assistantId,
       role: "assistant",
       content: "",
+      reasoning: "Thinking…",
       isComplete: false,
       timestamp: now,
     };
@@ -461,6 +468,7 @@ export default function ChatPage() {
       let content: string | null = null;
       let maxAttempts = 3;
       let chatRequestSucceeded = false;
+      let lastErrorStatus: number | undefined;
       const isRetryableStatus = (s: number) =>
         s === 429 || s === 500 || s === 502 || s === 503 || s === 504;
 
@@ -497,9 +505,8 @@ export default function ChatPage() {
             clearTimeout(timeoutId);
             timeoutId = setTimeout(() => controller.abort(), FETCH_STREAM_TIMEOUT_MS);
 
-            let lastErrorStatus: number | undefined;
             let answerStarted = false;
-            const streamPainter = createMarkdownStreamPainter(
+            const streamPainter = createRafMarkdownStreamPainter(
               (chunk) => {
                 setMessages((prev) =>
                   prev.map((m) =>
@@ -509,9 +516,9 @@ export default function ChatPage() {
                   )
                 );
               },
-              { maxChunkChars: 32, firstFlushChars: 12 }
+              { maxChunkChars: 16, firstFlushChars: 4 }
             );
-            const reasoningPainter = createReasoningStreamPainter((chunk) => {
+            const reasoningPainter = createRafReasoningStreamPainter((chunk) => {
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === assistantId
@@ -523,6 +530,10 @@ export default function ChatPage() {
             await consumeChatStream(
               res,
               {
+                onStatus: (payload) => {
+                  if (!payload.message?.trim()) return;
+                  reasoningPainter.push(`${payload.message}\n`);
+                },
                 onReasoning: (payload) => {
                   if (!payload.token) return;
                   reasoningPainter.push(payload.token);
@@ -531,13 +542,6 @@ export default function ChatPage() {
                   if (!answerStarted && token.trim()) {
                     answerStarted = true;
                     reasoningPainter.flush();
-                    setMessages((prev) =>
-                      prev.map((m) =>
-                        m.id === assistantId
-                          ? { ...m, isReasoningCollapsed: true }
-                          : m
-                      )
-                    );
                   }
                   streamPainter.push(token);
                 },
@@ -585,7 +589,6 @@ export default function ChatPage() {
                             correlationId: payload.correlationId,
                             userPrompt: trimmed,
                             isComplete: true,
-                            isReasoningCollapsed: true,
                             timestamp: doneAt,
                           }
                         : m
@@ -598,7 +601,7 @@ export default function ChatPage() {
                 onError: (payload) => {
                   streamPainter.flush();
                   reasoningPainter.flush();
-                  content = payload.error;
+                  content = resolveChatErrorMessage(payload.status, payload.error);
                   lastErrorStatus = payload.status;
                   if (payload.status === 503 && maxAttempts === 3) {
                     maxAttempts = 4;
@@ -682,6 +685,12 @@ export default function ChatPage() {
           content = isAbort
             ? CHAT_TIMEOUT_MESSAGE
             : "Something went wrong. Please try again.";
+          if (
+            isAbort &&
+            lastErrorStatus === 429
+          ) {
+            content = resolveChatErrorMessage(429);
+          }
           if (attempt < maxAttempts - 1) {
             await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
             continue;
@@ -920,16 +929,6 @@ export default function ChatPage() {
     });
   }, []);
 
-  const handleToggleReasoningCollapsed = useCallback((msgId: string) => {
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === msgId
-          ? { ...m, isReasoningCollapsed: !m.isReasoningCollapsed }
-          : m
-      )
-    );
-  }, []);
-
   const handleEdit = useCallback((msgId: string) => {
     const msgIndex = messages.findIndex((m) => m.id === msgId);
     if (msgIndex === -1) return;
@@ -1001,7 +1000,6 @@ export default function ChatPage() {
             onReaction={handleReaction}
             onEdit={handleEdit}
             onDelete={handleDelete}
-            onToggleReasoningCollapsed={handleToggleReasoningCollapsed}
           />
         )}
 

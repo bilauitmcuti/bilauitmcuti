@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  Reasoning,
+  ReasoningContent,
+  ReasoningTrigger,
+} from "@/components/ai-elements/reasoning";
 import { Check, Copy, Pencil, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { Button } from "@/components/ui/button";
@@ -9,7 +14,6 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { ChatReasoning } from "@/components/chat/chat-reasoning";
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
 import {
   Message,
@@ -32,7 +36,6 @@ interface ChatMessageRowProps {
   onReaction: (msgId: string, type: "up" | "down") => void;
   onEdit: (msgId: string) => void;
   onDelete: (msgId: string) => void;
-  onToggleReasoningCollapsed?: (msgId: string) => void;
 }
 
 export function ChatMessageRow({
@@ -45,13 +48,13 @@ export function ChatMessageRow({
   onReaction,
   onEdit,
   onDelete,
-  onToggleReasoningCollapsed,
 }: ChatMessageRowProps) {
   const assistantInProgress =
     message.role === "assistant" && message.isComplete === false;
   const answerStreaming = assistantInProgress && message.content.trim().length > 0;
   const reasoningStreaming =
     assistantInProgress && !answerStreaming;
+  const reasoningText = message.reasoning?.trim() ?? "";
 
   const enterAnimation =
     message.role === "user"
@@ -112,17 +115,13 @@ export function ChatMessageRow({
     <MessageScrollerItem messageId={message.id} scrollAnchor={scrollAnchor}>
       <Message align="start">
         <MessageContent>
-          {message.reasoning?.trim() ? (
-            <ChatReasoning
-              reasoning={message.reasoning}
-              isStreaming={reasoningStreaming}
-              isCollapsed={message.isReasoningCollapsed === true}
-              onToggleCollapsed={() => onToggleReasoningCollapsed?.(message.id)}
-            />
-          ) : reasoningStreaming ? (
-            <p className="mb-2 text-sm leading-relaxed text-muted-foreground select-none">
-              Thinking…
-            </p>
+          {reasoningStreaming || reasoningText ? (
+            <Reasoning className="w-full" isStreaming={reasoningStreaming}>
+              <ReasoningTrigger />
+              <ReasoningContent>
+                {reasoningText || "Thinking…"}
+              </ReasoningContent>
+            </Reasoning>
           ) : null}
           {message.content.trim() ? (
             <Bubble variant="ghost">
