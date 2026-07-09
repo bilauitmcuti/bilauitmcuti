@@ -422,7 +422,6 @@ export default function ChatPage() {
       id: assistantId,
       role: "assistant",
       content: "",
-      reasoning: "Thinking…",
       isComplete: false,
       timestamp: now,
     };
@@ -530,10 +529,6 @@ export default function ChatPage() {
             await consumeChatStream(
               res,
               {
-                onStatus: (payload) => {
-                  if (!payload.message?.trim()) return;
-                  reasoningPainter.push(`${payload.message}\n`);
-                },
                 onReasoning: (payload) => {
                   if (!payload.token) return;
                   reasoningPainter.push(payload.token);

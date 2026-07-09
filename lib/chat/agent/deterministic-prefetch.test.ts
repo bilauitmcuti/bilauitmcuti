@@ -32,12 +32,12 @@ function minimalCtx(topics: AgentTurnContext["topicRoute"]["topics"]): AgentTurn
 
 describe("runDeterministicPrefetch", () => {
   it("runs tools for lecture weeks topic", async () => {
-    const statuses: string[] = [];
-    const result = await runDeterministicPrefetch(minimalCtx(["lecture_weeks"]), (label) =>
-      statuses.push(label)
-    );
+    const started: string[] = [];
+    const result = await runDeterministicPrefetch(minimalCtx(["lecture_weeks"]), (toolName) => {
+      started.push(toolName);
+    });
     expect(result.toolsUsed.length).toBeGreaterThan(0);
     expect(result.outputBlock).toContain("get_lecture_weeks");
-    expect(statuses.length).toBeGreaterThan(0);
+    expect(started).toContain("get_lecture_weeks");
   });
 });

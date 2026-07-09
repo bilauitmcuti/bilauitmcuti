@@ -42,8 +42,14 @@ import {
   askAiWithRetry,
   askAgentWithRetry,
 } from "@/lib/chat/ai-retry";
-import { toolStatusLabel } from "@/lib/chat/agent/embedded-tools";
+import type { ChatToolName } from "@/lib/chat/agent/types";
 import { runDeterministicPrefetch } from "@/lib/chat/agent/deterministic-prefetch";
+import {
+  buildAnswerPhaseLine,
+  buildReasoningOpener,
+  buildRetryReasoningLine,
+  buildToolReasoningLine,
+} from "@/lib/chat/reasoning-status";
 import {
   agentModeForModelChain,
   buildAgentTurnContext,
@@ -137,16 +143,15 @@ export function appendReasoningLine(current: string, line: string): string {
   const next = line.trim();
   if (!next) return current;
   if (!current.trim()) return next;
-  if (current.endsWith(next)) return current;
-  return `${current.trimEnd()}\n${next}`;
-}
 
-function initialReasoningPhrase(useAgentTools: boolean, topics: string[]): string {
-  if (!useAgentTools) return "Looking up the calendar…";
-  if (topics.includes("uitm_general")) return "Searching UiTM knowledge…";
-  if (topics.includes("public_holiday")) return "Reading public holidays…";
-  if (topics.includes("lecture_weeks")) return "Looking up lecture weeks…";
-  return "Searching calendar activities…";
+  const existing = current
+    .split("\n")
+    .map((row) => row.trim())
+    .filter(Boolean);
+  if (existing.some((row) => row === next)) return current;
+  if (current.endsWith(next)) return current;
+
+  return `${current.trimEnd()}\n${next}`;
 }
 
 export type ChatExecutionMode = "single_stream" | "agent";
@@ -293,10 +298,6 @@ export async function POST(request: NextRequest) {
     };
 
     const executeChatTurn = async (streamHooks?: StreamHooks): Promise<string> => {
-      if (streamHooks) {
-        streamHooks.emitStatus("loading", "Loading calendar data…");
-      }
-
     const meta = await loadMetaIntoStore();
     const { validSessionIds, validPrograms } = validSetsFromMeta(meta);
 
@@ -366,6 +367,19 @@ export async function POST(request: NextRequest) {
 
     const topicRoute = routeChatTopics(sanitizedMessage, hasMatchedActivity);
     const useIntentFilter = shouldUseCalendarIntentFilter(topicRoute, activityMatches.length);
+
+    if (streamHooks) {
+      streamHooks.emitReasoningLine(
+        buildReasoningOpener({
+          message: sanitizedMessage,
+          topics: topicRoute.topics,
+          hasMatchedActivity,
+          activityMatches,
+          programLabel,
+          sessionCount: effectiveSessions.length,
+        })
+      );
+    }
 
     const sanitizedHistory: ChatMessage[] = trimHistoryForModel(
       (history ?? []).map((msg) => ({
@@ -557,8 +571,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    let onPrefetchStatus: (label: string) => void = () => {};
-
     const agentTurnContext = buildAgentTurnContext({
       message: sanitizedMessage,
       todayISO,
@@ -582,10 +594,15 @@ export async function POST(request: NextRequest) {
 
     let prefetchDirective = "";
     if (useAgentPath && !useAgentTools) {
-      const prefetch = await runDeterministicPrefetch(
-        agentTurnContext,
-        onPrefetchStatus
-      );
+      const prefetch = await runDeterministicPrefetch(agentTurnContext, (toolName) => {
+        streamHooks?.emitReasoningLine(
+          buildToolReasoningLine(toolName, {
+            message: sanitizedMessage,
+            programLabel,
+            activityMatches,
+          })
+        );
+      });
       if (prefetch.outputBlock) {
         prefetchDirective = `\n\n=== PREFETCHED TOOL DATA (authoritative) ===\n${prefetch.outputBlock}`;
       }
@@ -909,17 +926,35 @@ export async function POST(request: NextRequest) {
     };
 
     if (streamHooks) {
-      streamHooks.emitReasoningLine(
-        initialReasoningPhrase(useAgentTools, topicRoute.topics)
-      );
+      if (!useAgentTools) {
+        streamHooks.emitReasoningLine(buildAnswerPhaseLine(sanitizedMessage));
+      }
       const streamedReply = await runWithServerDeadline(
         useAgentTools ? CHAT_AGENT_DEADLINE_MS : CHAT_SERVER_DEADLINE_MS,
         () =>
           runLlm(streamHooks.onToken, {
             onReasoningToken: streamHooks.onReasoningToken,
-            onToolCall: streamHooks.onToolCall,
-            onSynthesis: streamHooks.onSynthesis,
-            onRetry: streamHooks.onRetry,
+            onToolCall: (toolName) => {
+              streamHooks.emitReasoningLine(
+                buildToolReasoningLine(toolName as ChatToolName, {
+                  message: sanitizedMessage,
+                  programLabel,
+                  activityMatches,
+                })
+              );
+            },
+            onSynthesis: () => {
+              streamHooks.emitReasoningLine(buildAnswerPhaseLine(sanitizedMessage));
+            },
+            onRetry: (reason) => {
+              streamHooks.onRetry(reason);
+              streamHooks.emitReasoningLine(
+                buildRetryReasoningLine(
+                  reason === "dates" ? "dates" : "incomplete",
+                  sanitizedMessage
+                )
+              );
+            },
           })
       );
       setCachedReply(cacheKey, streamedReply);
@@ -945,7 +980,6 @@ export async function POST(request: NextRequest) {
           const encoder = new TextEncoder();
           const enqueue = (text: string) => controller.enqueue(encoder.encode(text));
           try {
-            enqueue(encodeSseEvent("reasoning", { token: "Thinking…\n" }));
             let reasoningBuffer = "";
             const emitReasoningLine = (line: string) => {
               const merged = appendReasoningLine(reasoningBuffer, line);
@@ -956,7 +990,6 @@ export async function POST(request: NextRequest) {
             };
             const emitStatus = (phase: string, statusMessage: string) => {
               enqueue(encodeSseEvent("status", { phase, message: statusMessage }));
-              emitReasoningLine(statusMessage);
             };
             const streamHooks: StreamHooks = {
               enqueue,
@@ -968,20 +1001,11 @@ export async function POST(request: NextRequest) {
                 reasoningBuffer += token;
                 enqueue(encodeSseEvent("reasoning", { token }));
               },
-              onToolCall: (toolName) => {
-                emitReasoningLine(toolStatusLabel(toolName));
-              },
-              onSynthesis: () => {
-                emitReasoningLine("Writing your answer…");
-              },
+              onToolCall: () => {},
+              onSynthesis: () => {},
               onRetry: (reason) => {
                 reasoningBuffer = "";
                 enqueue(encodeSseEvent("reset", { reason }));
-                emitReasoningLine(
-                  reason === "dates"
-                    ? "Double-checking calendar dates…"
-                    : "Refining your answer…"
-                );
               },
             };
 

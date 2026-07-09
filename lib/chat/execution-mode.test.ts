@@ -120,12 +120,16 @@ describe("shouldPreferSingleStream", () => {
 describe("appendReasoningLine", () => {
   it("joins status lines without duplicating", async () => {
     const { appendReasoningLine } = await import("@/lib/chat/handler");
-    let text = appendReasoningLine("", "Looking up the calendar…");
-    text = appendReasoningLine(text, "Searching calendar activities…");
-    expect(text).toBe(
-      "Looking up the calendar…\nSearching calendar activities…"
+    let text = appendReasoningLine(
+      "",
+      'Searching the academic calendar (All) for: "bila cuti?"'
     );
-    expect(appendReasoningLine(text, "Searching calendar activities…")).toBe(text);
+    text = appendReasoningLine(text, "Pulling lecture week 1–N dates for: \"minggu 5\"");
+    expect(text).toContain("bila cuti");
+    expect(text).toContain("minggu 5");
+    expect(appendReasoningLine(text, 'Searching the academic calendar (All) for: "bila cuti?"')).toBe(
+      text
+    );
   });
 });
 

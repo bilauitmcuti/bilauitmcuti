@@ -1,4 +1,3 @@
-import { toolStatusLabel } from "@/lib/chat/agent/embedded-tools";
 import { buildToolRegistryForTurn } from "@/lib/chat/agent/tool-registry";
 import { executeChatTool } from "@/lib/chat/agent/tools/execute";
 import type { AgentTurnContext, ChatToolName } from "@/lib/chat/agent/types";
@@ -15,7 +14,7 @@ export interface DeterministicPrefetchResult {
  */
 export async function runDeterministicPrefetch(
   ctx: AgentTurnContext,
-  onToolStatus?: (label: string) => void
+  onToolStart?: (toolName: ChatToolName) => void
 ): Promise<DeterministicPrefetchResult> {
   const tools = buildToolRegistryForTurn(ctx);
   const toolsUsed: ChatToolName[] = [];
@@ -23,7 +22,7 @@ export async function runDeterministicPrefetch(
 
   const results = await Promise.all(
     tools.map(async (toolName) => {
-      onToolStatus?.(toolStatusLabel(toolName));
+      onToolStart?.(toolName);
       try {
         const output = await executeChatTool(toolName, {}, ctx);
         if (output.trim()) toolsUsed.push(toolName);
