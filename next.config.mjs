@@ -11,6 +11,7 @@ const nextConfig = {
     optimizePackageImports: [
       'lucide-react',
       '@base-ui/react',
+      'streamdown',
     ],
   },
   env: {
