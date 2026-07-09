@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   consumeChatStream,
   createMarkdownStreamPainter,
@@ -177,5 +177,34 @@ describe("consumeChatStream", () => {
     controller.abort();
     await pending;
     expect(error?.status).toBe(504);
+  });
+});
+
+describe("parseSseBuffer reasoning event", () => {
+  it("parses reasoning SSE payloads", () => {
+    const onReasoning = vi.fn();
+    parseSseBuffer('event: reasoning\ndata: {"token":"Planning"}\n\n', (event, data) => {
+      if (event === "reasoning") onReasoning(data);
+    });
+    expect(onReasoning).toHaveBeenCalledWith({ token: "Planning" });
+  });
+});
+
+describe("consumeChatStream reasoning", () => {
+  it("invokes onReasoning for reasoning events", async () => {
+    const onReasoning = vi.fn();
+    const res = streamResponse([
+      encodeSseEvent("reasoning", { token: "Step 1" }),
+      encodeSseEvent("done", { reply: "Done", correlationId: "c1" }),
+    ]);
+
+    await consumeChatStream(res, {
+      onToken: () => {},
+      onReasoning,
+      onDone: async () => {},
+      onError: () => {},
+    });
+
+    expect(onReasoning).toHaveBeenCalledWith({ token: "Step 1" });
   });
 });

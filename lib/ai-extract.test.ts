@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  extractStreamParts,
   extractToolCalls,
   tryExtractWorkersAiContent,
 } from "@/lib/ai";
@@ -91,5 +92,42 @@ describe("tryExtractWorkersAiContent", () => {
 
   it("returns null for empty payloads", () => {
     expect(tryExtractWorkersAiContent({ choices: [{ message: { content: "" } }] })).toBeNull();
+  });
+});
+
+describe("extractStreamParts", () => {
+  it("keeps reasoning separate from answer content", () => {
+    expect(
+      extractStreamParts({
+        choices: [
+          {
+            delta: {
+              content: "Jawapan rasmi.",
+              reasoning: "Internal chain of thought.",
+            },
+          },
+        ],
+      })
+    ).toEqual({
+      content: "Jawapan rasmi.",
+      reasoning: "Internal chain of thought.",
+    });
+  });
+
+  it("returns reasoning-only chunks without promoting them to content", () => {
+    expect(
+      extractStreamParts({
+        choices: [
+          {
+            delta: {
+              content: "",
+              reasoning: "Checking lecture week table.",
+            },
+          },
+        ],
+      })
+    ).toEqual({
+      reasoning: "Checking lecture week table.",
+    });
   });
 });

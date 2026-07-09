@@ -308,7 +308,11 @@ function normalizeReasoningFallback(reasoning: string): string | null {
   return trimmed;
 }
 
-function extractWorkersAiContentFromObject(result: unknown): string | null {
+function extractWorkersAiContentFromObject(
+  result: unknown,
+  options?: { allowReasoningFallback?: boolean }
+): string | null {
+  const allowReasoningFallback = options?.allowReasoningFallback !== false;
   if (typeof result === "string" && result.trim()) return result.trim();
 
   if (!result || typeof result !== "object") return null;
@@ -322,7 +326,10 @@ function extractWorkersAiContentFromObject(result: unknown): string | null {
   if (typeof message?.content === "string" && message.content.trim()) {
     return message.content.trim();
   }
-  if (message?.content == null || String(message.content).trim() === "") {
+  if (
+    allowReasoningFallback &&
+    (message?.content == null || String(message.content).trim() === "")
+  ) {
     if (typeof message?.reasoning === "string") {
       const fromReasoning = normalizeReasoningFallback(message.reasoning);
       if (fromReasoning) return fromReasoning;
@@ -337,6 +344,15 @@ function extractWorkersAiContentFromObject(result: unknown): string | null {
   if (geminiText?.trim()) return geminiText.trim();
 
   return null;
+}
+
+export function tryExtractWorkersAiReasoning(result: unknown): string | null {
+  if (!result || typeof result !== "object") return null;
+  const message = (result as WorkersAiTextResponse).choices?.[0]?.message as
+    | { reasoning?: string | null }
+    | undefined;
+  if (typeof message?.reasoning !== "string") return null;
+  return normalizeReasoningFallback(message.reasoning);
 }
 
 export function tryExtractWorkersAiContent(result: unknown): string | null {
@@ -386,12 +402,24 @@ function isGemmaThinkingCapableModel(modelId: string): boolean {
   return modelId.includes("gemma-4") || modelId.includes("gemma-3");
 }
 
+export type GemmaThinkingPhase = "tool" | "answer";
+
+function resolveGemmaThinkingOptions(
+  phase: GemmaThinkingPhase
+): { enable_thinking: boolean; thinking: boolean } {
+  if (phase === "tool") {
+    return { enable_thinking: true, thinking: true };
+  }
+  return { enable_thinking: false, thinking: false };
+}
+
 function buildModelRunInput(
   modelId: string,
   messages: { role: "system" | "user" | "assistant"; content: string }[],
   max_tokens: number,
   temperature: number,
-  stream: boolean
+  stream: boolean,
+  thinkingPhase: GemmaThinkingPhase = "answer"
 ): Record<string, unknown> {
   if (isGooglePartnerModelId(modelId)) {
     return {
@@ -409,7 +437,7 @@ function buildModelRunInput(
     temperature,
   };
   if (isGemmaThinkingCapableModel(modelId)) {
-    input.chat_template_kwargs = { enable_thinking: false, thinking: false };
+    input.chat_template_kwargs = resolveGemmaThinkingOptions(thinkingPhase);
   }
   if (stream) input.stream = true;
   return input;
@@ -534,16 +562,31 @@ export async function askWorkersAi(
   throw lastError;
 }
 
-function extractStreamDelta(chunk: unknown): string {
-  if (typeof chunk === "string") return chunk;
-  if (!chunk || typeof chunk !== "object") return "";
+export interface StreamDeltaParts {
+  content?: string;
+  reasoning?: string;
+}
+
+export function extractStreamParts(chunk: unknown): StreamDeltaParts {
+  const parts: StreamDeltaParts = {};
+  if (typeof chunk === "string") {
+    if (chunk) parts.content = chunk;
+    return parts;
+  }
+  if (!chunk || typeof chunk !== "object") return parts;
 
   const data = chunk as WorkersAiTextResponse & {
     response?: string;
     text?: string;
   };
-  if (typeof data.response === "string") return data.response;
-  if (typeof data.text === "string") return data.text;
+  if (typeof data.response === "string" && data.response) {
+    parts.content = data.response;
+    return parts;
+  }
+  if (typeof data.text === "string" && data.text) {
+    parts.content = data.text;
+    return parts;
+  }
 
   const choice = (chunk as {
     choices?: Array<{
@@ -551,35 +594,48 @@ function extractStreamDelta(chunk: unknown): string {
       message?: { content?: string; reasoning?: string };
     }>;
   }).choices?.[0];
+
   const deltaContent = choice?.delta?.content;
-  if (typeof deltaContent === "string" && deltaContent) return deltaContent;
+  if (typeof deltaContent === "string" && deltaContent) {
+    parts.content = deltaContent;
+  }
 
   const messageContent = choice?.message?.content;
-  if (typeof messageContent === "string" && messageContent) return messageContent;
+  if (!parts.content && typeof messageContent === "string" && messageContent) {
+    parts.content = messageContent;
+  }
 
   const deltaReasoning = choice?.delta?.reasoning;
   if (typeof deltaReasoning === "string") {
     const fromReasoning = normalizeReasoningFallback(deltaReasoning);
-    if (fromReasoning) return fromReasoning;
+    if (fromReasoning) parts.reasoning = fromReasoning;
   }
   const messageReasoning = choice?.message?.reasoning;
-  if (typeof messageReasoning === "string") {
+  if (!parts.reasoning && typeof messageReasoning === "string") {
     const fromReasoning = normalizeReasoningFallback(messageReasoning);
-    if (fromReasoning) return fromReasoning;
+    if (fromReasoning) parts.reasoning = fromReasoning;
   }
 
   const geminiParts = (
     chunk as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
   ).candidates?.[0]?.content?.parts;
-  if (geminiParts?.length) {
-    return geminiParts.map((p) => p.text ?? "").join("");
+  if (!parts.content && geminiParts?.length) {
+    const text = geminiParts.map((p) => p.text ?? "").join("");
+    if (text) parts.content = text;
   }
 
-  try {
-    return extractWorkersAiContent(chunk);
-  } catch {
-    return "";
+  if (!parts.content) {
+    const fallback = extractWorkersAiContentFromObject(chunk, {
+      allowReasoningFallback: false,
+    });
+    if (fallback) parts.content = fallback;
   }
+
+  return parts;
+}
+
+function extractStreamDelta(chunk: unknown): string {
+  return extractStreamParts(chunk).content ?? "";
 }
 
 function isStreamUnsupportedError(error: unknown): boolean {
@@ -591,11 +647,13 @@ function isStreamUnsupportedError(error: unknown): boolean {
   );
 }
 
-async function* iterateAiStream(result: unknown): AsyncGenerator<string> {
+async function* iterateAiStreamParts(
+  result: unknown
+): AsyncGenerator<StreamDeltaParts> {
   if (result == null) return;
 
   if (typeof result === "string") {
-    if (result) yield result;
+    if (result) yield { content: result };
     return;
   }
 
@@ -615,39 +673,51 @@ async function* iterateAiStream(result: unknown): AsyncGenerator<string> {
         const jsonStr = trimmed.startsWith("data:") ? trimmed.slice(5).trim() : trimmed;
         try {
           const parsed = JSON.parse(jsonStr) as unknown;
-          const delta = extractStreamDelta(parsed);
-          if (delta) yield delta;
+          const parts = extractStreamParts(parsed);
+          if (parts.content || parts.reasoning) yield parts;
         } catch {
-          if (jsonStr) yield jsonStr;
+          if (jsonStr) yield { content: jsonStr };
         }
       }
     }
     if (buffer.trim()) {
-      const delta = extractStreamDelta(buffer);
-      if (delta) yield delta;
+      const parts = extractStreamParts(buffer);
+      if (parts.content || parts.reasoning) yield parts;
     }
     return;
   }
 
   if (typeof (result as AsyncIterable<unknown>)[Symbol.asyncIterator] === "function") {
     for await (const chunk of result as AsyncIterable<unknown>) {
-      const delta = extractStreamDelta(chunk);
-      if (delta) yield delta;
+      const parts = extractStreamParts(chunk);
+      if (parts.content || parts.reasoning) yield parts;
     }
     return;
   }
 
-  const single = extractWorkersAiContent(result);
-  if (single) yield single;
+  const content = extractWorkersAiContentFromObject(result, {
+    allowReasoningFallback: false,
+  });
+  const reasoning = tryExtractWorkersAiReasoning(result);
+  if (content || reasoning) {
+    yield { content: content ?? undefined, reasoning: reasoning ?? undefined };
+  }
 }
 
-async function workersAiChatCompletionStream(params: {
+async function* iterateAiStream(result: unknown): AsyncGenerator<string> {
+  for await (const parts of iterateAiStreamParts(result)) {
+    if (parts.content) yield parts.content;
+  }
+}
+
+async function workersAiChatCompletionStreamParts(params: {
   modelId: string;
   messages: { role: "system" | "user" | "assistant"; content: string }[];
   max_tokens: number;
   temperature: number;
   correlationId?: string;
-}): Promise<AsyncGenerator<string>> {
+  thinkingPhase?: GemmaThinkingPhase;
+}): Promise<AsyncGenerator<StreamDeltaParts>> {
   const ai = await getAiBinding();
   if (!ai) {
     const err = new Error(
@@ -662,13 +732,30 @@ async function workersAiChatCompletionStream(params: {
     params.messages,
     params.max_tokens,
     params.temperature,
-    true
+    true,
+    params.thinkingPhase ?? "answer"
   );
   const result = await runAiWithGateway(ai, params.modelId, input, {
     skipCache: true,
     metadata: buildChatGatewayMetadata(params.correlationId),
   });
-  return iterateAiStream(result);
+  return iterateAiStreamParts(result);
+}
+
+async function workersAiChatCompletionStream(params: {
+  modelId: string;
+  messages: { role: "system" | "user" | "assistant"; content: string }[];
+  max_tokens: number;
+  temperature: number;
+  correlationId?: string;
+}): Promise<AsyncGenerator<string>> {
+  const partsStream = await workersAiChatCompletionStreamParts(params);
+  async function* contentOnly(): AsyncGenerator<string> {
+    for await (const parts of partsStream) {
+      if (parts.content) yield parts.content;
+    }
+  }
+  return contentOnly();
 }
 
 export interface StreamWorkersAiOptions {
@@ -677,6 +764,7 @@ export interface StreamWorkersAiOptions {
   requestHost?: string | null;
   correlationId?: string;
   onToken: (token: string) => void | Promise<void>;
+  onReasoningToken?: (token: string) => void | Promise<void>;
   /** When false, model still runs (and may stream internally) but onToken is not called until the end. */
   emitTokensToClient?: boolean;
 }
@@ -702,17 +790,23 @@ export async function streamWorkersAi(
     const modelId = modelChain[i]!;
     const isLast = i === modelChain.length - 1;
     try {
-      const stream = await workersAiChatCompletionStream({
+      const stream = await workersAiChatCompletionStreamParts({
         modelId,
         messages,
         max_tokens,
         temperature,
         correlationId: options.correlationId,
+        thinkingPhase: "answer",
       });
       let full = "";
-      for await (const token of stream) {
-        full += token;
-        if (emitTokens) await options.onToken(token);
+      for await (const parts of stream) {
+        if (parts.reasoning && options.onReasoningToken) {
+          await options.onReasoningToken(parts.reasoning);
+        }
+        if (parts.content) {
+          full += parts.content;
+          if (emitTokens) await options.onToken(parts.content);
+        }
       }
       if (!full.trim()) {
         full = await workersAiChatCompletion({
@@ -959,7 +1053,8 @@ function buildAgentModelRunInput(
   tools: FlatToolDefinition[],
   max_tokens: number,
   temperature: number,
-  stream = false
+  stream = false,
+  thinkingPhase: GemmaThinkingPhase = "tool"
 ): Record<string, unknown> {
   const formattedTools = formatToolsForModel(modelId, tools);
 
@@ -982,14 +1077,14 @@ function buildAgentModelRunInput(
   };
   if (formattedTools.length > 0) input.tools = formattedTools;
   if (isGemmaThinkingCapableModel(modelId)) {
-    input.chat_template_kwargs = { enable_thinking: false, thinking: false };
+    input.chat_template_kwargs = resolveGemmaThinkingOptions(thinkingPhase);
   }
   if (stream) input.stream = true;
   return input;
 }
 
 export const AGENT_SYNTHESIS_NUDGE =
-  "Write your complete final answer for the student now using the tool results above. Copy dates only from official calendar rows in tool output. If the user used a short name or abbreviation, map it to the closest official activity name from CLOSEST MATCHES or the calendar list before answering. If no exact row fits, name the nearest official candidates, state what is uncertain, and answer the question as directly as the tool evidence allows.";
+  "Write your complete final answer for the student now using the tool results above. You must always respond with a helpful answer — never leave the reply empty. Copy dates only from official calendar rows in tool output. If the user used a short name or abbreviation, map it to the closest official activity name from CLOSEST MATCHES or the calendar list before answering. If no exact row fits, name the nearest official candidates, state what is uncertain, and still answer the question as directly as the tool evidence allows. If tool data is missing, say so clearly and offer related context or general UiTM student guidance.";
 
 function appendAgentSynthesisNudge(
   messages: AgentChatMessage[],
@@ -1007,6 +1102,7 @@ async function runAgentCompletionWithOptionalStream(params: {
   temperature: number;
   correlationId?: string;
   onToken?: (token: string) => void | Promise<void>;
+  onReasoningToken?: (token: string) => void | Promise<void>;
   emitTokens?: boolean;
   synthesisNudge?: string;
 }): Promise<string> {
@@ -1018,6 +1114,7 @@ async function runAgentCompletionWithOptionalStream(params: {
     temperature,
     correlationId,
     onToken,
+    onReasoningToken,
     emitTokens,
     synthesisNudge = AGENT_SYNTHESIS_NUDGE,
   } = params;
@@ -1033,18 +1130,22 @@ async function runAgentCompletionWithOptionalStream(params: {
       [],
       maxTokens,
       temperature,
-      true
+      true,
+      "answer"
     );
     const streamResult = await runAiWithGateway(ai, modelId, streamInput, {
       skipCache: false,
       cacheTtl: 120,
       metadata: buildChatGatewayMetadata(correlationId),
     });
-    const stream = await iterateAiStream(streamResult);
+    const stream = iterateAiStreamParts(streamResult);
     let full = "";
-    for await (const token of stream) {
-      full += token;
-      if (emitTokens && onToken) await onToken(token);
+    for await (const parts of stream) {
+      if (parts.reasoning && onReasoningToken) await onReasoningToken(parts.reasoning);
+      if (parts.content) {
+        full += parts.content;
+        if (emitTokens && onToken) await onToken(parts.content);
+      }
     }
     if (full.trim()) return full.trim();
     throw new Error("Empty response from model");
@@ -1064,7 +1165,8 @@ async function runAgentCompletionWithOptionalStream(params: {
     [],
     maxTokens,
     temperature,
-    false
+    false,
+    "answer"
   );
   const result = await runAiWithGateway(ai, modelId, input, {
     skipCache: false,
@@ -1092,9 +1194,12 @@ export interface RunWorkersAiAgentParams {
   maxToolSteps: number;
   executeTool: (name: string, args: Record<string, unknown>) => Promise<string>;
   onToken?: (token: string) => void | Promise<void>;
+  onReasoningToken?: (token: string) => void | Promise<void>;
   emitTokensToClient?: boolean;
   /** Notified at the start of each tool step so callers can emit progress. */
   onToolStep?: (step: number, maxSteps: number) => void | Promise<void>;
+  /** Notified when a tool call is selected for execution. */
+  onToolCall?: (toolName: string) => void | Promise<void>;
   /** Notified when synthesis (final answer generation) begins. */
   onSynthesis?: () => void | Promise<void>;
 }
@@ -1160,15 +1265,24 @@ export async function runWorkersAiAgent(params: RunWorkersAiAgentParams): Promis
       params.tools,
       params.maxTokens,
       params.temperature,
-      false
+      false,
+      "tool"
     );
     const result = await runAiWithGateway(ai, modelId, input, {
       skipCache: true,
       metadata: buildChatGatewayMetadata(params.correlationId),
     });
+
+    const stepReasoning = tryExtractWorkersAiReasoning(result);
+    if (stepReasoning && params.onReasoningToken) {
+      await params.onReasoningToken(stepReasoning);
+    }
+
     const toolCalls = ensureToolCallIds(extractToolCalls(result));
     if (toolCalls.length === 0) {
-      const content = tryExtractWorkersAiContent(result);
+      const content = extractWorkersAiContentFromObject(result, {
+        allowReasoningFallback: false,
+      });
       if (content?.trim()) {
         if (emitTokens && params.onToken) await params.onToken(content);
         return content;
@@ -1178,13 +1292,18 @@ export async function runWorkersAiAgent(params: RunWorkersAiAgentParams): Promis
     // Capture any content emitted alongside tool calls — if the loop exhausts
     // maxToolSteps, this lets us return a meaningful answer without a 6th
     // synthesis call (faster, more consistent).
-    const stepContent = tryExtractWorkersAiContent(result);
+    const stepContent = extractWorkersAiContentFromObject(result, {
+      allowReasoningFallback: false,
+    });
     if (stepContent?.trim()) lastAssistantContent = stepContent;
     workingMessages.push({
       role: "assistant",
       content: stepContent ?? "",
       tool_calls: toolCalls,
     });
+    for (const call of toolCalls) {
+      if (params.onToolCall) await params.onToolCall(call.name);
+    }
     const toolResults = await Promise.all(
       toolCalls.map(async (call) => ({
         call,
@@ -1217,6 +1336,7 @@ export async function runWorkersAiAgent(params: RunWorkersAiAgentParams): Promis
     temperature: params.temperature,
     correlationId: params.correlationId,
     onToken: params.onToken,
+    onReasoningToken: params.onReasoningToken,
     emitTokens,
   });
 }

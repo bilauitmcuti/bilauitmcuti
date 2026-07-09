@@ -35,6 +35,7 @@ interface ChatTranscriptProps {
   onReaction: (msgId: string, type: "up" | "down") => void;
   onEdit: (msgId: string) => void;
   onDelete: (msgId: string) => void;
+  onToggleReasoningCollapsed?: (msgId: string) => void;
 }
 
 export function ChatTranscript({
@@ -55,6 +56,7 @@ export function ChatTranscript({
   onReaction,
   onEdit,
   onDelete,
+  onToggleReasoningCollapsed,
 }: ChatTranscriptProps) {
   return (
     <MessageScrollerProvider autoScroll defaultScrollPosition="end">
@@ -90,6 +92,7 @@ export function ChatTranscript({
                 onReaction={onReaction}
                 onEdit={onEdit}
                 onDelete={onDelete}
+                onToggleReasoningCollapsed={onToggleReasoningCollapsed}
               />
             ))}
             {showLoadingMarker ? (

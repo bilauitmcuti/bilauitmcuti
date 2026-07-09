@@ -352,8 +352,14 @@ export default function ChatPage() {
         m.isComplete === false &&
         m.content.trim().length > 0
     );
+    const hasReasoning = messages.some(
+      (m) =>
+        m.role === "assistant" &&
+        m.isComplete === false &&
+        (m.reasoning?.trim().length ?? 0) > 0
+    );
 
-    return isLoading && !hasStreamingContent;
+    return isLoading && !hasStreamingContent && !hasReasoning;
   }, [isLoading, messages]);
 
   useEffect(() => {
@@ -369,7 +375,13 @@ export default function ChatPage() {
         m.isComplete === false &&
         m.content.trim().length > 0
     );
-    if (hasStreamingContent) {
+    const hasReasoning = messages.some(
+      (m) =>
+        m.role === "assistant" &&
+        m.isComplete === false &&
+        (m.reasoning?.trim().length ?? 0) > 0
+    );
+    if (hasStreamingContent || hasReasoning) {
       setStreamStatusPhrase("");
     }
   }, [messages]);
@@ -500,6 +512,7 @@ export default function ChatPage() {
             timeoutId = setTimeout(() => controller.abort(), FETCH_STREAM_TIMEOUT_MS);
 
             let lastErrorStatus: number | undefined;
+            let answerStarted = false;
             const streamPainter = createMarkdownStreamPainter(
               (chunk) => {
                 setMessages((prev) =>
@@ -515,14 +528,37 @@ export default function ChatPage() {
             await consumeChatStream(
               res,
               {
+                onReasoning: (payload) => {
+                  if (!payload.token) return;
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === assistantId
+                        ? { ...m, reasoning: `${m.reasoning ?? ""}${payload.token}` }
+                        : m
+                    )
+                  );
+                },
                 onToken: (token) => {
+                  if (!answerStarted && token.trim()) {
+                    answerStarted = true;
+                    setMessages((prev) =>
+                      prev.map((m) =>
+                        m.id === assistantId
+                          ? { ...m, isReasoningCollapsed: true }
+                          : m
+                      )
+                    );
+                  }
                   streamPainter.push(token);
                 },
                 onReset: () => {
                   streamPainter.reset();
+                  answerStarted = false;
                   setMessages((prev) =>
                     prev.map((m) =>
-                      m.id === assistantId ? { ...m, content: "" } : m
+                      m.id === assistantId
+                        ? { ...m, content: "", reasoning: "" }
+                        : m
                     )
                   );
                 },
@@ -557,6 +593,7 @@ export default function ChatPage() {
                             correlationId: payload.correlationId,
                             userPrompt: trimmed,
                             isComplete: true,
+                            isReasoningCollapsed: true,
                             timestamp: doneAt,
                           }
                         : m
@@ -895,6 +932,16 @@ export default function ChatPage() {
     });
   }, []);
 
+  const handleToggleReasoningCollapsed = useCallback((msgId: string) => {
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === msgId
+          ? { ...m, isReasoningCollapsed: !m.isReasoningCollapsed }
+          : m
+      )
+    );
+  }, []);
+
   const handleEdit = useCallback((msgId: string) => {
     const msgIndex = messages.findIndex((m) => m.id === msgId);
     if (msgIndex === -1) return;
@@ -966,6 +1013,7 @@ export default function ChatPage() {
             onReaction={handleReaction}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            onToggleReasoningCollapsed={handleToggleReasoningCollapsed}
           />
         )}
 
