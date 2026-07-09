@@ -14,7 +14,7 @@ describe("resolveChatExecutionMode", () => {
     expect(resolveChatExecutionMode({ isAgentToolsPath: true })).toBe("agent");
   });
 
-  it("short-circuits matched or simple turns to single_stream on tools path", () => {
+  it("short-circuits matched activity turns to single_stream on tools path", () => {
     expect(
       resolveChatExecutionMode({
         isAgentToolsPath: true,
@@ -31,7 +31,7 @@ describe("resolveChatExecutionMode", () => {
 });
 
 describe("shouldPreferSingleStream", () => {
-  it("prefers single_stream for matched activities", () => {
+  it("prefers single_stream only for matched activities", () => {
     expect(
       shouldPreferSingleStream({
         hasMatchedActivity: true,
@@ -41,55 +41,34 @@ describe("shouldPreferSingleStream", () => {
     ).toBe(true);
   });
 
-  it("prefers single_stream for simple date questions", () => {
+  it("uses agent for simple date questions without a matched activity", () => {
     expect(
       shouldPreferSingleStream({
         hasMatchedActivity: false,
         isSimple: true,
         topics: ["academic_calendar"],
       })
-    ).toBe(true);
+    ).toBe(false);
   });
 
-  it("prefers single_stream for calendar-only topics including long academic questions", () => {
+  it("uses agent for calendar-only topics without a matched activity", () => {
     expect(
       shouldPreferSingleStream({
         hasMatchedActivity: false,
         isSimple: false,
         topics: ["academic_calendar"],
       })
-    ).toBe(true);
-    expect(
-      shouldPreferSingleStream({
-        hasMatchedActivity: false,
-        isSimple: false,
-        topics: ["lecture_weeks"],
-      })
-    ).toBe(true);
-    expect(
-      shouldPreferSingleStream({
-        hasMatchedActivity: false,
-        isSimple: false,
-        topics: ["public_holiday"],
-      })
-    ).toBe(true);
+    ).toBe(false);
     expect(
       shouldPreferSingleStream({
         hasMatchedActivity: false,
         isSimple: false,
         topics: ["lecture_weeks", "public_holiday"],
       })
-    ).toBe(true);
-    expect(
-      shouldPreferSingleStream({
-        hasMatchedActivity: false,
-        isSimple: false,
-        topics: ["academic_calendar", "lecture_weeks"],
-      })
-    ).toBe(true);
+    ).toBe(false);
   });
 
-  it("keeps the agent when uitm_general is involved", () => {
+  it("uses agent when uitm_general is involved without a matched activity", () => {
     expect(
       shouldPreferSingleStream({
         hasMatchedActivity: false,
@@ -108,7 +87,7 @@ describe("shouldPreferSingleStream", () => {
 });
 
 describe("MAX_AGENT_TOOL_STEPS", () => {
-  it("caps tool steps at 3 for complex production Gemma turns", () => {
-    expect(MAX_AGENT_TOOL_STEPS).toBe(2);
+  it("caps tool steps at 4 for complex production Gemma turns", () => {
+    expect(MAX_AGENT_TOOL_STEPS).toBe(4);
   });
 });

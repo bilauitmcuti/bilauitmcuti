@@ -9,6 +9,7 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { ChatReasoning } from "@/components/chat/chat-reasoning";
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
 import {
   Message,
@@ -31,6 +32,7 @@ interface ChatMessageRowProps {
   onReaction: (msgId: string, type: "up" | "down") => void;
   onEdit: (msgId: string) => void;
   onDelete: (msgId: string) => void;
+  onToggleReasoningCollapsed?: (msgId: string) => void;
 }
 
 export function ChatMessageRow({
@@ -43,6 +45,7 @@ export function ChatMessageRow({
   onReaction,
   onEdit,
   onDelete,
+  onToggleReasoningCollapsed,
 }: ChatMessageRowProps) {
   if (
     message.role === "assistant" &&
@@ -113,6 +116,13 @@ export function ChatMessageRow({
     <MessageScrollerItem messageId={message.id} scrollAnchor={scrollAnchor}>
       <Message align="start">
         <MessageContent>
+          {message.reasoning?.trim() ? (
+            <ChatReasoning
+              reasoning={message.reasoning}
+              isCollapsed={message.isReasoningCollapsed === true}
+              onToggleCollapsed={() => onToggleReasoningCollapsed?.(message.id)}
+            />
+          ) : null}
           <Bubble variant="ghost">
             <BubbleContent className="px-1 py-1">
               <MarkdownRenderer

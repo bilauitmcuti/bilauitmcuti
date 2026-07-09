@@ -53,6 +53,9 @@ export interface ChatMessageItem {
   userPrompt?: string;
   /** False while streaming; omit or true when the answer is finished. */
   isComplete?: boolean;
+  /** Model reasoning / tool-planning text shown above the answer. */
+  reasoning?: string;
+  isReasoningCollapsed?: boolean;
 }
 
 export interface MentionMatch {

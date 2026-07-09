@@ -1,28 +1,24 @@
 "use client";
 
-import type { ReactNode } from "react";
-import Markdown from "react-markdown";
 import type { Components } from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { Streamdown } from "streamdown";
+import "streamdown/styles.css";
 
-import { cn } from "@/lib/utils";
-import {
-  contentToMarkdown,
-  shouldUseMarkdownRenderer,
-} from "@/lib/chat/markdown-suitability";
 import {
   Table,
-  TableHeader,
   TableBody,
-  TableHead,
-  TableRow,
   TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
+import { contentToMarkdown } from "@/lib/chat/markdown-suitability";
+import { cn } from "@/lib/utils";
 
 interface MarkdownRendererProps {
   content: string;
   className?: string;
-  /** False while streaming; markdown is only rendered once the reply is complete. */
+  /** False while streaming; uses Streamdown streaming mode. */
   isComplete?: boolean;
 }
 
@@ -120,19 +116,21 @@ export function MarkdownRenderer({
   const trimmed = content.trim();
   if (!trimmed) return null;
 
-  if (!isComplete || !shouldUseMarkdownRenderer(trimmed)) {
-    return (
-      <p className={cn("text-sm leading-relaxed whitespace-pre-wrap", className)}>
-        {trimmed}
-      </p>
-    );
-  }
+  const markdown = contentToMarkdown(trimmed);
+  const isStreaming = !isComplete;
 
   return (
     <div className={cn("text-sm leading-relaxed break-words", className)}>
-      <Markdown remarkPlugins={[remarkGfm]} components={COMPONENTS}>
-        {contentToMarkdown(trimmed)}
-      </Markdown>
+      <Streamdown
+        mode={isStreaming ? "streaming" : "static"}
+        isAnimating={isStreaming}
+        animated={isStreaming ? { animation: "blurIn", duration: 200 } : false}
+        components={COMPONENTS}
+        disallowedElements={["img"]}
+        unwrapDisallowed
+      >
+        {markdown}
+      </Streamdown>
     </div>
   );
 }

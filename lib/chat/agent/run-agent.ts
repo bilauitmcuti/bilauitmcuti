@@ -8,7 +8,7 @@ import { formatMatchedActivitiesBlock } from "@/lib/chat/activity-match";
 import { schemasForTools, toWorkersAiToolsParam } from "@/lib/chat/agent/tool-schemas";
 import { buildToolRegistryForTurn } from "@/lib/chat/agent/tool-registry";
 import { buildAgentSystemPrompt } from "@/lib/chat/agent/system-prompt";
-import { executeChatTool } from "@/lib/chat/agent/tools/execute";
+import { buildEmbeddedChatTools } from "@/lib/chat/agent/embedded-tools";
 import type { AgentRunResult, AgentTurnContext, ChatToolName } from "@/lib/chat/agent/types";
 import { MAX_AGENT_TOOL_STEPS } from "@/lib/chat/agent/types";
 
@@ -40,8 +40,10 @@ export interface RunChatAgentOptions {
   temperature: number;
   extraSystemDirectives?: string;
   onToken?: (token: string) => void | Promise<void>;
+  onReasoningToken?: (token: string) => void | Promise<void>;
   emitTokensToClient?: boolean;
   onToolStep?: (step: number, maxSteps: number) => void | Promise<void>;
+  onToolCall?: (toolName: string) => void | Promise<void>;
   onSynthesis?: () => void | Promise<void>;
 }
 
@@ -78,6 +80,8 @@ export async function runChatAgent(options: RunChatAgentOptions): Promise<AgentR
     extraDirectives
   );
 
+  const embeddedTools = buildEmbeddedChatTools(options.ctx, availableTools);
+
   const reply = await runWorkersAiAgent({
     userMessage: options.userMessage,
     systemPrompt,
@@ -89,16 +93,19 @@ export async function runChatAgent(options: RunChatAgentOptions): Promise<AgentR
     temperature: options.temperature,
     maxToolSteps: MAX_AGENT_TOOL_STEPS,
     onToken: options.onToken,
+    onReasoningToken: options.onReasoningToken,
     emitTokensToClient: options.emitTokensToClient,
     onToolStep: options.onToolStep,
+    onToolCall: options.onToolCall,
     onSynthesis: options.onSynthesis,
     executeTool: async (name, args) => {
       const toolName = name as ChatToolName;
-      if (!availableTools.includes(toolName)) {
+      const embedded = embeddedTools.find((t) => t.name === toolName);
+      if (!embedded) {
         return `(tool ${name} is not available for this turn)`;
       }
       toolsUsed.push(toolName);
-      return executeChatTool(toolName, args, options.ctx);
+      return embedded.execute(args);
     },
   });
 

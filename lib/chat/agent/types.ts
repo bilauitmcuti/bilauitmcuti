@@ -56,7 +56,7 @@ export interface AgentRunResult {
 
 export const MAX_TOOL_OUTPUT_CHARS = 4_000;
 /** Default agent tool-step ceiling for complex production Gemma turns. */
-export const MAX_AGENT_TOOL_STEPS = 2;
+export const MAX_AGENT_TOOL_STEPS = 4;
 
 export function truncateToolOutput(text: string, max = MAX_TOOL_OUTPUT_CHARS): string {
   if (text.length <= max) return text;

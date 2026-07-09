@@ -145,6 +145,7 @@ export async function streamAiWithRetry(
     requestHost?: string | null;
     correlationId?: string;
     onToken: (token: string) => void | Promise<void>;
+    onReasoningToken?: (token: string) => void | Promise<void>;
     emitTokensToClient?: boolean;
   }
 ): Promise<string> {
@@ -158,6 +159,7 @@ export async function streamAiWithRetry(
         requestHost: options.requestHost,
         correlationId: options.correlationId,
         onToken: options.onToken,
+        onReasoningToken: options.onReasoningToken,
         emitTokensToClient: options.emitTokensToClient,
       });
     } catch (err) {

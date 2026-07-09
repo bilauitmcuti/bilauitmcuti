@@ -42,6 +42,7 @@ import {
   askAiWithRetry,
   askAgentWithRetry,
 } from "@/lib/chat/ai-retry";
+import { toolStatusLabel } from "@/lib/chat/agent/embedded-tools";
 import {
   agentModeForModelChain,
   buildAgentTurnContext,
@@ -137,10 +138,9 @@ export interface ChatExecutionModeInput {
 }
 
 /**
- * Production Gemma (`isAgentToolsPath`) uses the tool agent for uitm_general /
- * knowledge turns. Calendar-only turns (any length) short-circuit to
- * single_stream with prebuilt DATA CONTEXT. Llama compact / legacy stays on
- * single_stream.
+ * Production Gemma (`isAgentToolsPath`) uses the tool agent for most in-scope
+ * turns. Only authoritative activity matches short-circuit to single_stream.
+ * Llama compact / legacy stays on single_stream.
  */
 export function resolveChatExecutionMode(
   input: ChatExecutionModeInput
@@ -151,26 +151,17 @@ export function resolveChatExecutionMode(
 }
 
 /**
- * Prefer one LLM call when the handler can already supply authoritative
- * calendar context. Message length does not matter — long calendar questions
- * still short-circuit. Multi-topic calendar stays single_stream; only
- * uitm_general (knowledge / research tools) keeps the agent loop.
+ * Prefer one LLM call only when the handler already has an authoritative
+ * calendar row match (preloaded in the agent). All other Gemma production
+ * turns use the tool agent so the model can search calendar, sessions,
+ * holidays, and UiTM knowledge via function calling.
  */
 export function shouldPreferSingleStream(input: {
   hasMatchedActivity: boolean;
   isSimple: boolean;
   topics: string[];
 }): boolean {
-  if (input.hasMatchedActivity || input.isSimple) return true;
-  const { topics } = input;
-  if (topics.length === 0) return false;
-  if (topics.includes("uitm_general")) return false;
-  return topics.every(
-    (t) =>
-      t === "academic_calendar" ||
-      t === "lecture_weeks" ||
-      t === "public_holiday"
-  );
+  return input.hasMatchedActivity;
 }
 
 async function runWithServerDeadline<T>(
@@ -717,7 +708,9 @@ export async function POST(request: NextRequest) {
     const runLlm = async (
       onToken: (token: string) => void | Promise<void>,
       onProgress?: {
+        onReasoningToken?: (token: string) => void | Promise<void>;
         onToolStep?: (step: number, maxSteps: number) => void | Promise<void>;
+        onToolCall?: (toolName: string) => void | Promise<void>;
         onSynthesis?: () => void | Promise<void>;
         /** Clear client partial content before a regenerate. */
         onRetry?: (reason: string) => void | Promise<void>;
@@ -737,8 +730,10 @@ export async function POST(request: NextRequest) {
           temperature: modelBudget.temperature,
           extraSystemDirectives: systemPromptWithCompletion,
           onToken,
+          onReasoningToken: onProgress?.onReasoningToken,
           emitTokensToClient: streamTokensToClient,
           onToolStep: onProgress?.onToolStep,
+          onToolCall: onProgress?.onToolCall,
           onSynthesis: onProgress?.onSynthesis,
         });
         turnToolsUsed = agentResult.toolsUsed;
@@ -759,7 +754,14 @@ export async function POST(request: NextRequest) {
           sanitizedMessage,
           systemPromptWithCompletion,
           sanitizedHistory,
-          { ...modelBudget, requestHost, correlationId, onToken, emitTokensToClient: streamTokensToClient }
+          {
+            ...modelBudget,
+            requestHost,
+            correlationId,
+            onToken,
+            onReasoningToken: onProgress?.onReasoningToken,
+            emitTokensToClient: streamTokensToClient,
+          }
         );
       } else {
         rawReply = await askAiWithRetry(
@@ -866,11 +868,22 @@ export async function POST(request: NextRequest) {
                   enqueue(encodeSseEvent("token", { token }));
                 }
               : () => {};
+            const onReasoningToken = (token: string) => {
+              enqueue(encodeSseEvent("reasoning", { token }));
+            };
             const onToolStep = (step: number, maxSteps: number) => {
               enqueue(
                 encodeSseEvent("status", {
                   phase: "searching",
-                  message: `Searching calendar… (${step + 1}/${maxSteps})`,
+                  message: `Reasoning… (${step + 1}/${maxSteps})`,
+                })
+              );
+            };
+            const onToolCall = (toolName: string) => {
+              enqueue(
+                encodeSseEvent("status", {
+                  phase: "searching",
+                  message: toolStatusLabel(toolName),
                 })
               );
             };
@@ -894,12 +907,19 @@ export async function POST(request: NextRequest) {
             enqueue(
               encodeSseEvent("status", {
                 phase: useAgentTools ? "searching" : "generating",
-                message: useAgentTools ? "Searching calendar…" : "Thinking…",
+                message: useAgentTools ? "Reasoning…" : "Thinking…",
               })
             );
             const reply = await runWithServerDeadline(
               useAgentTools ? CHAT_AGENT_DEADLINE_MS : CHAT_SERVER_DEADLINE_MS,
-              () => runLlm(onToken, { onToolStep, onSynthesis, onRetry })
+              () =>
+                runLlm(onToken, {
+                  onReasoningToken,
+                  onToolStep,
+                  onToolCall,
+                  onSynthesis,
+                  onRetry,
+                })
             );
             setCachedReply(cacheKey, reply);
             enqueue(

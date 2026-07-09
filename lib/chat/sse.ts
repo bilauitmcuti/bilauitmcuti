@@ -27,6 +27,10 @@ export interface ChatStreamErrorPayload {
   status?: number;
 }
 
+export interface ChatStreamReasoningPayload {
+  token: string;
+}
+
 export interface ChatStreamTokenPayload {
   token: string;
 }
@@ -161,6 +165,7 @@ export interface ChatStreamHandlers {
   onDone: (payload: ChatStreamDonePayload) => void | Promise<void>;
   onError: (payload: ChatStreamErrorPayload) => void;
   onStatus?: (payload: ChatStreamStatusPayload) => void;
+  onReasoning?: (payload: ChatStreamReasoningPayload) => void;
   /** Fired before a server regenerates so the UI can drop partial tokens. */
   onReset?: (payload: ChatStreamResetPayload) => void;
 }
@@ -223,6 +228,9 @@ export async function consumeChatStream(
       handlers.onReset?.(data as ChatStreamResetPayload);
     } else if (event === "status") {
       handlers.onStatus?.(data as ChatStreamStatusPayload);
+    } else if (event === "reasoning") {
+      const payload = data as ChatStreamReasoningPayload;
+      if (payload.token) handlers.onReasoning?.(payload);
     }
   };
 
