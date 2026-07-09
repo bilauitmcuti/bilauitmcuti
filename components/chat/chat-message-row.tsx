@@ -25,12 +25,12 @@ import {
 } from "@/components/ui/message-scroller";
 import { cn } from "@/lib/utils";
 import { formatTime24, type ChatMessageItem } from "@/components/chat/chat-utils";
+import { useLiveDurationSec } from "@/components/chat/use-live-duration-sec";
 import { useReasoningVisibility } from "@/components/chat/use-reasoning-visibility";
 import { CHAT_STREAM_PHASE } from "@/lib/chat/stream-phase";
 import {
   shouldShowCompletedDurationLabel,
   shouldShowCompletedThinkingBlock,
-  shouldShowThinkingDurationLabel,
 } from "@/lib/chat/reasoning-gate";
 
 interface ChatMessageRowProps {
@@ -66,38 +66,35 @@ export function ChatMessageRow({
   const progressLabel = message.statusMessage?.trim();
   const reasoningText = message.reasoning?.trim() ?? "";
   const hasReasoningContent = reasoningText.length > 0;
+  const isThinkingPhase =
+    assistantInProgress && !answerStreaming && !isRegenerating;
 
-  const { showThinking } = useReasoningVisibility(
-    assistantInProgress && !answerStreaming && !isRegenerating,
-    message.timestamp
-  );
+  const { showThinking } = useReasoningVisibility(isThinkingPhase, message.timestamp);
 
-  const showLiveThinking = assistantInProgress && !answerStreaming && !isRegenerating && showThinking;
+  const showThinkingUi =
+    isThinkingPhase && (showThinking || hasReasoningContent);
   const showLiveRegenerating = isRegenerating && Boolean(progressLabel);
-  const showLiveReasoning =
-    hasReasoningContent && assistantInProgress && !answerStreaming && !isRegenerating;
-  const liveDurationSec =
-    message.timestamp !== undefined
-      ? Math.max(1, Math.ceil((Date.now() - message.timestamp) / 1000))
-      : undefined;
+  const answerComplete = message.isComplete !== false;
+  const liveDurationSec = useLiveDurationSec(
+    message.timestamp,
+    assistantInProgress && message.thinkingDurationSec === undefined
+  );
   const resolvedDurationSec = message.thinkingDurationSec ?? liveDurationSec;
   const showDurationLabel = shouldShowCompletedDurationLabel({
     thinkingDurationSec: resolvedDurationSec,
     hasReasoningContent,
   });
   const showDuringAnswerStream =
-    answerStreaming &&
-    (hasReasoningContent || showDurationLabel);
+    answerStreaming && (hasReasoningContent || showDurationLabel);
   const showCompletedBlock =
-    message.isComplete !== false &&
+    answerComplete &&
     shouldShowCompletedThinkingBlock({
       thinkingDurationSec: message.thinkingDurationSec,
       hasReasoningContent,
     });
   const showThoughtHeader =
-    showLiveThinking ||
+    showThinkingUi ||
     showLiveRegenerating ||
-    showLiveReasoning ||
     showDuringAnswerStream ||
     showCompletedBlock;
 
@@ -164,12 +161,16 @@ export function ChatMessageRow({
             <Reasoning
               className="w-full"
               collapsible={hasReasoningContent}
-              duration={message.thinkingDurationSec}
-              isStreaming={showLiveThinking || showLiveRegenerating}
+              collapseWhen={answerComplete && hasReasoningContent}
+              duration={resolvedDurationSec}
+              expandReasoning={hasReasoningContent && isThinkingPhase}
+              isStreaming={showThinkingUi || showLiveRegenerating}
             >
               <ReasoningTrigger
                 showChevron={hasReasoningContent}
-                showDurationLabel={showDurationLabel && !showLiveThinking && !showLiveRegenerating}
+                showDurationLabel={
+                  showDurationLabel && !showThinkingUi && !showLiveRegenerating
+                }
                 getThinkingMessage={(isStreaming) => {
                   if (!showLiveRegenerating || !progressLabel) return null;
                   return isStreaming ? (

@@ -43,6 +43,10 @@ export type ReasoningProps = ComponentProps<typeof Collapsible> & {
   isStreaming?: boolean;
   /** When false, render a static thinking row without collapse/chevron. */
   collapsible?: boolean;
+  /** Open the reasoning body while thinking (before answer completes). */
+  expandReasoning?: boolean;
+  /** Collapse reasoning after the final answer is complete. */
+  collapseWhen?: boolean;
   open?: boolean;
   defaultOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -57,6 +61,8 @@ export const Reasoning = memo(
     className,
     isStreaming = false,
     collapsible = true,
+    expandReasoning = false,
+    collapseWhen = false,
     open,
     defaultOpen,
     onOpenChange,
@@ -65,7 +71,6 @@ export const Reasoning = memo(
     ...props
   }: ReasoningProps) => {
     const resolvedDefaultOpen = defaultOpen ?? (collapsible ? isStreaming : true);
-    // Track if defaultOpen was explicitly set to false (to prevent auto-open)
     const isExplicitlyClosed = defaultOpen === false;
 
     const [isOpen, setIsOpen] = useControllableState<boolean>({
@@ -78,15 +83,12 @@ export const Reasoning = memo(
       prop: durationProp,
     });
 
-    const hasEverStreamedRef = useRef(isStreaming);
-    const [hasAutoClosed, setHasAutoClosed] = useState(false);
     const userDismissedDuringStreamRef = useRef(false);
     const startTimeRef = useRef<number | null>(null);
+    const hasCollapsedAfterAnswerRef = useRef(false);
 
-    // Track when streaming starts and compute duration
     useEffect(() => {
       if (isStreaming) {
-        hasEverStreamedRef.current = true;
         userDismissedDuringStreamRef.current = false;
         if (startTimeRef.current === null) {
           startTimeRef.current = Date.now();
@@ -97,38 +99,30 @@ export const Reasoning = memo(
       }
     }, [isStreaming, setDuration]);
 
-    // Auto-open when streaming starts (unless user closed it during this turn)
     useEffect(() => {
       if (
         collapsible &&
-        isStreaming &&
+        expandReasoning &&
         !isOpen &&
         !isExplicitlyClosed &&
         !userDismissedDuringStreamRef.current
       ) {
         setIsOpen(true);
       }
-    }, [collapsible, isStreaming, isOpen, setIsOpen, isExplicitlyClosed]);
+    }, [collapsible, expandReasoning, isOpen, setIsOpen, isExplicitlyClosed]);
 
-    // Auto-close when streaming ends (once only, and only if it ever streamed)
     useEffect(() => {
-      if (
-        !collapsible ||
-        !hasEverStreamedRef.current ||
-        isStreaming ||
-        !isOpen ||
-        hasAutoClosed
-      ) {
+      if (!collapsible || !collapseWhen || hasCollapsedAfterAnswerRef.current || !isOpen) {
         return;
       }
 
       const timer = setTimeout(() => {
         setIsOpen(false);
-        setHasAutoClosed(true);
+        hasCollapsedAfterAnswerRef.current = true;
       }, AUTO_CLOSE_DELAY);
 
       return () => clearTimeout(timer);
-    }, [collapsible, isStreaming, isOpen, setIsOpen, hasAutoClosed]);
+    }, [collapsible, collapseWhen, isOpen, setIsOpen]);
 
     const handleOpenChange = useCallback(
       (newOpen: boolean) => {
@@ -209,10 +203,16 @@ export const ReasoningTrigger = memo(
       getThinkingMessage(isStreaming, duration, showDurationLabel) ??
       defaultGetThinkingMessage(isStreaming, duration, showDurationLabel);
 
+    const resolvedMessage =
+      message ??
+      (showChevron ? (
+        <span className="shimmer text-muted-foreground">Thinking…</span>
+      ) : null);
+
     const label = (
       <span className="flex min-w-0 items-center gap-1.5 text-left">
-        {message}
-        {showChevron ? (
+        {resolvedMessage}
+        {showChevron && resolvedMessage ? (
           <ChevronDownIcon
             className={cn(
               "size-4 shrink-0 transition-transform duration-200",
@@ -223,10 +223,10 @@ export const ReasoningTrigger = memo(
       </span>
     );
 
-    if (!showChevron) {
+    if (!showChevron || !resolvedMessage) {
       return (
         <div className={cn(thinkingRowClassName, className)}>
-          {children ?? label}
+          {children ?? resolvedMessage}
         </div>
       );
     }
