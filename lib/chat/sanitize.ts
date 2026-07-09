@@ -19,7 +19,7 @@ const PLANNING_LINE =
 const INTERNAL_MODE_TAG =
   /\((?:FACT|EXPLAIN|OPINION|OPNION|SUGGESTION|CADANGAN|REASONING|GUIDANCE)\)\s*/gi;
 
-/** Pull user-visible answer when Gemma/reasoning models leak planning text. */
+/** Pull user-visible answer when reasoning models (Gemma / GLM) leak planning text. */
 export function extractFinalAnswerFromPlanning(raw: string): string | null {
   const answerMatch = /\b(?:Answer|Jawapan):\s*([\s\S]+?)(?=\n(?:Language|Header|Context|User Question|\- No )|$)/i.exec(
     raw

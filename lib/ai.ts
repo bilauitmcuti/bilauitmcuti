@@ -9,17 +9,28 @@ import {
 } from "@/lib/chat/agent/tool-format";
 import { CHAT_MAX_MESSAGE_LENGTH } from "@/lib/chat/limits";
 
-/** Dev / preview / localhost chat model (fast, lower cost). */
-export const MODEL_WORKERS_AI_DEV = "@cf/meta/llama-3.2-3b-instruct" as const;
+/** Central chat model configuration. */
+export const AI_MODELS = {
+  chat: "@cf/zai-org/glm-4.7-flash",
+  fallback: "@cf/meta/llama-4-scout-17b-16e-instruct",
+} as const;
 
-/** Production primary chat model. */
-export const MODEL_WORKERS_AI_PRODUCTION =
-  "@cf/google/gemma-4-26b-a4b-it" as const;
+/** Primary chat model (local + production). */
+export const MODEL_WORKERS_AI_DEV = AI_MODELS.chat;
 
-/** @deprecated Use MODEL_WORKERS_AI_DEV */
+/** Primary chat model (production host). */
+export const MODEL_WORKERS_AI_PRODUCTION = AI_MODELS.chat;
+
+/** @deprecated Use AI_MODELS.chat */
 export const MODEL_WORKERS_AI = MODEL_WORKERS_AI_DEV;
 
-const PRODUCTION_SITE_HOST = "bilauitmcuti.com";
+/** Legacy Gemma production model — rollback via AI_CHAT_MODEL / WORKERS_AI_MODEL. */
+export const MODEL_WORKERS_AI_LEGACY_GEMMA =
+  "@cf/google/gemma-4-26b-a4b-it" as const;
+
+/** Legacy Llama dev model — rollback via WORKERS_AI_USE_DEV_MODEL + WORKERS_AI_MODEL. */
+export const MODEL_WORKERS_AI_LEGACY_LLAMA =
+  "@cf/meta/llama-3.2-3b-instruct" as const;
 
 export type WorkersAiModelTier = "dev" | "production";
 
@@ -35,14 +46,14 @@ const TIER_LIMITS: Record<WorkersAiModelTier, WorkersAiTierLimits> = {
   dev: {
     maxOutputTokens: 4096,
     maxSystemChars: 12_000,
-    maxHistoryMessages: 8,
+    maxHistoryMessages: 6,
     maxMessageChars: CHAT_MAX_MESSAGE_LENGTH,
     maxUserPromptChars: CHAT_MAX_MESSAGE_LENGTH,
   },
   production: {
     maxOutputTokens: 4096,
     maxSystemChars: 16_000,
-    maxHistoryMessages: 10,
+    maxHistoryMessages: 6,
     maxMessageChars: CHAT_MAX_MESSAGE_LENGTH,
     maxUserPromptChars: CHAT_MAX_MESSAGE_LENGTH,
   },
@@ -55,91 +66,73 @@ export const MAX_OUTPUT_TOKENS = TIER_LIMITS.dev.maxOutputTokens;
 export const MAX_TOKENS_LLAMA = MAX_OUTPUT_TOKENS;
 
 const DEFAULT_TEMPERATURE = 0.2;
+const DEFAULT_TOP_P = 0.8;
 
-function normalizeHost(host: string): string {
-  return host.replace(/^www\./, "").split(":")[0].toLowerCase();
-}
-
-function isProductionSiteHost(host: string | null | undefined): boolean {
-  if (!host?.trim()) return false;
-  return normalizeHost(host) === PRODUCTION_SITE_HOST;
-}
-
-function isLocalOrPreviewHost(host: string): boolean {
-  const h = normalizeHost(host);
+function resolveChatModelOverride(): string | undefined {
   return (
-    h === "localhost" ||
-    h.endsWith(".localhost") ||
-    h.endsWith(".pages.dev") ||
-    h === "127.0.0.1"
+    process.env.AI_CHAT_MODEL?.trim() ||
+    process.env.WORKERS_AI_MODEL?.trim() ||
+    undefined
   );
 }
 
-function isStrictLocalDevHost(host: string): boolean {
-  const h = normalizeHost(host);
-  return h === "localhost" || h.endsWith(".localhost") || h === "127.0.0.1";
+function resolveFallbackModelOverride(): string | undefined {
+  return process.env.AI_FALLBACK_MODEL?.trim() || undefined;
 }
 
-function isWorkersAiUseProductionModelLocally(): boolean {
-  const v = process.env.WORKERS_AI_USE_PRODUCTION_MODEL;
-  return v === "1" || v === "true";
+function dedupeModelChain(models: string[]): string[] {
+  const seen = new Set<string>();
+  const chain: string[] = [];
+  for (const model of models) {
+    const trimmed = model.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    chain.push(trimmed);
+  }
+  return chain;
 }
 
-function isCloudflarePagesPreviewDeploy(): boolean {
-  const url = process.env.CF_PAGES_URL?.toLowerCase() ?? "";
-  return url.includes(".pages.dev");
+export function isGlmModelId(modelId: string): boolean {
+  return modelId.includes("glm") || modelId.includes("zai-org");
+}
+
+export function isProductionCapableModelId(modelId: string): boolean {
+  return (
+    isGlmModelId(modelId) ||
+    modelId.includes("gemma-4") ||
+    modelId.includes("gemma-3") ||
+    modelId.startsWith("google/")
+  );
 }
 
 /**
- * Production (bilauitmcuti.com): Gemma 4.
- * Local + Pages preview (*.pages.dev, localhost): Llama 3.2 3B.
- * Optional: WORKERS_AI_MODEL, WORKERS_AI_USE_DEV_MODEL=1,
- * WORKERS_AI_USE_PRODUCTION_MODEL=1 (strict localhost only — test Gemma locally).
+ * Local + production default: GLM 4.7 Flash with Scout fallback.
+ * Optional: AI_CHAT_MODEL / WORKERS_AI_MODEL, AI_FALLBACK_MODEL,
+ * WORKERS_AI_USE_DEV_MODEL=1 (lower tier limits), WORKERS_AI_USE_PRODUCTION_MODEL=1.
  */
 export function resolveWorkersAiModelTier(requestHost?: string | null): WorkersAiModelTier {
-  const override = process.env.WORKERS_AI_MODEL?.trim();
+  const override = resolveChatModelOverride();
   if (override) {
-    return override === MODEL_WORKERS_AI_PRODUCTION ? "production" : "dev";
+    return isProductionCapableModelId(override) ? "production" : "dev";
   }
 
   if (process.env.WORKERS_AI_USE_DEV_MODEL === "1" || process.env.WORKERS_AI_USE_DEV_MODEL === "true") {
     return "dev";
   }
 
-  if (requestHost) {
-    if (isProductionSiteHost(requestHost)) return "production";
-    if (isLocalOrPreviewHost(requestHost)) {
-      if (
-        isWorkersAiUseProductionModelLocally() &&
-        isStrictLocalDevHost(requestHost)
-      ) {
-        return "production";
-      }
-      return "dev";
-    }
-  }
-
-  if (process.env.NODE_ENV !== "production") return "dev";
-
-  if (isCloudflarePagesPreviewDeploy()) return "dev";
-
-  if (process.env.CF_PAGES === "1") {
-    const pagesUrl = process.env.CF_PAGES_URL?.toLowerCase() ?? "";
-    if (pagesUrl && !pagesUrl.includes(".pages.dev")) return "production";
-  }
-
-  return "dev";
+  return "production";
 }
 
-/** Ordered model ids for chat completion (production: Gemma only; dev/preview: Llama). */
-export function resolveProductionChatModelChain(requestHost?: string | null): string[] {
-  const override = process.env.WORKERS_AI_MODEL?.trim();
-  if (override) return [override];
+/** Ordered model ids for chat completion (primary GLM + optional fallback). */
+export function resolveProductionChatModelChain(_requestHost?: string | null): string[] {
+  const override = resolveChatModelOverride();
+  const fallback = resolveFallbackModelOverride() ?? AI_MODELS.fallback;
 
-  const tier = resolveWorkersAiModelTier(requestHost);
-  if (tier === "dev") return [MODEL_WORKERS_AI_DEV];
+  if (override) {
+    return dedupeModelChain([override, fallback]);
+  }
 
-  return [MODEL_WORKERS_AI_PRODUCTION];
+  return dedupeModelChain([AI_MODELS.chat, fallback]);
 }
 
 export function resolveWorkersAiModelId(requestHost?: string | null): string {
@@ -151,14 +144,8 @@ export function resolveWorkersAiTierForModelId(
   modelId: string,
   requestHost?: string | null
 ): WorkersAiModelTier {
-  if (
-    modelId.includes("gemma-4") ||
-    modelId.includes("gemma-3") ||
-    modelId.startsWith("google/")
-  ) {
-    return "production";
-  }
-  if (modelId === MODEL_WORKERS_AI_DEV) return "dev";
+  if (isProductionCapableModelId(modelId)) return "production";
+  if (modelId === AI_MODELS.fallback) return "production";
   return resolveWorkersAiModelTier(requestHost);
 }
 
@@ -379,8 +366,12 @@ function getAiErrorStatus(error: unknown): number | undefined {
   return undefined;
 }
 
-function isGemmaThinkingCapableModel(modelId: string): boolean {
-  return modelId.includes("gemma-4") || modelId.includes("gemma-3");
+function isReasoningCapableModel(modelId: string): boolean {
+  return (
+    modelId.includes("gemma-4") ||
+    modelId.includes("gemma-3") ||
+    isGlmModelId(modelId)
+  );
 }
 
 function buildModelRunInput(
@@ -396,6 +387,7 @@ function buildModelRunInput(
       generationConfig: {
         maxOutputTokens: max_tokens,
         temperature,
+        topP: DEFAULT_TOP_P,
       },
       ...(stream ? { stream: true } : {}),
     };
@@ -404,8 +396,9 @@ function buildModelRunInput(
     messages,
     max_tokens,
     temperature,
+    top_p: DEFAULT_TOP_P,
   };
-  if (isGemmaThinkingCapableModel(modelId)) {
+  if (isReasoningCapableModel(modelId)) {
     input.chat_template_kwargs = { enable_thinking: false, thinking: false };
   }
   if (stream) input.stream = true;
@@ -553,17 +546,6 @@ function extractStreamDelta(chunk: unknown): string {
 
   const messageContent = choice?.message?.content;
   if (typeof messageContent === "string" && messageContent) return messageContent;
-
-  const deltaReasoning = choice?.delta?.reasoning;
-  if (typeof deltaReasoning === "string") {
-    const fromReasoning = normalizeReasoningFallback(deltaReasoning);
-    if (fromReasoning) return fromReasoning;
-  }
-  const messageReasoning = choice?.message?.reasoning;
-  if (typeof messageReasoning === "string") {
-    const fromReasoning = normalizeReasoningFallback(messageReasoning);
-    if (fromReasoning) return fromReasoning;
-  }
 
   const geminiParts = (
     chunk as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
@@ -767,7 +749,7 @@ export type AgentChatMessage =
 
 /** Models that support Workers AI traditional function calling in this app. */
 export function supportsFunctionCalling(modelId: string): boolean {
-  if (isGemmaThinkingCapableModel(modelId)) return true;
+  if (isReasoningCapableModel(modelId)) return true;
   if (isGooglePartnerModelId(modelId)) return true;
   return false;
 }
@@ -978,9 +960,10 @@ function buildAgentModelRunInput(
     temperature,
   };
   if (formattedTools.length > 0) input.tools = formattedTools;
-  if (isGemmaThinkingCapableModel(modelId)) {
+  if (isReasoningCapableModel(modelId)) {
     input.chat_template_kwargs = { enable_thinking: false, thinking: false };
   }
+  input.top_p = DEFAULT_TOP_P;
   if (stream) input.stream = true;
   return input;
 }

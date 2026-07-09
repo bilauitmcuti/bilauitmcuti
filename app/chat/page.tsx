@@ -43,6 +43,7 @@ import {
   createMarkdownStreamPainter,
   MAX_CHAT_MESSAGE_LENGTH,
   parseChatResponse,
+  isMeaningfulAssistantStreamContent,
   prepareHistory,
   type ChatMessageItem,
   type MentionMatch,
@@ -349,7 +350,7 @@ export default function ChatPage() {
       (m) =>
         m.role === "assistant" &&
         m.isComplete === false &&
-        m.content.trim().length > 0
+        isMeaningfulAssistantStreamContent(m.content)
     );
 
     return isLoading && !hasStreamingContent;
@@ -366,7 +367,7 @@ export default function ChatPage() {
       (m) =>
         m.role === "assistant" &&
         m.isComplete === false &&
-        m.content.trim().length > 0
+        isMeaningfulAssistantStreamContent(m.content)
     );
     if (hasStreamingContent) {
       setStreamStatusPhrase("");

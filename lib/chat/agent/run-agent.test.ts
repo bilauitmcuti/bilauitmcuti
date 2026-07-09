@@ -5,7 +5,9 @@ import {
   isChatAgentEnabled,
 } from "@/lib/chat/agent/run-agent";
 import {
+  AI_MODELS,
   MODEL_WORKERS_AI_DEV,
+  MODEL_WORKERS_AI_LEGACY_LLAMA,
   MODEL_WORKERS_AI_PRODUCTION,
   supportsFunctionCalling,
 } from "@/lib/ai";
@@ -31,32 +33,35 @@ describe("isChatAgentEnabled", () => {
 });
 
 describe("supportsFunctionCalling", () => {
-  it("enables Gemma production model", () => {
+  it("enables GLM and partner models", () => {
     expect(supportsFunctionCalling(MODEL_WORKERS_AI_PRODUCTION)).toBe(true);
+    expect(supportsFunctionCalling(AI_MODELS.chat)).toBe(true);
     expect(supportsFunctionCalling("google/gemini-3.1-flash-lite")).toBe(true);
   });
 
-  it("disables Llama dev model", () => {
-    expect(supportsFunctionCalling(MODEL_WORKERS_AI_DEV)).toBe(false);
+  it("disables legacy Llama model", () => {
+    expect(supportsFunctionCalling(MODEL_WORKERS_AI_LEGACY_LLAMA)).toBe(false);
   });
 });
 
 describe("agentModeForModelId", () => {
-  it("uses tools for Gemma on dev host selection", () => {
+  it("uses tools for GLM", () => {
     expect(agentModeForModelId(MODEL_WORKERS_AI_PRODUCTION)).toBe("tools");
+    expect(agentModeForModelId(MODEL_WORKERS_AI_DEV)).toBe("tools");
   });
 
-  it("uses compact fallback for Llama", () => {
-    expect(agentModeForModelId(MODEL_WORKERS_AI_DEV)).toBe("compact");
+  it("uses compact fallback for legacy Llama", () => {
+    expect(agentModeForModelId(MODEL_WORKERS_AI_LEGACY_LLAMA)).toBe("compact");
   });
 });
 
 describe("agentModeForModelChain", () => {
   it("uses tools when chain includes a function-calling model", () => {
     expect(agentModeForModelChain([MODEL_WORKERS_AI_PRODUCTION])).toBe("tools");
+    expect(agentModeForModelChain([AI_MODELS.chat, AI_MODELS.fallback])).toBe("tools");
   });
 
-  it("uses compact fallback for dev-only chain", () => {
-    expect(agentModeForModelChain([MODEL_WORKERS_AI_DEV])).toBe("compact");
+  it("uses compact fallback for legacy Llama-only chain", () => {
+    expect(agentModeForModelChain([MODEL_WORKERS_AI_LEGACY_LLAMA])).toBe("compact");
   });
 });

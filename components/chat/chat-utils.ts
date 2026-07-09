@@ -58,6 +58,13 @@ export interface MentionMatch {
   query: string;
 }
 
+/** True when streamed assistant text is ready to show (not lone markdown pipe chars). */
+export function isMeaningfulAssistantStreamContent(content: string): boolean {
+  const trimmed = content.trim();
+  if (trimmed.length < 2) return false;
+  return trimmed.replace(/\|/g, "").trim().length >= 2;
+}
+
 export function prepareHistory(messages: ChatMessageItem[]): { role: "user" | "assistant"; content: string }[] {
   return messages
     .filter((msg) => msg.isComplete !== false)

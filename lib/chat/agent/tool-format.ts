@@ -6,9 +6,14 @@ export interface FlatToolDefinition {
   parameters: WorkersAiToolSchema["parameters"];
 }
 
-/** Gemma 4 / OpenAI-compatible chat completions expect nested `function` tools. */
+/** Gemma / GLM / OpenAI-compatible chat completions expect nested `function` tools. */
 export function usesOpenAiFunctionToolFormat(modelId: string): boolean {
-  return modelId.includes("gemma-4") || modelId.includes("gemma-3");
+  return (
+    modelId.includes("gemma-4") ||
+    modelId.includes("gemma-3") ||
+    modelId.includes("glm") ||
+    modelId.includes("zai-org")
+  );
 }
 
 export function isGooglePartnerModelId(modelId: string): boolean {

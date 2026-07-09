@@ -19,7 +19,7 @@ import {
   MessageScrollerItem,
 } from "@/components/ui/message-scroller";
 import { cn } from "@/lib/utils";
-import { formatTime24, type ChatMessageItem } from "@/components/chat/chat-utils";
+import { formatTime24, isMeaningfulAssistantStreamContent, type ChatMessageItem } from "@/components/chat/chat-utils";
 
 interface ChatMessageRowProps {
   message: ChatMessageItem;
@@ -47,10 +47,15 @@ export function ChatMessageRow({
   if (
     message.role === "assistant" &&
     message.isComplete === false &&
-    !message.content.trim()
+    !isMeaningfulAssistantStreamContent(message.content)
   ) {
     return null;
   }
+
+  const isStreaming =
+    message.role === "assistant" &&
+    message.isComplete === false &&
+    isMeaningfulAssistantStreamContent(message.content);
 
   const assistantFinished =
     message.role === "assistant" &&
@@ -119,6 +124,14 @@ export function ChatMessageRow({
                 content={message.content}
                 isComplete={message.isComplete !== false}
               />
+              {isStreaming ? (
+                <span
+                  className="ml-0.5 inline-block animate-pulse text-muted-foreground"
+                  aria-hidden="true"
+                >
+                  |
+                </span>
+              ) : null}
             </BubbleContent>
           </Bubble>
           {assistantFinished && (

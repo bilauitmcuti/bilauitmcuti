@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  MODEL_WORKERS_AI_DEV,
-  MODEL_WORKERS_AI_PRODUCTION,
+  AI_MODELS,
+  MODEL_WORKERS_AI_LEGACY_GEMMA,
   resolveProductionChatModelChain,
   resolveWorkersAiModelTier,
   shouldStreamTokensToClient,
@@ -12,45 +12,52 @@ describe("resolveProductionChatModelChain", () => {
     vi.unstubAllEnvs();
   });
 
-  it("uses Llama on dev host", () => {
+  it("uses GLM with Scout fallback on dev host", () => {
     expect(resolveProductionChatModelChain("localhost:3000")).toEqual([
-      MODEL_WORKERS_AI_DEV,
+      AI_MODELS.chat,
+      AI_MODELS.fallback,
     ]);
   });
 
-  it("uses Gemma on production host", () => {
+  it("uses GLM with Scout fallback on production host", () => {
     vi.stubEnv("NODE_ENV", "production");
     expect(resolveProductionChatModelChain("bilauitmcuti.com")).toEqual([
-      MODEL_WORKERS_AI_PRODUCTION,
+      AI_MODELS.chat,
+      AI_MODELS.fallback,
     ]);
   });
 
-  it("marks production tier for bilauitmcuti.com", () => {
+  it("marks production tier by default", () => {
     vi.stubEnv("NODE_ENV", "production");
     expect(resolveWorkersAiModelTier("bilauitmcuti.com")).toBe("production");
-  });
-
-  it("uses dev tier on localhost even when NODE_ENV is production", () => {
-    vi.stubEnv("NODE_ENV", "production");
-    expect(resolveWorkersAiModelTier("localhost:3000")).toBe("dev");
-    expect(resolveProductionChatModelChain("localhost:3000")).toEqual([
-      MODEL_WORKERS_AI_DEV,
-    ]);
-  });
-
-  it("uses Gemma on localhost when WORKERS_AI_USE_PRODUCTION_MODEL=1", () => {
-    vi.stubEnv("WORKERS_AI_USE_PRODUCTION_MODEL", "1");
     expect(resolveWorkersAiModelTier("localhost:3000")).toBe("production");
+  });
+
+  it("uses dev tier when WORKERS_AI_USE_DEV_MODEL=1", () => {
+    vi.stubEnv("WORKERS_AI_USE_DEV_MODEL", "1");
+    expect(resolveWorkersAiModelTier("localhost:3000")).toBe("dev");
+  });
+
+  it("respects AI_CHAT_MODEL override with fallback", () => {
+    vi.stubEnv("AI_CHAT_MODEL", MODEL_WORKERS_AI_LEGACY_GEMMA);
     expect(resolveProductionChatModelChain("localhost:3000")).toEqual([
-      MODEL_WORKERS_AI_PRODUCTION,
+      MODEL_WORKERS_AI_LEGACY_GEMMA,
+      AI_MODELS.fallback,
     ]);
   });
 
-  it("uses Llama on Pages preview even when WORKERS_AI_USE_PRODUCTION_MODEL=1", () => {
-    vi.stubEnv("WORKERS_AI_USE_PRODUCTION_MODEL", "1");
-    expect(resolveWorkersAiModelTier("my-branch.pages.dev")).toBe("dev");
-    expect(resolveProductionChatModelChain("my-branch.pages.dev")).toEqual([
-      MODEL_WORKERS_AI_DEV,
+  it("respects WORKERS_AI_MODEL alias", () => {
+    vi.stubEnv("WORKERS_AI_MODEL", MODEL_WORKERS_AI_LEGACY_GEMMA);
+    expect(resolveProductionChatModelChain("bilauitmcuti.com")[0]).toBe(
+      MODEL_WORKERS_AI_LEGACY_GEMMA
+    );
+  });
+
+  it("dedupes when override matches fallback", () => {
+    vi.stubEnv("AI_CHAT_MODEL", AI_MODELS.chat);
+    vi.stubEnv("AI_FALLBACK_MODEL", AI_MODELS.chat);
+    expect(resolveProductionChatModelChain("localhost:3000")).toEqual([
+      AI_MODELS.chat,
     ]);
   });
 

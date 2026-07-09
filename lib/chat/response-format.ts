@@ -13,6 +13,8 @@ export const CHAT_BM_MALAYSIA_LOCALE_RULES = `BAHASA MELAYU LOCALE (Malaysia —
 
 export const CHAT_RESPONSE_FORMAT_RULES = `RESPONSE FORMAT:
 - Match the user's language (English / Bahasa Melayu Malaysia / mixed).
+- Keep answers short by default. Use Markdown for clarity.
+- Do not show hidden reasoning or planning text.
 ${CHAT_BM_MALAYSIA_LOCALE_RULES}
 - Dates: DD-MM-YYYY or DD Mon YYYY (3-letter month).
 - Be concise — no filler preamble (e.g. avoid "Great question!").

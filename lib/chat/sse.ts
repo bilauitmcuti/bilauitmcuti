@@ -79,11 +79,7 @@ export function createMarkdownStreamPainter(
 
     if (!hasFlushed && buf.length >= firstFlushChars) {
       const window = buf.slice(0, firstFlushChars);
-      const breakAt = Math.max(
-        window.lastIndexOf("\n"),
-        window.lastIndexOf(" "),
-        window.lastIndexOf("|")
-      );
+      const breakAt = Math.max(window.lastIndexOf("\n"), window.lastIndexOf(" "));
       const cut = breakAt >= 4 ? breakAt + 1 : firstFlushChars;
       const chunk = buf.slice(0, cut);
       buf = buf.slice(cut);
@@ -92,11 +88,7 @@ export function createMarkdownStreamPainter(
 
     if (buf.length >= maxChunkChars) {
       const window = buf.slice(0, maxChunkChars);
-      const breakAt = Math.max(
-        window.lastIndexOf("\n"),
-        window.lastIndexOf(" "),
-        window.lastIndexOf("|")
-      );
+      const breakAt = Math.max(window.lastIndexOf("\n"), window.lastIndexOf(" "));
       const cut = breakAt >= 12 ? breakAt + 1 : maxChunkChars;
       const chunk = buf.slice(0, cut);
       buf = buf.slice(cut);
