@@ -7,6 +7,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { parseReasoningVerses } from "@/lib/chat/reasoning-status";
 import { BrainIcon, ChevronDownIcon } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 import {
@@ -217,18 +218,28 @@ export type ReasoningContentProps = ComponentProps<
 };
 
 export const ReasoningContent = memo(
-  ({ className, children, ...props }: ReasoningContentProps) => (
-    <CollapsibleContent
-      className={cn(
-        "mt-4 text-sm",
-        "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 text-muted-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in",
-        className
-      )}
-      {...props}
-    >
-      <div className="whitespace-pre-wrap leading-relaxed">{children}</div>
-    </CollapsibleContent>
-  )
+  ({ className, children, ...props }: ReasoningContentProps) => {
+    const verses = parseReasoningVerses(children);
+
+    return (
+      <CollapsibleContent
+        className={cn(
+          "mt-4 text-sm",
+          "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 text-muted-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in",
+          className
+        )}
+        {...props}
+      >
+        {verses.length > 0 ? (
+          <ul className="list-disc space-y-1.5 pl-4 leading-relaxed marker:text-muted-foreground/70">
+            {verses.map((verse, index) => (
+              <li key={`${index}-${verse}`}>{verse}</li>
+            ))}
+          </ul>
+        ) : null}
+      </CollapsibleContent>
+    );
+  }
 );
 
 Reasoning.displayName = "Reasoning";

@@ -49,7 +49,7 @@ import {
   buildReasoningOpener,
   buildRetryReasoningLine,
   buildToolReasoningLine,
-  MAX_REASONING_LINES,
+  MAX_REASONING_VERSES,
 } from "@/lib/chat/reasoning-status";
 import {
   agentModeForModelChain,
@@ -139,7 +139,7 @@ function agentUsedCalendarTools(toolsUsed: string[]): boolean {
   return toolsUsed.some((tool) => AGENT_CALENDAR_TOOLS.has(tool));
 }
 
-export { appendReasoningLine, MAX_REASONING_LINES } from "@/lib/chat/reasoning-status";
+export { appendReasoningLine, MAX_REASONING_VERSES } from "@/lib/chat/reasoning-status";
 
 export type ChatExecutionMode = "single_stream" | "agent";
 

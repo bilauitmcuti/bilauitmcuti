@@ -4,8 +4,9 @@ import {
   buildReasoningOpener,
   buildRetryReasoningLine,
   buildToolReasoningLine,
-  MAX_REASONING_LINES,
+  MAX_REASONING_VERSES,
   pickProgressPhrase,
+  parseReasoningVerses,
 } from "@/lib/chat/reasoning-status";
 
 const FORBIDDEN = /\b(function calling|tool calls?|rag\b|embeddings?|vector search|loading data|internal apis?|composing answer|chain of thought|reasoning process|prefetch)\b/i;
@@ -65,12 +66,12 @@ describe("reasoning-status", () => {
     expect(a).not.toBe(b);
   });
 
-  it("caps visible progress lines per response", () => {
+  it("caps visible progress verses per response", () => {
     let text = "";
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 7; i++) {
       text = appendReasoningLine(text, `Step number ${i + 1}`);
     }
-    expect(text.split("\n").filter(Boolean).length).toBe(MAX_REASONING_LINES);
+    expect(parseReasoningVerses(text).length).toBe(MAX_REASONING_VERSES);
   });
 
   it("deduplicates identical progress lines", () => {
@@ -82,6 +83,24 @@ describe("reasoning-status", () => {
   it("builds short retry progress", () => {
     expectShortFriendlyPhrase(buildRetryReasoningLine("dates", "bila cuti?"));
     expectShortFriendlyPhrase(buildRetryReasoningLine("incomplete", "explain uitm fees"));
+  });
+
+  it("parseReasoningVerses returns bullet-ready points capped at five", () => {
+    const text = [
+      "Checking lecture weeks",
+      "Finding week dates",
+      "Checking public holidays",
+      "Looking up UiTM info",
+      "Reviewing session dates",
+      "Should not appear",
+    ].join("\n");
+    expect(parseReasoningVerses(text)).toEqual([
+      "Checking lecture weeks",
+      "Finding week dates",
+      "Checking public holidays",
+      "Looking up UiTM info",
+      "Reviewing session dates",
+    ]);
   });
 
   it("pickProgressPhrase is deterministic for the same seed", () => {

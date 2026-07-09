@@ -3,7 +3,7 @@ import type { ChatToolName } from "@/lib/chat/agent/types";
 import { detectUserLanguage, type UserLanguageMode } from "@/lib/chat-language";
 import type { ChatTopic } from "@/lib/chat/topic-router";
 
-export const MAX_REASONING_LINES = 4;
+export const MAX_REASONING_VERSES = 5;
 const MIN_STATUS_WORDS = 2;
 const MAX_STATUS_WORDS = 6;
 
@@ -166,11 +166,11 @@ export function buildRetryReasoningLine(
   return pickProgressPhrase(pool, `${message}:retry:${reason}`);
 }
 
-/** Join progress lines; caps visible updates per response. */
+/** Join progress verses; caps visible bullet points per response. */
 export function appendReasoningLine(
   current: string,
   line: string,
-  maxLines: number = MAX_REASONING_LINES
+  maxVerses: number = MAX_REASONING_VERSES
 ): string {
   const next = line.trim();
   if (!next) return current;
@@ -180,12 +180,20 @@ export function appendReasoningLine(
     .map((row) => row.trim())
     .filter(Boolean);
 
-  if (existing.length >= maxLines) return current;
+  if (existing.length >= maxVerses) return current;
   if (existing.some((row) => row === next)) return current;
   if (current.endsWith(next)) return current;
 
   if (!current.trim()) return next;
   return `${current.trimEnd()}\n${next}`;
+}
+
+export function parseReasoningVerses(text: string, maxVerses = MAX_REASONING_VERSES): string[] {
+  return text
+    .split("\n")
+    .map((row) => row.trim())
+    .filter(Boolean)
+    .slice(0, maxVerses);
 }
 
 // Kept for compatibility with older tests/callers that trim snippets elsewhere.

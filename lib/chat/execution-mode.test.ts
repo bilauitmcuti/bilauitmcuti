@@ -119,7 +119,7 @@ describe("shouldPreferSingleStream", () => {
 
 describe("appendReasoningLine", () => {
   it("joins status lines without duplicating and caps count", async () => {
-    const { appendReasoningLine, MAX_REASONING_LINES } = await import("@/lib/chat/handler");
+    const { appendReasoningLine, MAX_REASONING_VERSES } = await import("@/lib/chat/handler");
     let text = appendReasoningLine("", "Checking academic calendar");
     text = appendReasoningLine(text, "Finding week dates");
     text = appendReasoningLine(text, "Checking public holidays");
@@ -130,7 +130,7 @@ describe("appendReasoningLine", () => {
     for (let i = 0; i < 4; i++) {
       text = appendReasoningLine(text, `Extra step ${i}`);
     }
-    expect(text.split("\n").filter(Boolean).length).toBe(MAX_REASONING_LINES);
+    expect(text.split("\n").filter(Boolean).length).toBe(MAX_REASONING_VERSES);
   });
 });
 
