@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getAiBinding,
   getMaxOutputTokensForHost,
+  modelChainSupportsReasoningUi,
   resolveProductionChatModelChain,
   resolveWorkersAiModelTier,
   shouldStreamTokensToClient,
@@ -394,6 +395,7 @@ export async function POST(request: NextRequest) {
 
     const useAgentPath = isChatAgentEnabled();
     const modelChain = resolveProductionChatModelChain(requestHost);
+    const reasoningUiSupported = modelChainSupportsReasoningUi(modelChain);
     const agentMode = useAgentPath ? agentModeForModelChain(modelChain) : "compact";
     const isAgentToolsPath = useAgentPath && agentMode === "tools";
 
@@ -429,7 +431,7 @@ export async function POST(request: NextRequest) {
       phase: ReasoningPhase,
       extra?: Partial<typeof reasoningBase> & { toolName?: ChatToolName; retryReason?: "dates" | "incomplete" }
     ) => {
-      if (!streamHooks) return;
+      if (!streamHooks || !reasoningUiSupported) return;
       if (!shouldEmitReasoningPhase(turnStartMs, isComplexTurn, phase)) return;
       streamHooks.emitReasoningParagraph(
         buildReasoningParagraph({ ...reasoningBase, phase, ...extra })
@@ -440,7 +442,7 @@ export async function POST(request: NextRequest) {
       phase: ReasoningPhase,
       extra?: Partial<typeof reasoningBase> & { retryReason?: "dates" | "incomplete" }
     ) => {
-      if (!streamHooks) return;
+      if (!streamHooks || !reasoningUiSupported) return;
       streamHooks.emitReasoningParagraph(
         buildReasoningParagraph({ ...reasoningBase, phase, ...extra })
       );

@@ -7,6 +7,7 @@ import {
   REASONING_PARAGRAPH_DELAY_MS,
   shouldEmitReasoningParagraph,
   shouldEmitReasoningPhase,
+  shouldRenderReasoningUi,
   shouldShowCompletedDurationLabel,
   shouldShowCompletedThinkingBlock,
   shouldShowThinkingDurationLabel,
@@ -116,7 +117,8 @@ describe("reasoning-gate", () => {
         hasReasoning: true,
       })
     ).toEqual({
-      hadThinking: false,
+      hadThinking: true,
+      thinkingDurationSec: 1,
     });
   });
 
@@ -171,5 +173,48 @@ describe("reasoning-gate", () => {
         hasReasoningContent: false,
       })
     ).toBe(true);
+  });
+
+  it("gates reasoning UI by model support and turn state", () => {
+    expect(
+      shouldRenderReasoningUi({
+        reasoningUiSupported: false,
+        isThinkingPhase: true,
+        showThinking: true,
+        hasReasoningContent: true,
+        isRegenerating: false,
+        hasProgressLabel: false,
+        answerStreaming: false,
+        answerComplete: false,
+      })
+    ).toBe(false);
+
+    expect(
+      shouldRenderReasoningUi({
+        reasoningUiSupported: true,
+        isThinkingPhase: false,
+        showThinking: false,
+        hasReasoningContent: true,
+        isRegenerating: false,
+        hasProgressLabel: false,
+        answerStreaming: false,
+        answerComplete: true,
+        thinkingDurationSec: 3,
+      })
+    ).toBe(true);
+
+    expect(
+      shouldRenderReasoningUi({
+        reasoningUiSupported: true,
+        isThinkingPhase: false,
+        showThinking: false,
+        hasReasoningContent: false,
+        isRegenerating: false,
+        hasProgressLabel: false,
+        answerStreaming: false,
+        answerComplete: true,
+        thinkingDurationSec: 3,
+      })
+    ).toBe(false);
   });
 });

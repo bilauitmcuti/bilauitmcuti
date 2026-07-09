@@ -70,7 +70,7 @@ export const Reasoning = memo(
     children,
     ...props
   }: ReasoningProps) => {
-    const resolvedDefaultOpen = defaultOpen ?? (collapsible ? isStreaming : true);
+    const resolvedDefaultOpen = defaultOpen ?? false;
     const isExplicitlyClosed = defaultOpen === false;
 
     const [isOpen, setIsOpen] = useControllableState<boolean>({
@@ -176,7 +176,7 @@ const defaultGetThinkingMessage = (
   duration?: number,
   showDurationLabel = false
 ) => {
-  if (isStreaming || duration === 0) {
+  if (isStreaming) {
     return <span className="shimmer text-muted-foreground">Thinking…</span>;
   }
   if (showDurationLabel && duration !== undefined) {
@@ -205,7 +205,7 @@ export const ReasoningTrigger = memo(
 
     const resolvedMessage =
       message ??
-      (showChevron ? (
+      (showChevron && isStreaming ? (
         <span className="shimmer text-muted-foreground">Thinking…</span>
       ) : null);
 

@@ -30,7 +30,7 @@ import { useReasoningVisibility } from "@/components/chat/use-reasoning-visibili
 import { CHAT_STREAM_PHASE } from "@/lib/chat/stream-phase";
 import {
   shouldShowCompletedDurationLabel,
-  shouldShowCompletedThinkingBlock,
+  shouldRenderReasoningUi,
 } from "@/lib/chat/reasoning-gate";
 
 interface ChatMessageRowProps {
@@ -84,19 +84,17 @@ export function ChatMessageRow({
     thinkingDurationSec: resolvedDurationSec,
     hasReasoningContent,
   });
-  const showDuringAnswerStream =
-    answerStreaming && (hasReasoningContent || showDurationLabel);
-  const showCompletedBlock =
-    answerComplete &&
-    shouldShowCompletedThinkingBlock({
-      thinkingDurationSec: message.thinkingDurationSec,
-      hasReasoningContent,
-    });
-  const showThoughtHeader =
-    showThinkingUi ||
-    showLiveRegenerating ||
-    showDuringAnswerStream ||
-    showCompletedBlock;
+  const showThoughtHeader = shouldRenderReasoningUi({
+    reasoningUiSupported: message.reasoningUiSupported,
+    isThinkingPhase,
+    showThinking,
+    hasReasoningContent,
+    isRegenerating,
+    hasProgressLabel: Boolean(progressLabel),
+    answerStreaming,
+    answerComplete,
+    thinkingDurationSec: resolvedDurationSec,
+  });
 
   const enterAnimation =
     message.role === "user"
@@ -162,8 +160,8 @@ export function ChatMessageRow({
               className="w-full"
               collapsible={hasReasoningContent}
               collapseWhen={answerComplete && hasReasoningContent}
+              defaultOpen={false}
               duration={resolvedDurationSec}
-              expandReasoning={hasReasoningContent && isThinkingPhase}
               isStreaming={showThinkingUi || showLiveRegenerating}
             >
               <ReasoningTrigger

@@ -60,6 +60,8 @@ export interface ChatMessageItem {
   isComplete?: boolean;
   /** Model reasoning / tool-planning text shown above the answer. */
   reasoning?: string;
+  /** When false, hide the reasoning UI (e.g. dev Llama). Omit or true for legacy messages. */
+  reasoningUiSupported?: boolean;
   /** True when the thinking indicator or reasoning paragraph was shown for this turn. */
   hadThinking?: boolean;
   /** Seconds spent in the thinking state before the answer streamed. */

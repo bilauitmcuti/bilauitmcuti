@@ -51,6 +51,7 @@ import {
   type MentionMatch,
 } from "@/components/chat/chat-utils";
 import { captureThinkingMetadata } from "@/lib/chat/reasoning-gate";
+import { hostSupportsReasoningUi } from "@/lib/workers-ai-model-tier";
 import { CHAT_STREAM_PHASE } from "@/lib/chat/stream-phase";
 import {
   getInitialChatSessions,
@@ -439,6 +440,9 @@ export default function ChatPage() {
       content: "",
       isComplete: false,
       timestamp: now,
+      reasoningUiSupported: hostSupportsReasoningUi(
+        typeof window !== "undefined" ? window.location.hostname : undefined
+      ),
     };
 
     setMessages([...messages, userMessage, assistantPlaceholder]);

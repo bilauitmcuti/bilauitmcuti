@@ -101,14 +101,58 @@ export function captureThinkingMetadata(
   const now = options?.now ?? Date.now();
   const started = messageTimestamp ?? now;
   const elapsed = now - started;
-  const hadVisibleThinking = elapsed >= THINKING_INDICATOR_DELAY_MS;
+  const durationSec = Math.max(1, Math.ceil(elapsed / 1000));
 
+  if (options?.hasReasoning) {
+    return { hadThinking: true, thinkingDurationSec: durationSec };
+  }
+
+  const hadVisibleThinking = elapsed >= THINKING_INDICATOR_DELAY_MS;
   if (!hadVisibleThinking) {
     return { hadThinking: false };
   }
 
   return {
     hadThinking: true,
-    thinkingDurationSec: Math.max(1, Math.ceil(elapsed / 1000)),
+    thinkingDurationSec: durationSec,
   };
+}
+
+export interface RenderReasoningUiInput {
+  reasoningUiSupported?: boolean;
+  isThinkingPhase: boolean;
+  showThinking: boolean;
+  hasReasoningContent: boolean;
+  isRegenerating: boolean;
+  hasProgressLabel: boolean;
+  answerStreaming: boolean;
+  answerComplete: boolean;
+  thinkingDurationSec?: number;
+}
+
+export function shouldRenderReasoningUi(input: RenderReasoningUiInput): boolean {
+  if (input.reasoningUiSupported === false) return false;
+
+  const showThinkingUi =
+    input.isThinkingPhase && (input.showThinking || input.hasReasoningContent);
+  const showLiveRegenerating = input.isRegenerating && input.hasProgressLabel;
+  const showDurationLabel = shouldShowCompletedDurationLabel({
+    thinkingDurationSec: input.thinkingDurationSec,
+    hasReasoningContent: input.hasReasoningContent,
+  });
+  const showDuringAnswerStream =
+    input.answerStreaming && (input.hasReasoningContent || showDurationLabel);
+  const showCompletedBlock =
+    input.answerComplete &&
+    shouldShowCompletedThinkingBlock({
+      thinkingDurationSec: input.thinkingDurationSec,
+      hasReasoningContent: input.hasReasoningContent,
+    });
+
+  return (
+    showThinkingUi ||
+    showLiveRegenerating ||
+    showDuringAnswerStream ||
+    showCompletedBlock
+  );
 }
