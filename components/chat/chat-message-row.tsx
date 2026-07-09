@@ -118,7 +118,7 @@ export function ChatMessageRow({
           {reasoningStreaming || reasoningText ? (
             <Reasoning className="w-full" isStreaming={reasoningStreaming}>
               <ReasoningTrigger />
-              {reasoningText ? (
+              {reasoningStreaming || reasoningText ? (
                 <ReasoningContent>{reasoningText}</ReasoningContent>
               ) : null}
             </Reasoning>

@@ -7,10 +7,6 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import { cjk } from "@streamdown/cjk";
-import { code } from "@streamdown/code";
-import { math } from "@streamdown/math";
-import { mermaid } from "@streamdown/mermaid";
 import { BrainIcon, ChevronDownIcon } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 import {
@@ -23,7 +19,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { Streamdown } from "streamdown";
 
 import { Shimmer } from "./shimmer";
 
@@ -82,12 +77,14 @@ export const Reasoning = memo(
 
     const hasEverStreamedRef = useRef(isStreaming);
     const [hasAutoClosed, setHasAutoClosed] = useState(false);
+    const userDismissedDuringStreamRef = useRef(false);
     const startTimeRef = useRef<number | null>(null);
 
     // Track when streaming starts and compute duration
     useEffect(() => {
       if (isStreaming) {
         hasEverStreamedRef.current = true;
+        userDismissedDuringStreamRef.current = false;
         if (startTimeRef.current === null) {
           startTimeRef.current = Date.now();
         }
@@ -97,9 +94,14 @@ export const Reasoning = memo(
       }
     }, [isStreaming, setDuration]);
 
-    // Auto-open when streaming starts (unless explicitly closed)
+    // Auto-open when streaming starts (unless user closed it during this turn)
     useEffect(() => {
-      if (isStreaming && !isOpen && !isExplicitlyClosed) {
+      if (
+        isStreaming &&
+        !isOpen &&
+        !isExplicitlyClosed &&
+        !userDismissedDuringStreamRef.current
+      ) {
         setIsOpen(true);
       }
     }, [isStreaming, isOpen, setIsOpen, isExplicitlyClosed]);
@@ -123,9 +125,12 @@ export const Reasoning = memo(
 
     const handleOpenChange = useCallback(
       (newOpen: boolean) => {
+        if (isStreaming && !newOpen) {
+          userDismissedDuringStreamRef.current = true;
+        }
         setIsOpen(newOpen);
       },
-      [setIsOpen]
+      [isStreaming, setIsOpen]
     );
 
     const contextValue = useMemo(
@@ -136,10 +141,10 @@ export const Reasoning = memo(
     return (
       <ReasoningContext.Provider value={contextValue}>
         <Collapsible
-          className={cn("not-prose mb-4", className)}
-          onOpenChange={handleOpenChange}
-          open={isOpen}
           {...props}
+          className={cn("not-prose mb-4", className)}
+          onOpenChange={(open) => handleOpenChange(open)}
+          open={isOpen}
         >
           {children}
         </Collapsible>
@@ -156,12 +161,15 @@ export type ReasoningTriggerProps = ComponentProps<
 
 const defaultGetThinkingMessage = (isStreaming: boolean, duration?: number) => {
   if (isStreaming || duration === 0) {
-    return <Shimmer duration={1}>Thinking...</Shimmer>;
+    return <Shimmer duration={1}>Thinking…</Shimmer>;
   }
   if (duration === undefined) {
-    return <p>Thought for a few seconds</p>;
+    return <span>Thought for a moment</span>;
   }
-  return <p>Thought for {duration} seconds</p>;
+  if (duration < 2) {
+    return <span>Thought for a moment</span>;
+  }
+  return <span>Thought for {duration} seconds</span>;
 };
 
 export const ReasoningTrigger = memo(
@@ -183,11 +191,13 @@ export const ReasoningTrigger = memo(
       >
         {children ?? (
           <>
-            <BrainIcon className="size-4" />
-            {getThinkingMessage(isStreaming, duration)}
+            <BrainIcon className="size-4 shrink-0" />
+            <span className="min-w-0 flex-1 text-left">
+              {getThinkingMessage(isStreaming, duration)}
+            </span>
             <ChevronDownIcon
               className={cn(
-                "size-4 transition-transform",
+                "size-4 shrink-0 transition-transform duration-200",
                 isOpen ? "rotate-180" : "rotate-0"
               )}
             />
@@ -204,8 +214,6 @@ export type ReasoningContentProps = ComponentProps<
   children: string;
 };
 
-const streamdownPlugins = { cjk, code, math, mermaid };
-
 export const ReasoningContent = memo(
   ({ className, children, ...props }: ReasoningContentProps) => (
     <CollapsibleContent
@@ -216,7 +224,7 @@ export const ReasoningContent = memo(
       )}
       {...props}
     >
-      <Streamdown plugins={streamdownPlugins}>{children}</Streamdown>
+      <div className="whitespace-pre-wrap leading-relaxed">{children}</div>
     </CollapsibleContent>
   )
 );
