@@ -49,6 +49,7 @@ import {
   replaceReasoningParagraph,
   type ReasoningPhase,
 } from "@/lib/chat/reasoning-status";
+import { shouldEmitReasoningParagraph } from "@/lib/chat/reasoning-gate";
 import {
   agentModeForModelChain,
   buildAgentTurnContext,
@@ -283,6 +284,7 @@ export async function POST(request: NextRequest) {
     };
 
     const executeChatTurn = async (streamHooks?: StreamHooks): Promise<string> => {
+    const turnStartMs = Date.now();
     const meta = await loadMetaIntoStore();
     const { validSessionIds, validPrograms } = validSetsFromMeta(meta);
 
@@ -365,14 +367,22 @@ export async function POST(request: NextRequest) {
       phase: ReasoningPhase,
       extra?: Partial<typeof reasoningBase> & { toolName?: ChatToolName; retryReason?: "dates" | "incomplete" }
     ) => {
-      streamHooks?.emitReasoningParagraph(
+      if (!streamHooks) return;
+      if (!shouldEmitReasoningParagraph(turnStartMs)) return;
+      streamHooks.emitReasoningParagraph(
         buildReasoningParagraph({ ...reasoningBase, phase, ...extra })
       );
     };
 
-    if (streamHooks) {
-      emitReasoningPhase("start");
-    }
+    const emitReasoningRetry = (
+      phase: ReasoningPhase,
+      extra?: Partial<typeof reasoningBase> & { retryReason?: "dates" | "incomplete" }
+    ) => {
+      if (!streamHooks) return;
+      streamHooks.emitReasoningParagraph(
+        buildReasoningParagraph({ ...reasoningBase, phase, ...extra })
+      );
+    };
 
     const sanitizedHistory: ChatMessage[] = trimHistoryForModel(
       (history ?? []).map((msg) => ({
@@ -937,7 +947,7 @@ export async function POST(request: NextRequest) {
             },
             onRetry: (reason) => {
               streamHooks.onRetry(reason);
-              emitReasoningPhase("retry", {
+              emitReasoningRetry("retry", {
                 retryReason: reason === "dates" ? "dates" : "incomplete",
               });
             },

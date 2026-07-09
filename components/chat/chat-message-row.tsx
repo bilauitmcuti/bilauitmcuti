@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/message-scroller";
 import { cn } from "@/lib/utils";
 import { formatTime24, type ChatMessageItem } from "@/components/chat/chat-utils";
+import { useReasoningVisibility } from "@/components/chat/use-reasoning-visibility";
 
 interface ChatMessageRowProps {
   message: ChatMessageItem;
@@ -52,9 +53,15 @@ export function ChatMessageRow({
   const assistantInProgress =
     message.role === "assistant" && message.isComplete === false;
   const answerStreaming = assistantInProgress && message.content.trim().length > 0;
-  const reasoningStreaming =
-    assistantInProgress && !answerStreaming;
   const reasoningText = message.reasoning?.trim() ?? "";
+  const { showThinking, showReasoningSlot } = useReasoningVisibility(
+    assistantInProgress && !answerStreaming,
+    message.timestamp
+  );
+  const showThinkingIndicator =
+    assistantInProgress && !answerStreaming && showThinking;
+  const showReasoningParagraph = showReasoningSlot && reasoningText.length > 0;
+  const showReasoningChrome = showThinkingIndicator || showReasoningParagraph;
 
   const enterAnimation =
     message.role === "user"
@@ -115,10 +122,10 @@ export function ChatMessageRow({
     <MessageScrollerItem messageId={message.id} scrollAnchor={scrollAnchor}>
       <Message align="start">
         <MessageContent>
-          {reasoningStreaming || reasoningText ? (
-            <Reasoning className="w-full" isStreaming={reasoningStreaming}>
+          {showReasoningChrome ? (
+            <Reasoning className="w-full" isStreaming={showThinkingIndicator}>
               <ReasoningTrigger />
-              {reasoningStreaming || reasoningText ? (
+              {showReasoningParagraph ? (
                 <ReasoningContent>{reasoningText}</ReasoningContent>
               ) : null}
             </Reasoning>
