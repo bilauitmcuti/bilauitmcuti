@@ -96,6 +96,7 @@ import {
   getCalendarUnderstandingDirective,
   getCompletionInstruction,
   isComparisonQuestion,
+  isMinimalConversationalMessage,
   isSimpleCalendarQuestion,
   isTableFormatRequested,
   messageAsksDetail,
@@ -406,16 +407,19 @@ export async function POST(request: NextRequest) {
     const isSimple = isSimpleCalendarQuestion(sanitizedMessage, { hasMatchedActivity });
     const asksDetail = messageAsksDetail(sanitizedMessage);
     const needsList = messageNeedsListOrSchedule(sanitizedMessage);
-    const isComplexTurn = isComplexReasoningTurn(
-      buildReasoningComplexityInput({
-        isSimple,
-        wantsTableOutput,
-        multipleSessionsSelected,
-        asksDetail,
-        needsList,
-        topics: topicRoute.topics,
-      })
-    );
+    const isMinimalTurn = isMinimalConversationalMessage(sanitizedMessage);
+    const isComplexTurn =
+      !isMinimalTurn &&
+      isComplexReasoningTurn(
+        buildReasoningComplexityInput({
+          isSimple,
+          wantsTableOutput,
+          multipleSessionsSelected,
+          asksDetail,
+          needsList,
+          topics: topicRoute.topics,
+        })
+      );
     const executionMode = resolveChatExecutionMode({
       isAgentToolsPath,
       preferSingleStream: shouldPreferSingleStream({
@@ -650,7 +654,7 @@ export async function POST(request: NextRequest) {
     }
     if (useAgentPath && !useAgentTools) {
       const prefetch = await runDeterministicPrefetch(agentTurnContext, () => {});
-      if (streamHooks) {
+      if (streamHooks && !isMinimalTurn) {
         emitReasoningPhase("progress");
       }
       if (prefetch.outputBlock) {

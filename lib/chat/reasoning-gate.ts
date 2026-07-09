@@ -9,6 +9,22 @@ export const REASONING_PARAGRAPH_DELAY_MS = 2500;
 /** Show "Thought for X …" only when duration exceeds this many whole seconds. */
 export const THINKING_LABEL_MIN_DURATION_SEC = 4;
 
+/** Durations at or below this many seconds use "Thought briefly". */
+export const THINKING_BRIEFLY_MAX_SEC = 2;
+
+/** Whole seconds from elapsed milliseconds (rounded, not inflated). */
+export function computeThinkingDurationSec(elapsedMs: number): number {
+  return Math.max(0, Math.round(Math.max(0, elapsedMs) / 1000));
+}
+
+export function thinkingDurationSecFromTimestamp(
+  timestamp: number | undefined,
+  now: number = Date.now()
+): number | undefined {
+  if (timestamp === undefined) return undefined;
+  return computeThinkingDurationSec(now - timestamp);
+}
+
 export interface ReasoningComplexityInput {
   isSimple: boolean;
   useAgentTools: boolean;
@@ -78,12 +94,31 @@ export function shouldShowCompletedDurationLabel(input: {
   return shouldShowThinkingDurationLabel(input.thinkingDurationSec);
 }
 
-export function formatThinkingDurationLabel(durationSec: number): string {
-  if (durationSec >= 60) {
-    const mins = Math.round(durationSec / 60);
-    return mins === 1 ? "1 min" : `${mins} mins`;
+/** Completed thinking row label, e.g. "Thought briefly" or "Thought for 5 seconds". */
+export function formatThoughtCompletedLabel(durationSec: number): string {
+  if (durationSec <= THINKING_BRIEFLY_MAX_SEC) {
+    return "Thought briefly";
   }
-  return `${durationSec} seconds`;
+  if (durationSec < 60) {
+    return durationSec === 1
+      ? "Thought for 1 second"
+      : `Thought for ${durationSec} seconds`;
+  }
+  const mins = Math.floor(durationSec / 60);
+  const secs = durationSec % 60;
+  if (secs === 0) {
+    return mins === 1 ? "Thought for 1 min" : `Thought for ${mins} mins`;
+  }
+  const minPart = mins === 1 ? "1 min" : `${mins} mins`;
+  const secPart = secs === 1 ? "1 sec" : `${secs} sec`;
+  return `Thought for ${minPart} ${secPart}`;
+}
+
+/** @deprecated Use formatThoughtCompletedLabel */
+export function formatThinkingDurationLabel(durationSec: number): string {
+  const full = formatThoughtCompletedLabel(durationSec);
+  if (full === "Thought briefly") return "briefly";
+  return full.replace(/^Thought for /, "");
 }
 
 export function shouldShowCompletedThinkingBlock(input: {
@@ -101,7 +136,7 @@ export function captureThinkingMetadata(
   const now = options?.now ?? Date.now();
   const started = messageTimestamp ?? now;
   const elapsed = now - started;
-  const durationSec = Math.max(1, Math.ceil(elapsed / 1000));
+  const durationSec = computeThinkingDurationSec(elapsed);
 
   if (options?.hasReasoning) {
     return { hadThinking: true, thinkingDurationSec: durationSec };
@@ -120,6 +155,7 @@ export function captureThinkingMetadata(
 
 export interface RenderReasoningUiInput {
   reasoningUiSupported?: boolean;
+  isMinimalTurn?: boolean;
   isThinkingPhase: boolean;
   showThinking: boolean;
   hasReasoningContent: boolean;
@@ -132,6 +168,7 @@ export interface RenderReasoningUiInput {
 
 export function shouldRenderReasoningUi(input: RenderReasoningUiInput): boolean {
   if (input.reasoningUiSupported === false) return false;
+  if (input.isMinimalTurn) return false;
 
   const showThinkingUi =
     input.isThinkingPhase && (input.showThinking || input.hasReasoningContent);

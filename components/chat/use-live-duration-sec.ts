@@ -1,8 +1,5 @@
 import { useEffect, useState } from "react";
-
-function computeDurationSec(timestamp: number, now: number): number {
-  return Math.max(1, Math.ceil((now - timestamp) / 1000));
-}
+import { thinkingDurationSecFromTimestamp } from "@/lib/chat/reasoning-gate";
 
 /** Elapsed whole seconds since `timestamp`, ticked every second while `active`. */
 export function useLiveDurationSec(
@@ -17,7 +14,8 @@ export function useLiveDurationSec(
       return;
     }
 
-    const update = () => setDurationSec(computeDurationSec(timestamp, Date.now()));
+    const update = () =>
+      setDurationSec(thinkingDurationSecFromTimestamp(timestamp, Date.now()));
 
     update();
     const id = window.setInterval(update, 1000);

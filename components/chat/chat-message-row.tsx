@@ -28,6 +28,7 @@ import { formatTime24, type ChatMessageItem } from "@/components/chat/chat-utils
 import { useLiveDurationSec } from "@/components/chat/use-live-duration-sec";
 import { useReasoningVisibility } from "@/components/chat/use-reasoning-visibility";
 import { CHAT_STREAM_PHASE } from "@/lib/chat/stream-phase";
+import { isMinimalConversationalMessage } from "@/lib/chat/intent";
 import {
   shouldShowCompletedDurationLabel,
   shouldRenderReasoningUi,
@@ -80,12 +81,14 @@ export function ChatMessageRow({
     assistantInProgress && message.thinkingDurationSec === undefined
   );
   const resolvedDurationSec = message.thinkingDurationSec ?? liveDurationSec;
+  const isMinimalTurn = isMinimalConversationalMessage(message.userPrompt ?? "");
   const showDurationLabel = shouldShowCompletedDurationLabel({
     thinkingDurationSec: resolvedDurationSec,
     hasReasoningContent,
   });
   const showThoughtHeader = shouldRenderReasoningUi({
     reasoningUiSupported: message.reasoningUiSupported,
+    isMinimalTurn,
     isThinkingPhase,
     showThinking,
     hasReasoningContent,

@@ -20,7 +20,7 @@ import {
   useState,
 } from "react";
 
-import { formatThinkingDurationLabel } from "@/lib/chat/reasoning-gate";
+import { formatThoughtCompletedLabel, thinkingDurationSecFromTimestamp } from "@/lib/chat/reasoning-gate";
 
 interface ReasoningContextValue {
   isStreaming: boolean;
@@ -54,7 +54,6 @@ export type ReasoningProps = ComponentProps<typeof Collapsible> & {
 };
 
 const AUTO_CLOSE_DELAY = 1000;
-const MS_IN_S = 1000;
 
 export const Reasoning = memo(
   ({
@@ -88,16 +87,17 @@ export const Reasoning = memo(
     const hasCollapsedAfterAnswerRef = useRef(false);
 
     useEffect(() => {
+      if (durationProp !== undefined) return;
       if (isStreaming) {
         userDismissedDuringStreamRef.current = false;
         if (startTimeRef.current === null) {
           startTimeRef.current = Date.now();
         }
       } else if (startTimeRef.current !== null) {
-        setDuration(Math.ceil((Date.now() - startTimeRef.current) / MS_IN_S));
+        setDuration(thinkingDurationSecFromTimestamp(startTimeRef.current, Date.now()));
         startTimeRef.current = null;
       }
-    }, [isStreaming, setDuration]);
+    }, [durationProp, isStreaming, setDuration]);
 
     useEffect(() => {
       if (
@@ -180,7 +180,7 @@ const defaultGetThinkingMessage = (
     return <span className="shimmer text-muted-foreground">Thinking…</span>;
   }
   if (showDurationLabel && duration !== undefined) {
-    return <span>Thought for {formatThinkingDurationLabel(duration)}</span>;
+    return <span>{formatThoughtCompletedLabel(duration)}</span>;
   }
   return null;
 };

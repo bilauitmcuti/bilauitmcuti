@@ -440,6 +440,7 @@ export default function ChatPage() {
       content: "",
       isComplete: false,
       timestamp: now,
+      userPrompt: trimmed,
       reasoningUiSupported: hostSupportsReasoningUi(
         typeof window !== "undefined" ? window.location.hostname : undefined
       ),

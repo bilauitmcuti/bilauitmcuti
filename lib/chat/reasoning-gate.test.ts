@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildReasoningComplexityInput,
   captureThinkingMetadata,
+  computeThinkingDurationSec,
+  formatThoughtCompletedLabel,
   formatThinkingDurationLabel,
   isComplexReasoningTurn,
   REASONING_PARAGRAPH_DELAY_MS,
@@ -109,7 +111,7 @@ describe("reasoning-gate", () => {
     });
     expect(captureThinkingMetadata(start, { now: start + 2_100 })).toEqual({
       hadThinking: true,
-      thinkingDurationSec: 3,
+      thinkingDurationSec: 2,
     });
     expect(
       captureThinkingMetadata(start, {
@@ -118,7 +120,7 @@ describe("reasoning-gate", () => {
       })
     ).toEqual({
       hadThinking: true,
-      thinkingDurationSec: 1,
+      thinkingDurationSec: 0,
     });
   });
 
@@ -148,10 +150,28 @@ describe("reasoning-gate", () => {
     ).toBe(true);
   });
 
-  it("formats thinking duration for seconds and minutes", () => {
+  it("formats completed thought labels for brief, seconds, and minutes", () => {
+    expect(formatThoughtCompletedLabel(0)).toBe("Thought briefly");
+    expect(formatThoughtCompletedLabel(1)).toBe("Thought briefly");
+    expect(formatThoughtCompletedLabel(2)).toBe("Thought briefly");
+    expect(formatThoughtCompletedLabel(3)).toBe("Thought for 3 seconds");
+    expect(formatThoughtCompletedLabel(5)).toBe("Thought for 5 seconds");
+    expect(formatThoughtCompletedLabel(60)).toBe("Thought for 1 min");
+    expect(formatThoughtCompletedLabel(65)).toBe("Thought for 1 min 5 sec");
+    expect(formatThoughtCompletedLabel(120)).toBe("Thought for 2 mins");
+  });
+
+  it("keeps legacy duration fragment helper for callers", () => {
+    expect(formatThinkingDurationLabel(2)).toBe("briefly");
     expect(formatThinkingDurationLabel(5)).toBe("5 seconds");
-    expect(formatThinkingDurationLabel(65)).toBe("1 min");
-    expect(formatThinkingDurationLabel(120)).toBe("2 mins");
+  });
+
+  it("computes thinking duration from elapsed ms with rounding", () => {
+    expect(computeThinkingDurationSec(450)).toBe(0);
+    expect(computeThinkingDurationSec(500)).toBe(1);
+    expect(computeThinkingDurationSec(2_100)).toBe(2);
+    expect(computeThinkingDurationSec(2_500)).toBe(3);
+    expect(computeThinkingDurationSec(65_000)).toBe(65);
   });
 
   it("decides when to keep the completed thinking block visible", () => {
@@ -179,6 +199,20 @@ describe("reasoning-gate", () => {
     expect(
       shouldRenderReasoningUi({
         reasoningUiSupported: false,
+        isThinkingPhase: true,
+        showThinking: true,
+        hasReasoningContent: true,
+        isRegenerating: false,
+        hasProgressLabel: false,
+        answerStreaming: false,
+        answerComplete: false,
+      })
+    ).toBe(false);
+
+    expect(
+      shouldRenderReasoningUi({
+        reasoningUiSupported: true,
+        isMinimalTurn: true,
         isThinkingPhase: true,
         showThinking: true,
         hasReasoningContent: true,
