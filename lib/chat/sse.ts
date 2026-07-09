@@ -34,7 +34,9 @@ export interface ChatStreamErrorPayload {
 }
 
 export interface ChatStreamReasoningPayload {
-  token: string;
+  token?: string;
+  text?: string;
+  replace?: boolean;
 }
 
 export interface ChatStreamTokenPayload {
@@ -357,7 +359,11 @@ export async function consumeChatStream(
       handlers.onStatus?.(data as ChatStreamStatusPayload);
     } else if (event === "reasoning") {
       const payload = data as ChatStreamReasoningPayload;
-      if (payload.token) handlers.onReasoning?.(payload);
+      if (payload.replace && payload.text) {
+        handlers.onReasoning?.(payload);
+      } else if (payload.token) {
+        handlers.onReasoning?.(payload);
+      }
     }
   };
 

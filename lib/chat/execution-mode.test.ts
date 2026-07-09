@@ -118,19 +118,15 @@ describe("shouldPreferSingleStream", () => {
 });
 
 describe("appendReasoningLine", () => {
-  it("joins status lines without duplicating and caps count", async () => {
-    const { appendReasoningLine, MAX_REASONING_VERSES } = await import("@/lib/chat/handler");
-    let text = appendReasoningLine("", "Checking academic calendar");
-    text = appendReasoningLine(text, "Finding week dates");
-    text = appendReasoningLine(text, "Checking public holidays");
-    expect(text).toContain("Checking academic calendar");
-    expect(text).toContain("Finding week dates");
-    expect(appendReasoningLine(text, "Checking academic calendar")).toBe(text);
-
-    for (let i = 0; i < 4; i++) {
-      text = appendReasoningLine(text, `Extra step ${i}`);
-    }
-    expect(text.split("\n").filter(Boolean).length).toBe(MAX_REASONING_VERSES);
+  it("replaces reasoning paragraphs without duplicating", async () => {
+    const { replaceReasoningParagraph } = await import("@/lib/chat/handler");
+    const first =
+      "I'm checking the official UiTM academic calendar for all programmes to find the correct semester and confirm the dates before preparing your answer.";
+    const second =
+      "The relevant semester has been identified. I'm verifying the dates to ensure the information matches the latest official academic calendar.";
+    expect(replaceReasoningParagraph("", first)).toBe(first);
+    expect(replaceReasoningParagraph(first, second)).toBe(second);
+    expect(replaceReasoningParagraph(second, second)).toBe(second);
   });
 });
 

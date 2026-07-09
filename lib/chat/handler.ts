@@ -45,11 +45,9 @@ import {
 import type { ChatToolName } from "@/lib/chat/agent/types";
 import { runDeterministicPrefetch } from "@/lib/chat/agent/deterministic-prefetch";
 import {
-  appendReasoningLine,
-  buildReasoningOpener,
-  buildRetryReasoningLine,
-  buildToolReasoningLine,
-  MAX_REASONING_VERSES,
+  buildReasoningParagraph,
+  replaceReasoningParagraph,
+  type ReasoningPhase,
 } from "@/lib/chat/reasoning-status";
 import {
   agentModeForModelChain,
@@ -139,7 +137,7 @@ function agentUsedCalendarTools(toolsUsed: string[]): boolean {
   return toolsUsed.some((tool) => AGENT_CALENDAR_TOOLS.has(tool));
 }
 
-export { appendReasoningLine, MAX_REASONING_VERSES } from "@/lib/chat/reasoning-status";
+export { replaceReasoningParagraph } from "@/lib/chat/reasoning-status";
 
 export type ChatExecutionMode = "single_stream" | "agent";
 
@@ -275,7 +273,7 @@ export async function POST(request: NextRequest) {
 
     type StreamHooks = {
       enqueue: (text: string) => void;
-      emitReasoningLine: (line: string) => void;
+      emitReasoningParagraph: (paragraph: string) => void;
       emitStatus: (phase: string, message: string) => void;
       onToken: (token: string) => void;
       onReasoningToken: (token: string) => void;
@@ -355,17 +353,25 @@ export async function POST(request: NextRequest) {
     const topicRoute = routeChatTopics(sanitizedMessage, hasMatchedActivity);
     const useIntentFilter = shouldUseCalendarIntentFilter(topicRoute, activityMatches.length);
 
-    if (streamHooks) {
-      streamHooks.emitReasoningLine(
-        buildReasoningOpener({
-          message: sanitizedMessage,
-          topics: topicRoute.topics,
-          hasMatchedActivity,
-          activityMatches,
-          programLabel,
-          sessionCount: effectiveSessions.length,
-        })
+    const reasoningBase = {
+      message: sanitizedMessage,
+      topics: topicRoute.topics,
+      programLabel,
+      sessionCount: effectiveSessions.length,
+      hasMatchedActivity,
+      activityMatches,
+    };
+    const emitReasoningPhase = (
+      phase: ReasoningPhase,
+      extra?: Partial<typeof reasoningBase> & { toolName?: ChatToolName; retryReason?: "dates" | "incomplete" }
+    ) => {
+      streamHooks?.emitReasoningParagraph(
+        buildReasoningParagraph({ ...reasoningBase, phase, ...extra })
       );
+    };
+
+    if (streamHooks) {
+      emitReasoningPhase("start");
     }
 
     const sanitizedHistory: ChatMessage[] = trimHistoryForModel(
@@ -581,11 +587,10 @@ export async function POST(request: NextRequest) {
 
     let prefetchDirective = "";
     if (useAgentPath && !useAgentTools) {
-      const prefetch = await runDeterministicPrefetch(agentTurnContext, (toolName) => {
-        streamHooks?.emitReasoningLine(
-          buildToolReasoningLine(toolName, { message: sanitizedMessage })
-        );
-      });
+      const prefetch = await runDeterministicPrefetch(agentTurnContext, () => {});
+      if (streamHooks) {
+        emitReasoningPhase("progress");
+      }
       if (prefetch.outputBlock) {
         prefetchDirective = `\n\n=== PREFETCHED TOOL DATA (authoritative) ===\n${prefetch.outputBlock}`;
       }
@@ -909,25 +914,32 @@ export async function POST(request: NextRequest) {
     };
 
     if (streamHooks) {
+      let progressReasoningEmitted = !useAgentTools;
+      let finalReasoningEmitted = !useAgentTools;
+      if (!useAgentTools) {
+        emitReasoningPhase("final");
+      }
       const streamedReply = await runWithServerDeadline(
         useAgentTools ? CHAT_AGENT_DEADLINE_MS : CHAT_SERVER_DEADLINE_MS,
         () =>
-          runLlm(streamHooks.onToken, {
+          runLlm((token) => {
+            if (!finalReasoningEmitted && token.trim()) {
+              finalReasoningEmitted = true;
+              emitReasoningPhase("final");
+            }
+            streamHooks.onToken(token);
+          }, {
             onToolCall: (toolName) => {
-              streamHooks.emitReasoningLine(
-                buildToolReasoningLine(toolName as ChatToolName, {
-                  message: sanitizedMessage,
-                })
-              );
+              if (!progressReasoningEmitted) {
+                progressReasoningEmitted = true;
+                emitReasoningPhase("progress", { toolName: toolName as ChatToolName });
+              }
             },
             onRetry: (reason) => {
               streamHooks.onRetry(reason);
-              streamHooks.emitReasoningLine(
-                buildRetryReasoningLine(
-                  reason === "dates" ? "dates" : "incomplete",
-                  sanitizedMessage
-                )
-              );
+              emitReasoningPhase("retry", {
+                retryReason: reason === "dates" ? "dates" : "incomplete",
+              });
             },
           })
       );
@@ -955,19 +967,18 @@ export async function POST(request: NextRequest) {
           const enqueue = (text: string) => controller.enqueue(encoder.encode(text));
           try {
             let reasoningBuffer = "";
-            const emitReasoningLine = (line: string) => {
-              const merged = appendReasoningLine(reasoningBuffer, line);
-              if (merged === reasoningBuffer) return;
-              const delta = merged.slice(reasoningBuffer.length);
-              reasoningBuffer = merged;
-              if (delta) enqueue(encodeSseEvent("reasoning", { token: delta }));
+            const emitReasoningParagraph = (paragraph: string) => {
+              const next = replaceReasoningParagraph(reasoningBuffer, paragraph);
+              if (next === reasoningBuffer) return;
+              reasoningBuffer = next;
+              enqueue(encodeSseEvent("reasoning", { text: next, replace: true }));
             };
             const emitStatus = (phase: string, statusMessage: string) => {
               enqueue(encodeSseEvent("status", { phase, message: statusMessage }));
             };
             const streamHooks: StreamHooks = {
               enqueue,
-              emitReasoningLine,
+              emitReasoningParagraph,
               emitStatus,
               onToken: (token) => enqueue(encodeSseEvent("token", { token })),
               onReasoningToken: () => {},

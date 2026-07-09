@@ -7,7 +7,6 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import { parseReasoningVerses } from "@/lib/chat/reasoning-status";
 import { BrainIcon, ChevronDownIcon } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 import {
@@ -217,7 +216,26 @@ export type ReasoningContentProps = ComponentProps<
 
 export const ReasoningContent = memo(
   ({ className, children, ...props }: ReasoningContentProps) => {
-    const verses = parseReasoningVerses(children);
+    const paragraph = children.trim();
+    const [displayed, setDisplayed] = useState(paragraph);
+    const [visible, setVisible] = useState(Boolean(paragraph));
+
+    useEffect(() => {
+      if (!paragraph) {
+        setVisible(false);
+        return;
+      }
+      if (paragraph === displayed) {
+        setVisible(true);
+        return;
+      }
+      setVisible(false);
+      const timer = window.setTimeout(() => {
+        setDisplayed(paragraph);
+        setVisible(true);
+      }, 140);
+      return () => window.clearTimeout(timer);
+    }, [paragraph, displayed]);
 
     return (
       <CollapsibleContent
@@ -228,12 +246,15 @@ export const ReasoningContent = memo(
         )}
         {...props}
       >
-        {verses.length > 0 ? (
-          <ul className="list-disc space-y-1.5 pl-4 leading-relaxed marker:text-muted-foreground/70">
-            {verses.map((verse, index) => (
-              <li key={`${index}-${verse}`}>{verse}</li>
-            ))}
-          </ul>
+        {displayed ? (
+          <p
+            className={cn(
+              "leading-relaxed transition-opacity duration-200",
+              visible ? "opacity-100" : "opacity-0"
+            )}
+          >
+            {displayed}
+          </p>
         ) : null}
       </CollapsibleContent>
     );

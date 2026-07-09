@@ -210,4 +210,23 @@ describe("consumeChatStream reasoning", () => {
 
     expect(onReasoning).toHaveBeenCalledWith({ token: "Step 1" });
   });
+
+  it("invokes onReasoning for full paragraph replacements", async () => {
+    const onReasoning = vi.fn();
+    const paragraph =
+      "Everything has been verified. I'm preparing a clear and accurate answer based on the latest official information.";
+    const res = streamResponse([
+      encodeSseEvent("reasoning", { text: paragraph, replace: true }),
+      encodeSseEvent("done", { reply: "Done", correlationId: "c1" }),
+    ]);
+
+    await consumeChatStream(res, {
+      onToken: () => {},
+      onReasoning,
+      onDone: async () => {},
+      onError: () => {},
+    });
+
+    expect(onReasoning).toHaveBeenCalledWith({ text: paragraph, replace: true });
+  });
 });

@@ -517,6 +517,7 @@ export default function ChatPage() {
               },
               { maxChunkChars: 16, firstFlushChars: 4 }
             );
+            let lastReasoningReplaceAt = 0;
             const reasoningPainter = createRafReasoningStreamPainter((chunk) => {
               setMessages((prev) =>
                 prev.map((m) =>
@@ -530,6 +531,19 @@ export default function ChatPage() {
               res,
               {
                 onReasoning: (payload) => {
+                  if (payload.replace && payload.text) {
+                    const now = Date.now();
+                    if (now - lastReasoningReplaceAt < 120) {
+                      reasoningPainter.reset();
+                    }
+                    lastReasoningReplaceAt = now;
+                    setMessages((prev) =>
+                      prev.map((m) =>
+                        m.id === assistantId ? { ...m, reasoning: payload.text! } : m
+                      )
+                    );
+                    return;
+                  }
                   if (!payload.token) return;
                   reasoningPainter.push(payload.token);
                 },
