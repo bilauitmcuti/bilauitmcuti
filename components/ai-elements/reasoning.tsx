@@ -7,7 +7,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import { BrainIcon, ChevronDownIcon } from "lucide-react";
+import { ChevronDownIcon } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 import {
   createContext,
@@ -20,7 +20,7 @@ import {
   useState,
 } from "react";
 
-import { Shimmer } from "./shimmer";
+import { formatThinkingDurationLabel } from "@/lib/chat/reasoning-gate";
 
 interface ReasoningContextValue {
   isStreaming: boolean;
@@ -167,21 +167,28 @@ export const Reasoning = memo(
 export type ReasoningTriggerProps = ComponentProps<
   typeof CollapsibleTrigger
 > & {
-  getThinkingMessage?: (isStreaming: boolean, duration?: number) => ReactNode;
+  getThinkingMessage?: (
+    isStreaming: boolean,
+    duration?: number,
+    showDurationLabel?: boolean
+  ) => ReactNode;
   showChevron?: boolean;
+  /** When true after completion, show "Thought for X …" on the thinking row. */
+  showDurationLabel?: boolean;
 };
 
-const defaultGetThinkingMessage = (isStreaming: boolean, duration?: number) => {
+const defaultGetThinkingMessage = (
+  isStreaming: boolean,
+  duration?: number,
+  showDurationLabel = false
+) => {
   if (isStreaming || duration === 0) {
-    return <Shimmer duration={1}>Thinking…</Shimmer>;
+    return <span className="shimmer text-muted-foreground">Thinking…</span>;
   }
-  if (duration === undefined) {
-    return <span>Thought for a moment</span>;
+  if (showDurationLabel && duration !== undefined) {
+    return <span>Thought for {formatThinkingDurationLabel(duration)}</span>;
   }
-  if (duration < 2) {
-    return <span>Thought for a moment</span>;
-  }
-  return <span>Thought for {duration} seconds</span>;
+  return null;
 };
 
 const thinkingRowClassName =
@@ -193,25 +200,27 @@ export const ReasoningTrigger = memo(
     children,
     getThinkingMessage = defaultGetThinkingMessage,
     showChevron = true,
+    showDurationLabel = false,
     ...props
   }: ReasoningTriggerProps) => {
     const { isStreaming, isOpen, duration } = useReasoning();
 
+    const message =
+      getThinkingMessage(isStreaming, duration, showDurationLabel) ??
+      defaultGetThinkingMessage(isStreaming, duration, showDurationLabel);
+
     const label = (
-      <>
-        <BrainIcon className="size-4 shrink-0" />
-        <span className="flex min-w-0 items-center gap-1.5 text-left">
-          {getThinkingMessage(isStreaming, duration)}
-          {showChevron ? (
-            <ChevronDownIcon
-              className={cn(
-                "size-4 shrink-0 transition-transform duration-200",
-                isOpen ? "rotate-180" : "rotate-0"
-              )}
-            />
-          ) : null}
-        </span>
-      </>
+      <span className="flex min-w-0 items-center gap-1.5 text-left">
+        {message}
+        {showChevron ? (
+          <ChevronDownIcon
+            className={cn(
+              "size-4 shrink-0 transition-transform duration-200",
+              isOpen ? "rotate-180" : "rotate-0"
+            )}
+          />
+        ) : null}
+      </span>
     );
 
     if (!showChevron) {

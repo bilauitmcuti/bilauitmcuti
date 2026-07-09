@@ -64,6 +64,10 @@ export interface ChatMessageItem {
   hadThinking?: boolean;
   /** Seconds spent in the thinking state before the answer streamed. */
   thinkingDurationSec?: number;
+  /** Server-driven in-progress phase (e.g. `retry` during regenerate). */
+  streamPhase?: string;
+  /** Short status line from server pools for the current stream phase. */
+  statusMessage?: string;
 }
 
 export interface MentionMatch {

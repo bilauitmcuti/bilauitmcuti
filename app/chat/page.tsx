@@ -51,6 +51,7 @@ import {
   type MentionMatch,
 } from "@/components/chat/chat-utils";
 import { captureThinkingMetadata } from "@/lib/chat/reasoning-gate";
+import { CHAT_STREAM_PHASE } from "@/lib/chat/stream-phase";
 import {
   getInitialChatSessions,
   isChatSelectionInSyncWithHomepage,
@@ -573,13 +574,33 @@ export default function ChatPage() {
                     reasoningPainter.flush();
                     setMessages((prev) =>
                       prev.map((m) =>
-                        m.id === assistantId ? withThinkingMetadata(m) : m
+                        m.id === assistantId
+                          ? withThinkingMetadata({
+                              ...m,
+                              streamPhase: undefined,
+                              statusMessage: undefined,
+                            })
+                          : m
                       )
                     );
                   }
                   streamPainter.push(token);
                 },
-                onReset: () => {
+                onStatus: (payload) => {
+                  if (!payload.phase || !payload.message?.trim()) return;
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === assistantId
+                        ? {
+                            ...m,
+                            streamPhase: payload.phase,
+                            statusMessage: payload.message,
+                          }
+                        : m
+                    )
+                  );
+                },
+                onReset: (payload) => {
                   streamPainter.reset();
                   reasoningPainter.reset();
                   answerStarted = false;
@@ -589,9 +610,8 @@ export default function ChatPage() {
                         ? {
                             ...m,
                             content: "",
-                            reasoning: "",
-                            hadThinking: undefined,
-                            thinkingDurationSec: undefined,
+                            streamPhase: payload.phase ?? CHAT_STREAM_PHASE.RETRY,
+                            statusMessage: payload.message,
                           }
                         : m
                     )
@@ -631,6 +651,8 @@ export default function ChatPage() {
                           userPrompt: trimmed,
                           isComplete: true,
                           timestamp: m.timestamp ?? doneAt,
+                          streamPhase: undefined,
+                          statusMessage: undefined,
                         },
                         doneAt
                       );
@@ -994,7 +1016,7 @@ export default function ChatPage() {
   }, [isEmptyChat, isDesktopViewport]);
 
   return (
-    <div className="relative flex flex-col h-dvh overflow-x-hidden bg-background text-foreground" data-nosnippet>
+    <div className="relative flex h-dvh flex-col overflow-hidden bg-background text-foreground" data-nosnippet>
       {/* Header - overlays on top of chat area */}
       <div className={`chat-header absolute top-0 left-0 right-0 z-10 px-4 md:px-0 ${headerVisible ? "translate-y-0" : "-translate-y-full"}`}>
         <header className="flex items-center gap-3 pt-8 pb-3 mx-auto max-w-[600px] w-full">
@@ -1011,8 +1033,8 @@ export default function ChatPage() {
       {/* Chat area + composer */}
       <div
         className={cn(
-          "flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden px-1 md:px-0",
-          isEmptyChat && "lg:justify-center lg:gap-16"
+          "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-1 md:px-0",
+          isEmptyChat && "lg:justify-center lg:gap-8"
         )}
       >
         {isEmptyChat ? (

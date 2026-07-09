@@ -46,10 +46,16 @@ import type { ChatToolName } from "@/lib/chat/agent/types";
 import { runDeterministicPrefetch } from "@/lib/chat/agent/deterministic-prefetch";
 import {
   buildReasoningParagraph,
+  buildRetryStatusLine,
   replaceReasoningParagraph,
   type ReasoningPhase,
 } from "@/lib/chat/reasoning-status";
-import { shouldEmitReasoningParagraph } from "@/lib/chat/reasoning-gate";
+import { CHAT_STREAM_PHASE } from "@/lib/chat/stream-phase";
+import {
+  buildReasoningComplexityInput,
+  isComplexReasoningTurn,
+  shouldEmitReasoningPhase,
+} from "@/lib/chat/reasoning-gate";
 import {
   agentModeForModelChain,
   buildAgentTurnContext,
@@ -83,7 +89,7 @@ import {
   buildChatAssistantSystemPrompt,
   usesResearchStylePrompt,
 } from "@/lib/chat/chat-prompt";
-import { routeChatTopics } from "@/lib/chat/topic-router";
+import { routeChatTopics, type ChatTopic } from "@/lib/chat/topic-router";
 import { buildPublicHolidayChatContext } from "@/lib/chat/public-holiday-context";
 import {
   getCalendarUnderstandingDirective,
@@ -162,16 +168,30 @@ export function resolveChatExecutionMode(
 }
 
 /**
- * Prefer one LLM call with deterministic prefetch for all routed topics.
- * Agent loop is reserved for turns with no topic match.
+ * Prefer one LLM call with deterministic prefetch for calendar topics.
+ * Complex uitm_general turns use the agent tool loop on Gemma.
  */
+const CALENDAR_ONLY_TOPICS = new Set<ChatTopic>([
+  "academic_calendar",
+  "lecture_weeks",
+  "public_holiday",
+]);
+
+function isCalendarOnlyTopics(topics: ChatTopic[]): boolean {
+  return topics.length > 0 && topics.every((topic) => CALENDAR_ONLY_TOPICS.has(topic));
+}
+
 export function shouldPreferSingleStream(input: {
   hasMatchedActivity: boolean;
   isSimple: boolean;
-  topics: string[];
+  topics: ChatTopic[];
+  isComplexTurn: boolean;
 }): boolean {
   if (input.hasMatchedActivity || input.isSimple) return true;
-  return input.topics.length > 0;
+  if (input.topics.includes("uitm_general") && input.isComplexTurn) return false;
+  if (isCalendarOnlyTopics(input.topics)) return true;
+  if (input.topics.length === 0) return !input.isComplexTurn;
+  return true;
 }
 
 async function runWithServerDeadline<T>(
@@ -280,7 +300,7 @@ export async function POST(request: NextRequest) {
       onReasoningToken: (token: string) => void;
       onToolCall: (toolName: string) => void;
       onSynthesis: () => void;
-      onRetry: (reason: string) => void;
+      onRetry: (reason: string, statusMessage: string) => void;
     };
 
     const executeChatTurn = async (streamHooks?: StreamHooks): Promise<string> => {
@@ -363,26 +383,6 @@ export async function POST(request: NextRequest) {
       hasMatchedActivity,
       activityMatches,
     };
-    const emitReasoningPhase = (
-      phase: ReasoningPhase,
-      extra?: Partial<typeof reasoningBase> & { toolName?: ChatToolName; retryReason?: "dates" | "incomplete" }
-    ) => {
-      if (!streamHooks) return;
-      if (!shouldEmitReasoningParagraph(turnStartMs)) return;
-      streamHooks.emitReasoningParagraph(
-        buildReasoningParagraph({ ...reasoningBase, phase, ...extra })
-      );
-    };
-
-    const emitReasoningRetry = (
-      phase: ReasoningPhase,
-      extra?: Partial<typeof reasoningBase> & { retryReason?: "dates" | "incomplete" }
-    ) => {
-      if (!streamHooks) return;
-      streamHooks.emitReasoningParagraph(
-        buildReasoningParagraph({ ...reasoningBase, phase, ...extra })
-      );
-    };
 
     const sanitizedHistory: ChatMessage[] = trimHistoryForModel(
       (history ?? []).map((msg) => ({
@@ -404,18 +404,65 @@ export async function POST(request: NextRequest) {
     const isSimple = isSimpleCalendarQuestion(sanitizedMessage, { hasMatchedActivity });
     const asksDetail = messageAsksDetail(sanitizedMessage);
     const needsList = messageNeedsListOrSchedule(sanitizedMessage);
+    const isComplexTurn = isComplexReasoningTurn(
+      buildReasoningComplexityInput({
+        isSimple,
+        wantsTableOutput,
+        multipleSessionsSelected,
+        asksDetail,
+        needsList,
+        topics: topicRoute.topics,
+      })
+    );
     const executionMode = resolveChatExecutionMode({
       isAgentToolsPath,
       preferSingleStream: shouldPreferSingleStream({
         hasMatchedActivity,
         isSimple,
         topics: topicRoute.topics,
+        isComplexTurn,
       }),
     });
     const useAgentTools = executionMode === "agent";
 
+    const emitReasoningPhase = (
+      phase: ReasoningPhase,
+      extra?: Partial<typeof reasoningBase> & { toolName?: ChatToolName; retryReason?: "dates" | "incomplete" }
+    ) => {
+      if (!streamHooks) return;
+      if (!shouldEmitReasoningPhase(turnStartMs, isComplexTurn, phase)) return;
+      streamHooks.emitReasoningParagraph(
+        buildReasoningParagraph({ ...reasoningBase, phase, ...extra })
+      );
+    };
+
+    const emitReasoningRetry = (
+      phase: ReasoningPhase,
+      extra?: Partial<typeof reasoningBase> & { retryReason?: "dates" | "incomplete" }
+    ) => {
+      if (!streamHooks) return;
+      streamHooks.emitReasoningParagraph(
+        buildReasoningParagraph({ ...reasoningBase, phase, ...extra })
+      );
+    };
+
+    const emitStreamRetry = (retryReason: "dates" | "incomplete") => {
+      if (!streamHooks) return;
+      const statusMessage = buildRetryStatusLine({
+        message: sanitizedMessage,
+        topics: topicRoute.topics,
+        sessionCount: effectiveSessions.length,
+        hasMatchedActivity,
+        retryReason,
+      });
+      streamHooks.onRetry(retryReason, statusMessage);
+      emitReasoningRetry("retry", { retryReason });
+    };
+
     const cacheKey = [
       useAgentPath ? `agent:${agentMode}` : "legacy",
+      executionMode,
+      isComplexTurn ? "complex" : "simple",
       todayISO,
       selectedProgram,
       effectiveSessions.join(","),
@@ -596,6 +643,9 @@ export async function POST(request: NextRequest) {
     });
 
     let prefetchDirective = "";
+    if (streamHooks && isComplexTurn) {
+      emitReasoningPhase("start");
+    }
     if (useAgentPath && !useAgentTools) {
       const prefetch = await runDeterministicPrefetch(agentTurnContext, () => {});
       if (streamHooks) {
@@ -946,10 +996,8 @@ export async function POST(request: NextRequest) {
               }
             },
             onRetry: (reason) => {
-              streamHooks.onRetry(reason);
-              emitReasoningRetry("retry", {
-                retryReason: reason === "dates" ? "dates" : "incomplete",
-              });
+              const retryReason = reason === "dates" ? "dates" : "incomplete";
+              emitStreamRetry(retryReason);
             },
           })
       );
@@ -994,9 +1042,21 @@ export async function POST(request: NextRequest) {
               onReasoningToken: () => {},
               onToolCall: () => {},
               onSynthesis: () => {},
-              onRetry: (reason) => {
+              onRetry: (reason, statusMessage) => {
                 reasoningBuffer = "";
-                enqueue(encodeSseEvent("reset", { reason }));
+                enqueue(
+                  encodeSseEvent("reset", {
+                    reason,
+                    phase: CHAT_STREAM_PHASE.RETRY,
+                    message: statusMessage,
+                  })
+                );
+                enqueue(
+                  encodeSseEvent("status", {
+                    phase: CHAT_STREAM_PHASE.RETRY,
+                    message: statusMessage,
+                  })
+                );
               },
             };
 

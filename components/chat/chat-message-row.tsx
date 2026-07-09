@@ -14,7 +14,7 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
+import { StreamdownRenderer } from "@/components/ui/streamdown-renderer";
 import {
   Message,
   MessageContent,
@@ -26,6 +26,12 @@ import {
 import { cn } from "@/lib/utils";
 import { formatTime24, type ChatMessageItem } from "@/components/chat/chat-utils";
 import { useReasoningVisibility } from "@/components/chat/use-reasoning-visibility";
+import { CHAT_STREAM_PHASE } from "@/lib/chat/stream-phase";
+import {
+  shouldShowCompletedDurationLabel,
+  shouldShowCompletedThinkingBlock,
+  shouldShowThinkingDurationLabel,
+} from "@/lib/chat/reasoning-gate";
 
 interface ChatMessageRowProps {
   message: ChatMessageItem;
@@ -53,21 +59,47 @@ export function ChatMessageRow({
   const assistantInProgress =
     message.role === "assistant" && message.isComplete === false;
   const answerStreaming = assistantInProgress && message.content.trim().length > 0;
+  const isRegenerating =
+    assistantInProgress &&
+    !answerStreaming &&
+    message.streamPhase === CHAT_STREAM_PHASE.RETRY;
+  const progressLabel = message.statusMessage?.trim();
   const reasoningText = message.reasoning?.trim() ?? "";
   const hasReasoningContent = reasoningText.length > 0;
-  const hadThinking = message.hadThinking === true || hasReasoningContent;
 
-  const { showThinking, showReasoningSlot } = useReasoningVisibility(
-    assistantInProgress && !answerStreaming,
+  const { showThinking } = useReasoningVisibility(
+    assistantInProgress && !answerStreaming && !isRegenerating,
     message.timestamp
   );
 
-  const showLiveThinking = assistantInProgress && !answerStreaming && showThinking;
-  const showLiveReasoning = showReasoningSlot && hasReasoningContent;
+  const showLiveThinking = assistantInProgress && !answerStreaming && !isRegenerating && showThinking;
+  const showLiveRegenerating = isRegenerating && Boolean(progressLabel);
+  const showLiveReasoning =
+    hasReasoningContent && assistantInProgress && !answerStreaming && !isRegenerating;
+  const liveDurationSec =
+    message.timestamp !== undefined
+      ? Math.max(1, Math.ceil((Date.now() - message.timestamp) / 1000))
+      : undefined;
+  const resolvedDurationSec = message.thinkingDurationSec ?? liveDurationSec;
+  const showDurationLabel = shouldShowCompletedDurationLabel({
+    thinkingDurationSec: resolvedDurationSec,
+    hasReasoningContent,
+  });
+  const showDuringAnswerStream =
+    answerStreaming &&
+    (hasReasoningContent || showDurationLabel);
+  const showCompletedBlock =
+    message.isComplete !== false &&
+    shouldShowCompletedThinkingBlock({
+      thinkingDurationSec: message.thinkingDurationSec,
+      hasReasoningContent,
+    });
   const showThoughtHeader =
     showLiveThinking ||
+    showLiveRegenerating ||
     showLiveReasoning ||
-    (hadThinking && (answerStreaming || message.isComplete !== false));
+    showDuringAnswerStream ||
+    showCompletedBlock;
 
   const enterAnimation =
     message.role === "user"
@@ -133,9 +165,20 @@ export function ChatMessageRow({
               className="w-full"
               collapsible={hasReasoningContent}
               duration={message.thinkingDurationSec}
-              isStreaming={showLiveThinking}
+              isStreaming={showLiveThinking || showLiveRegenerating}
             >
-              <ReasoningTrigger showChevron={hasReasoningContent} />
+              <ReasoningTrigger
+                showChevron={hasReasoningContent}
+                showDurationLabel={showDurationLabel && !showLiveThinking && !showLiveRegenerating}
+                getThinkingMessage={(isStreaming) => {
+                  if (!showLiveRegenerating || !progressLabel) return null;
+                  return isStreaming ? (
+                    <span className="shimmer text-muted-foreground">{progressLabel}</span>
+                  ) : (
+                    <span>{progressLabel}</span>
+                  );
+                }}
+              />
               {hasReasoningContent ? (
                 <ReasoningContent>{reasoningText}</ReasoningContent>
               ) : null}
@@ -144,7 +187,7 @@ export function ChatMessageRow({
           {message.content.trim() ? (
             <Bubble variant="ghost">
               <BubbleContent className="px-1 py-1">
-                <MarkdownRenderer
+                <StreamdownRenderer
                   content={message.content}
                   isComplete={message.isComplete !== false}
                 />

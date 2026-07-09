@@ -3,6 +3,7 @@
 import type { Components } from "react-markdown";
 import { Streamdown } from "streamdown";
 import "streamdown/styles.css";
+import { Component, type ReactNode } from "react";
 
 import {
   Table,
@@ -19,6 +20,64 @@ export interface StreamdownRendererProps {
   content: string;
   className?: string;
   isComplete?: boolean;
+}
+
+/** Word-by-word blur while the assistant reply streams in. */
+export const CHAT_STREAM_ANIMATION = {
+  animation: "blurIn",
+  duration: 250,
+  easing: "ease-out",
+  sep: "word",
+} as const;
+
+function PlainTextFallback({
+  content,
+  className,
+}: {
+  content: string;
+  className?: string;
+}) {
+  const trimmed = content.trim();
+  if (!trimmed) return null;
+  return (
+    <p
+      className={cn(
+        "text-sm leading-relaxed whitespace-pre-wrap break-words",
+        className
+      )}
+    >
+      {trimmed}
+    </p>
+  );
+}
+
+class StreamdownErrorBoundary extends Component<
+  { content: string; className?: string; children: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("Streamdown render failed:", error);
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <PlainTextFallback
+          content={this.props.content}
+          className={this.props.className}
+        />
+      );
+    }
+    return this.props.children;
+  }
 }
 
 function isSafeExternalHref(href: string | undefined): boolean {
@@ -119,17 +178,19 @@ export function StreamdownRenderer({
   const isStreaming = !isComplete;
 
   return (
-    <div className={cn("text-sm leading-relaxed break-words", className)}>
-      <Streamdown
-        mode={isStreaming ? "streaming" : "static"}
-        isAnimating={isStreaming}
-        animated={{ animation: "blurIn", duration: 250, easing: "ease-out", sep: "word" }}
-        components={COMPONENTS}
-        disallowedElements={["img"]}
-        unwrapDisallowed
-      >
-        {markdown}
-      </Streamdown>
-    </div>
+    <StreamdownErrorBoundary content={trimmed} className={className}>
+      <div className={cn("text-sm leading-relaxed break-words", className)}>
+        <Streamdown
+          mode={isStreaming ? "streaming" : "static"}
+          isAnimating={isStreaming}
+          animated={CHAT_STREAM_ANIMATION}
+          components={COMPONENTS}
+          disallowedElements={["img"]}
+          unwrapDisallowed
+        >
+          {markdown}
+        </Streamdown>
+      </div>
+    </StreamdownErrorBoundary>
   );
 }
