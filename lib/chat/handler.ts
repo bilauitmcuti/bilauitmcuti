@@ -45,10 +45,11 @@ import {
 import type { ChatToolName } from "@/lib/chat/agent/types";
 import { runDeterministicPrefetch } from "@/lib/chat/agent/deterministic-prefetch";
 import {
-  buildAnswerPhaseLine,
+  appendReasoningLine,
   buildReasoningOpener,
   buildRetryReasoningLine,
   buildToolReasoningLine,
+  MAX_REASONING_LINES,
 } from "@/lib/chat/reasoning-status";
 import {
   agentModeForModelChain,
@@ -138,21 +139,7 @@ function agentUsedCalendarTools(toolsUsed: string[]): boolean {
   return toolsUsed.some((tool) => AGENT_CALENDAR_TOOLS.has(tool));
 }
 
-/** Join streamed reasoning/status lines for the client reasoning panel. */
-export function appendReasoningLine(current: string, line: string): string {
-  const next = line.trim();
-  if (!next) return current;
-  if (!current.trim()) return next;
-
-  const existing = current
-    .split("\n")
-    .map((row) => row.trim())
-    .filter(Boolean);
-  if (existing.some((row) => row === next)) return current;
-  if (current.endsWith(next)) return current;
-
-  return `${current.trimEnd()}\n${next}`;
-}
+export { appendReasoningLine, MAX_REASONING_LINES } from "@/lib/chat/reasoning-status";
 
 export type ChatExecutionMode = "single_stream" | "agent";
 
@@ -596,11 +583,7 @@ export async function POST(request: NextRequest) {
     if (useAgentPath && !useAgentTools) {
       const prefetch = await runDeterministicPrefetch(agentTurnContext, (toolName) => {
         streamHooks?.emitReasoningLine(
-          buildToolReasoningLine(toolName, {
-            message: sanitizedMessage,
-            programLabel,
-            activityMatches,
-          })
+          buildToolReasoningLine(toolName, { message: sanitizedMessage })
         );
       });
       if (prefetch.outputBlock) {
@@ -926,25 +909,16 @@ export async function POST(request: NextRequest) {
     };
 
     if (streamHooks) {
-      if (!useAgentTools) {
-        streamHooks.emitReasoningLine(buildAnswerPhaseLine(sanitizedMessage));
-      }
       const streamedReply = await runWithServerDeadline(
         useAgentTools ? CHAT_AGENT_DEADLINE_MS : CHAT_SERVER_DEADLINE_MS,
         () =>
           runLlm(streamHooks.onToken, {
-            onReasoningToken: streamHooks.onReasoningToken,
             onToolCall: (toolName) => {
               streamHooks.emitReasoningLine(
                 buildToolReasoningLine(toolName as ChatToolName, {
                   message: sanitizedMessage,
-                  programLabel,
-                  activityMatches,
                 })
               );
-            },
-            onSynthesis: () => {
-              streamHooks.emitReasoningLine(buildAnswerPhaseLine(sanitizedMessage));
             },
             onRetry: (reason) => {
               streamHooks.onRetry(reason);
@@ -996,11 +970,7 @@ export async function POST(request: NextRequest) {
               emitReasoningLine,
               emitStatus,
               onToken: (token) => enqueue(encodeSseEvent("token", { token })),
-              onReasoningToken: (token) => {
-                if (!token) return;
-                reasoningBuffer += token;
-                enqueue(encodeSseEvent("reasoning", { token }));
-              },
+              onReasoningToken: () => {},
               onToolCall: () => {},
               onSynthesis: () => {},
               onRetry: (reason) => {

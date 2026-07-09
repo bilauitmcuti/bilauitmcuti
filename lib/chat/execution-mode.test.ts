@@ -118,18 +118,19 @@ describe("shouldPreferSingleStream", () => {
 });
 
 describe("appendReasoningLine", () => {
-  it("joins status lines without duplicating", async () => {
-    const { appendReasoningLine } = await import("@/lib/chat/handler");
-    let text = appendReasoningLine(
-      "",
-      'Searching the academic calendar (All) for: "bila cuti?"'
-    );
-    text = appendReasoningLine(text, "Pulling lecture week 1–N dates for: \"minggu 5\"");
-    expect(text).toContain("bila cuti");
-    expect(text).toContain("minggu 5");
-    expect(appendReasoningLine(text, 'Searching the academic calendar (All) for: "bila cuti?"')).toBe(
-      text
-    );
+  it("joins status lines without duplicating and caps count", async () => {
+    const { appendReasoningLine, MAX_REASONING_LINES } = await import("@/lib/chat/handler");
+    let text = appendReasoningLine("", "Checking academic calendar");
+    text = appendReasoningLine(text, "Finding week dates");
+    text = appendReasoningLine(text, "Checking public holidays");
+    expect(text).toContain("Checking academic calendar");
+    expect(text).toContain("Finding week dates");
+    expect(appendReasoningLine(text, "Checking academic calendar")).toBe(text);
+
+    for (let i = 0; i < 4; i++) {
+      text = appendReasoningLine(text, `Extra step ${i}`);
+    }
+    expect(text.split("\n").filter(Boolean).length).toBe(MAX_REASONING_LINES);
   });
 });
 
