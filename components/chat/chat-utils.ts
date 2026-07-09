@@ -3,10 +3,13 @@ export { CHAT_TURNSTILE_COOKIE } from "@/lib/chat/parse-request";
 export { consumeChatStream, createMarkdownStreamPainter } from "@/lib/chat/sse";
 export type { ChatStreamDonePayload } from "@/lib/chat/sse";
 
+/** User-facing copy when a chat request exceeds client or server deadlines. */
+export const CHAT_TIMEOUT_MESSAGE = "Request took too long. Please try again.";
+
 export function getChatErrorMessage(res: Response, fallback: string): string {
   if (res.status === 429) return "Too many requests. Please wait a moment before trying again.";
   if (res.status === 403) return "Access was blocked. Please refresh and try again.";
-  if (res.status === 504) return "Request timed out. Please try again.";
+  if (res.status === 504) return CHAT_TIMEOUT_MESSAGE;
   if (res.status >= 500) return "Server is temporarily unavailable. Please try again in a moment.";
   return fallback;
 }
