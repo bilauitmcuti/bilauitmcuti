@@ -47,27 +47,20 @@ export function ChatMessageRow({
   onDelete,
   onToggleReasoningCollapsed,
 }: ChatMessageRowProps) {
-  if (
-    message.role === "assistant" &&
-    message.isComplete === false &&
-    !message.content.trim()
-  ) {
-    return null;
-  }
-
-  const assistantFinished =
-    message.role === "assistant" &&
-    message.isComplete !== false &&
-    message.content.trim().length > 0;
-
-  const timestamp = formatTime24(
-    message.timestamp ?? (parseInt(message.id, 10) || 0)
-  );
+  const assistantInProgress =
+    message.role === "assistant" && message.isComplete === false;
+  const answerStreaming = assistantInProgress && message.content.trim().length > 0;
+  const reasoningStreaming =
+    assistantInProgress && !answerStreaming;
 
   const enterAnimation =
     message.role === "user"
       ? "animate-in fade-in blur-in duration-300 fill-mode-both"
       : undefined;
+
+  const timestamp = formatTime24(
+    message.timestamp ?? (parseInt(message.id, 10) || 0)
+  );
 
   if (message.role === "user") {
     return (
@@ -112,6 +105,9 @@ export function ChatMessageRow({
     );
   }
 
+  const assistantFinished =
+    message.isComplete !== false && message.content.trim().length > 0;
+
   return (
     <MessageScrollerItem messageId={message.id} scrollAnchor={scrollAnchor}>
       <Message align="start">
@@ -119,18 +115,25 @@ export function ChatMessageRow({
           {message.reasoning?.trim() ? (
             <ChatReasoning
               reasoning={message.reasoning}
+              isStreaming={reasoningStreaming}
               isCollapsed={message.isReasoningCollapsed === true}
               onToggleCollapsed={() => onToggleReasoningCollapsed?.(message.id)}
             />
+          ) : reasoningStreaming ? (
+            <p className="mb-2 text-sm leading-relaxed text-muted-foreground select-none">
+              Thinking…
+            </p>
           ) : null}
-          <Bubble variant="ghost">
-            <BubbleContent className="px-1 py-1">
-              <MarkdownRenderer
-                content={message.content}
-                isComplete={message.isComplete !== false}
-              />
-            </BubbleContent>
-          </Bubble>
+          {message.content.trim() ? (
+            <Bubble variant="ghost">
+              <BubbleContent className="px-1 py-1">
+                <MarkdownRenderer
+                  content={message.content}
+                  isComplete={message.isComplete !== false}
+                />
+              </BubbleContent>
+            </Bubble>
+          ) : null}
           {assistantFinished && (
             <MessageFooter className="gap-0 px-0">
               <Button

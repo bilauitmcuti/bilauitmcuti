@@ -393,12 +393,10 @@ function isGemmaThinkingCapableModel(modelId: string): boolean {
 
 export type GemmaThinkingPhase = "tool" | "answer";
 
+/** Thinking is off — it burns output tokens and adds latency on Workers AI Gemma. */
 function resolveGemmaThinkingOptions(
-  phase: GemmaThinkingPhase
+  _phase: GemmaThinkingPhase
 ): { enable_thinking: boolean; thinking: boolean } {
-  if (phase === "tool") {
-    return { enable_thinking: true, thinking: true };
-  }
   return { enable_thinking: false, thinking: false };
 }
 

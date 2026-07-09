@@ -4,15 +4,15 @@ import { getModelResponseBudget } from "@/lib/chat/ai-retry";
 describe("getModelResponseBudget", () => {
   const ceiling = 8192;
 
-  it("allows enough tokens for simple calendar questions (e.g. full-year public holidays)", () => {
+  it("allows enough tokens for simple calendar questions", () => {
     const budget = getModelResponseBudget("When is the next break?", true, false, ceiling);
-    expect(budget.maxTokens).toBe(4096);
+    expect(budget.maxTokens).toBe(1024);
     expect(budget.temperature).toBe(0.1);
   });
 
-  it("does not cap Bila cuti umum year questions at 512", () => {
+  it("keeps simple holiday year questions on the fast token budget", () => {
     const budget = getModelResponseBudget("Bila cuti umum 2027", true, false, ceiling);
-    expect(budget.maxTokens).toBeGreaterThanOrEqual(4096);
+    expect(budget.maxTokens).toBe(1024);
   });
 
   it("uses full tier cap for table/compare requests", () => {
@@ -54,7 +54,7 @@ describe("getModelResponseBudget", () => {
       ceiling,
       { hasMatchedActivity: true }
     );
-    expect(budget.maxTokens).toBe(3072);
+    expect(budget.maxTokens).toBe(1536);
     expect(budget.temperature).toBe(0.1);
   });
 

@@ -42,6 +42,7 @@ import {
   getChatErrorMessage,
   consumeChatStream,
   createMarkdownStreamPainter,
+  createReasoningStreamPainter,
   MAX_CHAT_MESSAGE_LENGTH,
   parseChatResponse,
   prepareHistory,
@@ -345,22 +346,7 @@ export default function ChatPage() {
     return null;
   }, [messages]);
 
-  const showLoadingMarker = useMemo(() => {
-    const hasStreamingContent = messages.some(
-      (m) =>
-        m.role === "assistant" &&
-        m.isComplete === false &&
-        m.content.trim().length > 0
-    );
-    const hasReasoning = messages.some(
-      (m) =>
-        m.role === "assistant" &&
-        m.isComplete === false &&
-        (m.reasoning?.trim().length ?? 0) > 0
-    );
-
-    return isLoading && !hasStreamingContent && !hasReasoning;
-  }, [isLoading, messages]);
+  const showLoadingMarker = false;
 
   useEffect(() => {
     if (!isLoading) {
@@ -525,22 +511,26 @@ export default function ChatPage() {
               },
               { maxChunkChars: 32, firstFlushChars: 12 }
             );
+            const reasoningPainter = createReasoningStreamPainter((chunk) => {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId
+                    ? { ...m, reasoning: `${m.reasoning ?? ""}${chunk}` }
+                    : m
+                )
+              );
+            });
             await consumeChatStream(
               res,
               {
                 onReasoning: (payload) => {
                   if (!payload.token) return;
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantId
-                        ? { ...m, reasoning: `${m.reasoning ?? ""}${payload.token}` }
-                        : m
-                    )
-                  );
+                  reasoningPainter.push(payload.token);
                 },
                 onToken: (token) => {
                   if (!answerStarted && token.trim()) {
                     answerStarted = true;
+                    reasoningPainter.flush();
                     setMessages((prev) =>
                       prev.map((m) =>
                         m.id === assistantId
@@ -553,6 +543,7 @@ export default function ChatPage() {
                 },
                 onReset: () => {
                   streamPainter.reset();
+                  reasoningPainter.reset();
                   answerStarted = false;
                   setMessages((prev) =>
                     prev.map((m) =>
@@ -564,6 +555,7 @@ export default function ChatPage() {
                 },
                 onDone: (payload) => {
                   streamPainter.flush();
+                  reasoningPainter.flush();
                   content = payload.reply;
                   chatRequestSucceeded = true;
                   const doneAt = Date.now();
@@ -605,16 +597,12 @@ export default function ChatPage() {
                 },
                 onError: (payload) => {
                   streamPainter.flush();
+                  reasoningPainter.flush();
                   content = payload.error;
                   lastErrorStatus = payload.status;
                   if (payload.status === 503 && maxAttempts === 3) {
                     maxAttempts = 4;
                   }
-                },
-                onStatus: (payload) => {
-                  const phrase = payload.message || payload.phase;
-                  if (!phrase) return;
-                  setStreamStatusPhrase(phrase);
                 },
               },
               { signal: controller.signal }

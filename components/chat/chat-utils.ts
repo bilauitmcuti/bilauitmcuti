@@ -1,6 +1,10 @@
 import { CHAT_MAX_HISTORY_CONTENT_LENGTH, CHAT_MAX_MESSAGE_LENGTH } from "@/lib/chat/limits";
 export { CHAT_TURNSTILE_COOKIE } from "@/lib/chat/parse-request";
-export { consumeChatStream, createMarkdownStreamPainter } from "@/lib/chat/sse";
+export {
+  consumeChatStream,
+  createMarkdownStreamPainter,
+  createReasoningStreamPainter,
+} from "@/lib/chat/sse";
 export type { ChatStreamDonePayload } from "@/lib/chat/sse";
 
 /** User-facing copy when a chat request exceeds client or server deadlines. */

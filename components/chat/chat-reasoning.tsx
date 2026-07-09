@@ -6,17 +6,34 @@ import { cn } from "@/lib/utils";
 
 interface ChatReasoningProps {
   reasoning: string;
+  /** True while the model is still working on the answer (no answer tokens yet). */
+  isStreaming: boolean;
   isCollapsed: boolean;
-  onToggleCollapsed: () => void;
+  onToggleCollapsed?: () => void;
 }
 
 export function ChatReasoning({
   reasoning,
+  isStreaming,
   isCollapsed,
   onToggleCollapsed,
 }: ChatReasoningProps) {
   const trimmed = reasoning.trim();
   if (!trimmed) return null;
+
+  if (isStreaming) {
+    return (
+      <p
+        className={cn(
+          "mb-2 text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap",
+          "select-none"
+        )}
+        aria-live="polite"
+      >
+        {trimmed}
+      </p>
+    );
+  }
 
   return (
     <div className="mb-2 rounded-lg border border-border/60 bg-muted/30">

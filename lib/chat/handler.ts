@@ -129,6 +129,23 @@ function agentUsedCalendarTools(toolsUsed: string[]): boolean {
   return toolsUsed.some((tool) => AGENT_CALENDAR_TOOLS.has(tool));
 }
 
+/** Join streamed reasoning/status lines for the client reasoning panel. */
+export function appendReasoningLine(current: string, line: string): string {
+  const next = line.trim();
+  if (!next) return current;
+  if (!current.trim()) return next;
+  if (current.endsWith(next)) return current;
+  return `${current.trimEnd()}\n${next}`;
+}
+
+function initialReasoningPhrase(useAgentTools: boolean, topics: string[]): string {
+  if (!useAgentTools) return "Looking up the calendar…";
+  if (topics.includes("uitm_general")) return "Searching UiTM knowledge…";
+  if (topics.includes("public_holiday")) return "Reading public holidays…";
+  if (topics.includes("lecture_weeks")) return "Looking up lecture weeks…";
+  return "Searching calendar activities…";
+}
+
 export type ChatExecutionMode = "single_stream" | "agent";
 
 export interface ChatExecutionModeInput {
@@ -491,7 +508,7 @@ export async function POST(request: NextRequest) {
               maxPrimaryChars,
             });
 
-      if (useAgentPath && agentMode === "compact") {
+      if (useAgentPath) {
         systemPrompt = await buildCompactFallbackSystemPrompt({
           ctx: buildAgentTurnContext({
             message: sanitizedMessage,
@@ -717,7 +734,6 @@ export async function POST(request: NextRequest) {
       onToken: (token: string) => void | Promise<void>,
       onProgress?: {
         onReasoningToken?: (token: string) => void | Promise<void>;
-        onToolStep?: (step: number, maxSteps: number) => void | Promise<void>;
         onToolCall?: (toolName: string) => void | Promise<void>;
         onSynthesis?: () => void | Promise<void>;
         /** Clear client partial content before a regenerate. */
@@ -740,7 +756,6 @@ export async function POST(request: NextRequest) {
           onToken,
           onReasoningToken: onProgress?.onReasoningToken,
           emitTokensToClient: streamTokensToClient,
-          onToolStep: onProgress?.onToolStep,
           onToolCall: onProgress?.onToolCall,
           onSynthesis: onProgress?.onSynthesis,
         });
@@ -876,54 +891,40 @@ export async function POST(request: NextRequest) {
                   enqueue(encodeSseEvent("token", { token }));
                 }
               : () => {};
+            let reasoningBuffer = "";
+            const emitReasoningLine = (line: string) => {
+              const merged = appendReasoningLine(reasoningBuffer, line);
+              if (merged === reasoningBuffer) return;
+              const delta = merged.slice(reasoningBuffer.length);
+              reasoningBuffer = merged;
+              if (delta) enqueue(encodeSseEvent("reasoning", { token: delta }));
+            };
             const onReasoningToken = (token: string) => {
+              if (!token) return;
+              reasoningBuffer += token;
               enqueue(encodeSseEvent("reasoning", { token }));
             };
-            const onToolStep = (step: number, maxSteps: number) => {
-              enqueue(
-                encodeSseEvent("status", {
-                  phase: "searching",
-                  message: `Reasoning… (${step + 1}/${maxSteps})`,
-                })
-              );
-            };
             const onToolCall = (toolName: string) => {
-              enqueue(
-                encodeSseEvent("status", {
-                  phase: "searching",
-                  message: toolStatusLabel(toolName),
-                })
-              );
+              emitReasoningLine(toolStatusLabel(toolName));
             };
             const onSynthesis = () => {
-              enqueue(
-                encodeSseEvent("status", {
-                  phase: "generating",
-                  message: "Writing your answer…",
-                })
-              );
+              emitReasoningLine("Writing your answer…");
             };
             const onRetry = (reason: string) => {
+              reasoningBuffer = "";
               enqueue(encodeSseEvent("reset", { reason }));
-              enqueue(
-                encodeSseEvent("status", {
-                  phase: "retry",
-                  message: "Refining your answer…",
-                })
+              emitReasoningLine(
+                reason === "dates"
+                  ? "Double-checking calendar dates…"
+                  : "Refining your answer…"
               );
             };
-            enqueue(
-              encodeSseEvent("status", {
-                phase: useAgentTools ? "searching" : "generating",
-                message: useAgentTools ? "Reasoning…" : "Thinking…",
-              })
-            );
+            emitReasoningLine(initialReasoningPhrase(useAgentTools, topicRoute.topics));
             const reply = await runWithServerDeadline(
               useAgentTools ? CHAT_AGENT_DEADLINE_MS : CHAT_SERVER_DEADLINE_MS,
               () =>
                 runLlm(onToken, {
                   onReasoningToken,
-                  onToolStep,
                   onToolCall,
                   onSynthesis,
                   onRetry,

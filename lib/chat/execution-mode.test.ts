@@ -107,6 +107,18 @@ describe("shouldPreferSingleStream", () => {
   });
 });
 
+describe("appendReasoningLine", () => {
+  it("joins status lines without duplicating", async () => {
+    const { appendReasoningLine } = await import("@/lib/chat/handler");
+    let text = appendReasoningLine("", "Looking up the calendar…");
+    text = appendReasoningLine(text, "Searching calendar activities…");
+    expect(text).toBe(
+      "Looking up the calendar…\nSearching calendar activities…"
+    );
+    expect(appendReasoningLine(text, "Searching calendar activities…")).toBe(text);
+  });
+});
+
 describe("MAX_AGENT_TOOL_STEPS", () => {
   it("caps tool steps at 4 for complex production Gemma turns", () => {
     expect(MAX_AGENT_TOOL_STEPS).toBe(4);

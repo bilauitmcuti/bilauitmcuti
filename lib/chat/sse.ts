@@ -46,6 +46,39 @@ export interface ChatStreamResetPayload {
   reason?: string;
 }
 
+/** Paint reasoning tokens in small chunks for smoother streaming UI updates. */
+export function createReasoningStreamPainter(
+  onFlush: (chunk: string) => void,
+  options?: { maxChunkChars?: number }
+): {
+  push: (token: string) => void;
+  reset: () => void;
+  flush: () => void;
+} {
+  const maxChunkChars = options?.maxChunkChars ?? 6;
+  let buf = "";
+
+  return {
+    push(token: string) {
+      if (!token) return;
+      buf += token;
+      while (buf.length >= maxChunkChars) {
+        const chunk = buf.slice(0, maxChunkChars);
+        buf = buf.slice(maxChunkChars);
+        onFlush(chunk);
+      }
+    },
+    reset() {
+      buf = "";
+    },
+    flush() {
+      if (!buf) return;
+      onFlush(buf);
+      buf = "";
+    },
+  };
+}
+
 /**
  * Buffers raw model tokens into sentence/paragraph-sized chunks so mid-stream
  * markdown paints less broken while preserving an early first paint.
