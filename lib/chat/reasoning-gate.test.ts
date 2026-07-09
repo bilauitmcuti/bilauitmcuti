@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  captureThinkingMetadata,
   isComplexReasoningTurn,
   REASONING_PARAGRAPH_DELAY_MS,
   shouldEmitReasoningParagraph,
@@ -56,5 +57,25 @@ describe("reasoning-gate", () => {
       false
     );
     expect(shouldEmitReasoningParagraph(start, start + REASONING_PARAGRAPH_DELAY_MS)).toBe(true);
+  });
+
+  it("captures thinking metadata after the indicator delay or when reasoning exists", () => {
+    const start = 10_000;
+    expect(captureThinkingMetadata(start, { now: start + 300 })).toEqual({
+      hadThinking: false,
+    });
+    expect(captureThinkingMetadata(start, { now: start + 600 })).toEqual({
+      hadThinking: true,
+      thinkingDurationSec: 1,
+    });
+    expect(
+      captureThinkingMetadata(start, {
+        now: start + 200,
+        hasReasoning: true,
+      })
+    ).toEqual({
+      hadThinking: true,
+      thinkingDurationSec: 1,
+    });
   });
 });

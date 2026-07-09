@@ -54,14 +54,20 @@ export function ChatMessageRow({
     message.role === "assistant" && message.isComplete === false;
   const answerStreaming = assistantInProgress && message.content.trim().length > 0;
   const reasoningText = message.reasoning?.trim() ?? "";
+  const hasReasoningContent = reasoningText.length > 0;
+  const hadThinking = message.hadThinking === true || hasReasoningContent;
+
   const { showThinking, showReasoningSlot } = useReasoningVisibility(
     assistantInProgress && !answerStreaming,
     message.timestamp
   );
-  const showThinkingIndicator =
-    assistantInProgress && !answerStreaming && showThinking;
-  const showReasoningParagraph = showReasoningSlot && reasoningText.length > 0;
-  const showReasoningChrome = showThinkingIndicator || showReasoningParagraph;
+
+  const showLiveThinking = assistantInProgress && !answerStreaming && showThinking;
+  const showLiveReasoning = showReasoningSlot && hasReasoningContent;
+  const showThoughtHeader =
+    showLiveThinking ||
+    showLiveReasoning ||
+    (hadThinking && (answerStreaming || message.isComplete !== false));
 
   const enterAnimation =
     message.role === "user"
@@ -122,10 +128,15 @@ export function ChatMessageRow({
     <MessageScrollerItem messageId={message.id} scrollAnchor={scrollAnchor}>
       <Message align="start">
         <MessageContent>
-          {showReasoningChrome ? (
-            <Reasoning className="w-full" isStreaming={showThinkingIndicator}>
-              <ReasoningTrigger />
-              {showReasoningParagraph ? (
+          {showThoughtHeader ? (
+            <Reasoning
+              className="w-full"
+              collapsible={hasReasoningContent}
+              duration={message.thinkingDurationSec}
+              isStreaming={showLiveThinking}
+            >
+              <ReasoningTrigger showChevron={hasReasoningContent} />
+              {hasReasoningContent ? (
                 <ReasoningContent>{reasoningText}</ReasoningContent>
               ) : null}
             </Reasoning>

@@ -60,6 +60,10 @@ export interface ChatMessageItem {
   isComplete?: boolean;
   /** Model reasoning / tool-planning text shown above the answer. */
   reasoning?: string;
+  /** True when the thinking indicator or reasoning paragraph was shown for this turn. */
+  hadThinking?: boolean;
+  /** Seconds spent in the thinking state before the answer streamed. */
+  thinkingDurationSec?: number;
 }
 
 export interface MentionMatch {

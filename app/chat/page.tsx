@@ -50,6 +50,7 @@ import {
   type ChatMessageItem,
   type MentionMatch,
 } from "@/components/chat/chat-utils";
+import { captureThinkingMetadata } from "@/lib/chat/reasoning-gate";
 import {
   getInitialChatSessions,
   isChatSelectionInSyncWithHomepage,
@@ -59,6 +60,19 @@ import {
   type ProgramSessionMap,
 } from "@/lib/chat/session-state";
 type Message = ChatMessageItem;
+
+function withThinkingMetadata(message: Message, now = Date.now()): Message {
+  const meta = captureThinkingMetadata(message.timestamp, {
+    now,
+    hasReasoning: Boolean(message.reasoning?.trim()),
+  });
+  if (!meta.hadThinking) return message;
+  return {
+    ...message,
+    hadThinking: true,
+    thinkingDurationSec: message.thinkingDurationSec ?? meta.thinkingDurationSec,
+  };
+}
 
 interface MentionItem {
   id: SessionId;
@@ -539,7 +553,13 @@ export default function ChatPage() {
                     lastReasoningReplaceAt = now;
                     setMessages((prev) =>
                       prev.map((m) =>
-                        m.id === assistantId ? { ...m, reasoning: payload.text! } : m
+                        m.id === assistantId
+                          ? {
+                              ...m,
+                              reasoning: payload.text!,
+                              hadThinking: true,
+                            }
+                          : m
                       )
                     );
                     return;
@@ -551,6 +571,11 @@ export default function ChatPage() {
                   if (!answerStarted && token.trim()) {
                     answerStarted = true;
                     reasoningPainter.flush();
+                    setMessages((prev) =>
+                      prev.map((m) =>
+                        m.id === assistantId ? withThinkingMetadata(m) : m
+                      )
+                    );
                   }
                   streamPainter.push(token);
                 },
@@ -561,7 +586,13 @@ export default function ChatPage() {
                   setMessages((prev) =>
                     prev.map((m) =>
                       m.id === assistantId
-                        ? { ...m, content: "", reasoning: "" }
+                        ? {
+                            ...m,
+                            content: "",
+                            reasoning: "",
+                            hadThinking: undefined,
+                            thinkingDurationSec: undefined,
+                          }
                         : m
                     )
                   );
@@ -590,18 +621,21 @@ export default function ChatPage() {
                         },
                       ];
                     }
-                    return prev.map((m) =>
-                      m.id === assistantId
-                        ? {
-                            ...m,
-                            content: replyText,
-                            correlationId: payload.correlationId,
-                            userPrompt: trimmed,
-                            isComplete: true,
-                            timestamp: doneAt,
-                          }
-                        : m
-                    );
+                    return prev.map((m) => {
+                      if (m.id !== assistantId) return m;
+                      const completed = withThinkingMetadata(
+                        {
+                          ...m,
+                          content: replyText,
+                          correlationId: payload.correlationId,
+                          userPrompt: trimmed,
+                          isComplete: true,
+                          timestamp: m.timestamp ?? doneAt,
+                        },
+                        doneAt
+                      );
+                      return completed;
+                    });
                   });
                   setIsTurnstileSessionVerified(true);
                   setTurnstileToken("");

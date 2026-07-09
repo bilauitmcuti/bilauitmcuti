@@ -41,6 +41,8 @@ export const useReasoning = () => {
 
 export type ReasoningProps = ComponentProps<typeof Collapsible> & {
   isStreaming?: boolean;
+  /** When false, render a static thinking row without collapse/chevron. */
+  collapsible?: boolean;
   open?: boolean;
   defaultOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -54,6 +56,7 @@ export const Reasoning = memo(
   ({
     className,
     isStreaming = false,
+    collapsible = true,
     open,
     defaultOpen,
     onOpenChange,
@@ -61,7 +64,7 @@ export const Reasoning = memo(
     children,
     ...props
   }: ReasoningProps) => {
-    const resolvedDefaultOpen = defaultOpen ?? isStreaming;
+    const resolvedDefaultOpen = defaultOpen ?? (collapsible ? isStreaming : true);
     // Track if defaultOpen was explicitly set to false (to prevent auto-open)
     const isExplicitlyClosed = defaultOpen === false;
 
@@ -97,6 +100,7 @@ export const Reasoning = memo(
     // Auto-open when streaming starts (unless user closed it during this turn)
     useEffect(() => {
       if (
+        collapsible &&
         isStreaming &&
         !isOpen &&
         !isExplicitlyClosed &&
@@ -104,24 +108,27 @@ export const Reasoning = memo(
       ) {
         setIsOpen(true);
       }
-    }, [isStreaming, isOpen, setIsOpen, isExplicitlyClosed]);
+    }, [collapsible, isStreaming, isOpen, setIsOpen, isExplicitlyClosed]);
 
     // Auto-close when streaming ends (once only, and only if it ever streamed)
     useEffect(() => {
       if (
-        hasEverStreamedRef.current &&
-        !isStreaming &&
-        isOpen &&
-        !hasAutoClosed
+        !collapsible ||
+        !hasEverStreamedRef.current ||
+        isStreaming ||
+        !isOpen ||
+        hasAutoClosed
       ) {
-        const timer = setTimeout(() => {
-          setIsOpen(false);
-          setHasAutoClosed(true);
-        }, AUTO_CLOSE_DELAY);
-
-        return () => clearTimeout(timer);
+        return;
       }
-    }, [isStreaming, isOpen, setIsOpen, hasAutoClosed]);
+
+      const timer = setTimeout(() => {
+        setIsOpen(false);
+        setHasAutoClosed(true);
+      }, AUTO_CLOSE_DELAY);
+
+      return () => clearTimeout(timer);
+    }, [collapsible, isStreaming, isOpen, setIsOpen, hasAutoClosed]);
 
     const handleOpenChange = useCallback(
       (newOpen: boolean) => {
@@ -140,14 +147,18 @@ export const Reasoning = memo(
 
     return (
       <ReasoningContext.Provider value={contextValue}>
-        <Collapsible
-          {...props}
-          className={cn("not-prose mb-4", className)}
-          onOpenChange={(open) => handleOpenChange(open)}
-          open={isOpen}
-        >
-          {children}
-        </Collapsible>
+        {collapsible ? (
+          <Collapsible
+            {...props}
+            className={cn("not-prose mb-4", className)}
+            onOpenChange={(open) => handleOpenChange(open)}
+            open={isOpen}
+          >
+            {children}
+          </Collapsible>
+        ) : (
+          <div className={cn("not-prose mb-4", className)}>{children}</div>
+        )}
       </ReasoningContext.Provider>
     );
   }
@@ -157,6 +168,7 @@ export type ReasoningTriggerProps = ComponentProps<
   typeof CollapsibleTrigger
 > & {
   getThinkingMessage?: (isStreaming: boolean, duration?: number) => ReactNode;
+  showChevron?: boolean;
 };
 
 const defaultGetThinkingMessage = (isStreaming: boolean, duration?: number) => {
@@ -172,37 +184,54 @@ const defaultGetThinkingMessage = (isStreaming: boolean, duration?: number) => {
   return <span>Thought for {duration} seconds</span>;
 };
 
+const thinkingRowClassName =
+  "flex w-full items-center gap-2 text-muted-foreground text-sm";
+
 export const ReasoningTrigger = memo(
   ({
     className,
     children,
     getThinkingMessage = defaultGetThinkingMessage,
+    showChevron = true,
     ...props
   }: ReasoningTriggerProps) => {
     const { isStreaming, isOpen, duration } = useReasoning();
 
+    const label = (
+      <>
+        <BrainIcon className="size-4 shrink-0" />
+        <span className="flex min-w-0 items-center gap-1.5 text-left">
+          {getThinkingMessage(isStreaming, duration)}
+          {showChevron ? (
+            <ChevronDownIcon
+              className={cn(
+                "size-4 shrink-0 transition-transform duration-200",
+                isOpen ? "rotate-180" : "rotate-0"
+              )}
+            />
+          ) : null}
+        </span>
+      </>
+    );
+
+    if (!showChevron) {
+      return (
+        <div className={cn(thinkingRowClassName, className)}>
+          {children ?? label}
+        </div>
+      );
+    }
+
     return (
       <CollapsibleTrigger
         className={cn(
-          "flex w-full items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground",
+          thinkingRowClassName,
+          "transition-colors hover:text-foreground",
           className
         )}
         {...props}
       >
-        {children ?? (
-          <>
-            <BrainIcon className="size-4 shrink-0" />
-            <span className="flex min-w-0 items-center gap-1.5 text-left">
-              {getThinkingMessage(isStreaming, duration)}
-              <ChevronDownIcon
-                className={cn(
-                  "size-4 shrink-0 transition-transform duration-200",
-                  isOpen ? "rotate-180" : "rotate-0"
-                )}
-              />
-            </span>
-          </>
-        )}
+        {children ?? label}
       </CollapsibleTrigger>
     );
   }

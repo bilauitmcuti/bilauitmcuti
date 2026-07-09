@@ -1,10 +1,10 @@
 import type { ChatTopic } from "@/lib/chat/topic-router";
 
-/** Show the thinking shimmer only after this delay (ms). */
-export const THINKING_INDICATOR_DELAY_MS = 2000;
+/** Show the thinking shimmer only after this brief delay (ms). */
+export const THINKING_INDICATOR_DELAY_MS = 500;
 
 /** Emit / show reasoning paragraphs only after this delay (ms). */
-export const REASONING_PARAGRAPH_DELAY_MS = 4000;
+export const REASONING_PARAGRAPH_DELAY_MS = 2500;
 
 export interface ReasoningComplexityInput {
   isSimple: boolean;
@@ -40,4 +40,24 @@ export function shouldShowThinkingIndicator(
   now: number = Date.now()
 ): boolean {
   return now - turnStartMs >= THINKING_INDICATOR_DELAY_MS;
+}
+
+export function captureThinkingMetadata(
+  messageTimestamp: number | undefined,
+  options?: { now?: number; hasReasoning?: boolean }
+): { hadThinking: boolean; thinkingDurationSec?: number } {
+  const now = options?.now ?? Date.now();
+  const started = messageTimestamp ?? now;
+  const elapsed = now - started;
+  const hadVisibleThinking = elapsed >= THINKING_INDICATOR_DELAY_MS;
+  const hasReasoning = options?.hasReasoning ?? false;
+
+  if (!hadVisibleThinking && !hasReasoning) {
+    return { hadThinking: false };
+  }
+
+  return {
+    hadThinking: true,
+    thinkingDurationSec: Math.max(1, Math.ceil(elapsed / 1000)),
+  };
 }
