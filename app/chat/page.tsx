@@ -33,6 +33,7 @@ import { useDesktopViewport } from "@/lib/use-mobile-viewport";
 import {
   CHAT_TURNSTILE_COOKIE,
   CHAT_TIMEOUT_MESSAGE,
+  resolveChatErrorMessage,
   FETCH_TIMEOUT_MS,
   FETCH_HEADERS_TIMEOUT_MS,
   FETCH_STREAM_TIMEOUT_MS,
@@ -41,13 +42,15 @@ import {
   getActiveMentionMatch,
   getChatErrorMessage,
   consumeChatStream,
-  createMarkdownStreamPainter,
+  createRafMarkdownStreamPainter,
+  createRafReasoningStreamPainter,
   MAX_CHAT_MESSAGE_LENGTH,
   parseChatResponse,
   prepareHistory,
   type ChatMessageItem,
   type MentionMatch,
 } from "@/components/chat/chat-utils";
+import { captureThinkingMetadata } from "@/lib/chat/reasoning-gate";
 import {
   getInitialChatSessions,
   isChatSelectionInSyncWithHomepage,
@@ -57,6 +60,19 @@ import {
   type ProgramSessionMap,
 } from "@/lib/chat/session-state";
 type Message = ChatMessageItem;
+
+function withThinkingMetadata(message: Message, now = Date.now()): Message {
+  const meta = captureThinkingMetadata(message.timestamp, {
+    now,
+    hasReasoning: Boolean(message.reasoning?.trim()),
+  });
+  if (!meta.hadThinking) return message;
+  return {
+    ...message,
+    hadThinking: true,
+    thinkingDurationSec: message.thinkingDurationSec ?? meta.thinkingDurationSec,
+  };
+}
 
 interface MentionItem {
   id: SessionId;
@@ -213,6 +229,11 @@ export default function ChatPage() {
   useLayoutEffect(() => {
     setSuggestions(getRandomSuggestions(suggestionGroup, []));
   }, [suggestionGroup]);
+
+  useEffect(() => {
+    void import("@/components/ui/streamdown-renderer");
+  }, []);
+
   const [streamStatusPhrase, setStreamStatusPhrase] = useState("");
 
   const startLoadingState = useCallback(() => {
@@ -345,22 +366,7 @@ export default function ChatPage() {
     return null;
   }, [messages]);
 
-  const showLoadingMarker = useMemo(() => {
-    const hasStreamingContent = messages.some(
-      (m) =>
-        m.role === "assistant" &&
-        m.isComplete === false &&
-        m.content.trim().length > 0
-    );
-    const hasReasoning = messages.some(
-      (m) =>
-        m.role === "assistant" &&
-        m.isComplete === false &&
-        (m.reasoning?.trim().length ?? 0) > 0
-    );
-
-    return isLoading && !hasStreamingContent && !hasReasoning;
-  }, [isLoading, messages]);
+  const showLoadingMarker = false;
 
   useEffect(() => {
     if (!isLoading) {
@@ -475,6 +481,7 @@ export default function ChatPage() {
       let content: string | null = null;
       let maxAttempts = 3;
       let chatRequestSucceeded = false;
+      let lastErrorStatus: number | undefined;
       const isRetryableStatus = (s: number) =>
         s === 429 || s === 500 || s === 502 || s === 503 || s === 504;
 
@@ -511,9 +518,8 @@ export default function ChatPage() {
             clearTimeout(timeoutId);
             timeoutId = setTimeout(() => controller.abort(), FETCH_STREAM_TIMEOUT_MS);
 
-            let lastErrorStatus: number | undefined;
             let answerStarted = false;
-            const streamPainter = createMarkdownStreamPainter(
+            const streamPainter = createRafMarkdownStreamPainter(
               (chunk) => {
                 setMessages((prev) =>
                   prev.map((m) =>
@@ -523,29 +529,51 @@ export default function ChatPage() {
                   )
                 );
               },
-              { maxChunkChars: 32, firstFlushChars: 12 }
+              { maxChunkChars: 16, firstFlushChars: 4 }
             );
+            let lastReasoningReplaceAt = 0;
+            const reasoningPainter = createRafReasoningStreamPainter((chunk) => {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId
+                    ? { ...m, reasoning: `${m.reasoning ?? ""}${chunk}` }
+                    : m
+                )
+              );
+            });
             await consumeChatStream(
               res,
               {
                 onReasoning: (payload) => {
+                  if (payload.replace && payload.text) {
+                    const now = Date.now();
+                    if (now - lastReasoningReplaceAt < 120) {
+                      reasoningPainter.reset();
+                    }
+                    lastReasoningReplaceAt = now;
+                    setMessages((prev) =>
+                      prev.map((m) =>
+                        m.id === assistantId
+                          ? {
+                              ...m,
+                              reasoning: payload.text!,
+                              hadThinking: true,
+                            }
+                          : m
+                      )
+                    );
+                    return;
+                  }
                   if (!payload.token) return;
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantId
-                        ? { ...m, reasoning: `${m.reasoning ?? ""}${payload.token}` }
-                        : m
-                    )
-                  );
+                  reasoningPainter.push(payload.token);
                 },
                 onToken: (token) => {
                   if (!answerStarted && token.trim()) {
                     answerStarted = true;
+                    reasoningPainter.flush();
                     setMessages((prev) =>
                       prev.map((m) =>
-                        m.id === assistantId
-                          ? { ...m, isReasoningCollapsed: true }
-                          : m
+                        m.id === assistantId ? withThinkingMetadata(m) : m
                       )
                     );
                   }
@@ -553,17 +581,25 @@ export default function ChatPage() {
                 },
                 onReset: () => {
                   streamPainter.reset();
+                  reasoningPainter.reset();
                   answerStarted = false;
                   setMessages((prev) =>
                     prev.map((m) =>
                       m.id === assistantId
-                        ? { ...m, content: "", reasoning: "" }
+                        ? {
+                            ...m,
+                            content: "",
+                            reasoning: "",
+                            hadThinking: undefined,
+                            thinkingDurationSec: undefined,
+                          }
                         : m
                     )
                   );
                 },
                 onDone: (payload) => {
                   streamPainter.flush();
+                  reasoningPainter.flush();
                   content = payload.reply;
                   chatRequestSucceeded = true;
                   const doneAt = Date.now();
@@ -585,19 +621,21 @@ export default function ChatPage() {
                         },
                       ];
                     }
-                    return prev.map((m) =>
-                      m.id === assistantId
-                        ? {
-                            ...m,
-                            content: replyText,
-                            correlationId: payload.correlationId,
-                            userPrompt: trimmed,
-                            isComplete: true,
-                            isReasoningCollapsed: true,
-                            timestamp: doneAt,
-                          }
-                        : m
-                    );
+                    return prev.map((m) => {
+                      if (m.id !== assistantId) return m;
+                      const completed = withThinkingMetadata(
+                        {
+                          ...m,
+                          content: replyText,
+                          correlationId: payload.correlationId,
+                          userPrompt: trimmed,
+                          isComplete: true,
+                          timestamp: m.timestamp ?? doneAt,
+                        },
+                        doneAt
+                      );
+                      return completed;
+                    });
                   });
                   setIsTurnstileSessionVerified(true);
                   setTurnstileToken("");
@@ -605,16 +643,12 @@ export default function ChatPage() {
                 },
                 onError: (payload) => {
                   streamPainter.flush();
-                  content = payload.error;
+                  reasoningPainter.flush();
+                  content = resolveChatErrorMessage(payload.status, payload.error);
                   lastErrorStatus = payload.status;
                   if (payload.status === 503 && maxAttempts === 3) {
                     maxAttempts = 4;
                   }
-                },
-                onStatus: (payload) => {
-                  const phrase = payload.message || payload.phase;
-                  if (!phrase) return;
-                  setStreamStatusPhrase(phrase);
                 },
               },
               { signal: controller.signal }
@@ -694,6 +728,12 @@ export default function ChatPage() {
           content = isAbort
             ? CHAT_TIMEOUT_MESSAGE
             : "Something went wrong. Please try again.";
+          if (
+            isAbort &&
+            lastErrorStatus === 429
+          ) {
+            content = resolveChatErrorMessage(429);
+          }
           if (attempt < maxAttempts - 1) {
             await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
             continue;
@@ -932,16 +972,6 @@ export default function ChatPage() {
     });
   }, []);
 
-  const handleToggleReasoningCollapsed = useCallback((msgId: string) => {
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === msgId
-          ? { ...m, isReasoningCollapsed: !m.isReasoningCollapsed }
-          : m
-      )
-    );
-  }, []);
-
   const handleEdit = useCallback((msgId: string) => {
     const msgIndex = messages.findIndex((m) => m.id === msgId);
     if (msgIndex === -1) return;
@@ -1013,7 +1043,6 @@ export default function ChatPage() {
             onReaction={handleReaction}
             onEdit={handleEdit}
             onDelete={handleDelete}
-            onToggleReasoningCollapsed={handleToggleReasoningCollapsed}
           />
         )}
 

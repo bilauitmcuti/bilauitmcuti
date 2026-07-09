@@ -1,0 +1,63 @@
+import type { ChatTopic } from "@/lib/chat/topic-router";
+
+/** Show the thinking shimmer only after this brief delay (ms). */
+export const THINKING_INDICATOR_DELAY_MS = 500;
+
+/** Emit / show reasoning paragraphs only after this delay (ms). */
+export const REASONING_PARAGRAPH_DELAY_MS = 2500;
+
+export interface ReasoningComplexityInput {
+  isSimple: boolean;
+  useAgentTools: boolean;
+  wantsTableOutput: boolean;
+  multipleSessionsSelected: boolean;
+  asksDetail: boolean;
+  needsList: boolean;
+  topics: ChatTopic[];
+}
+
+/** Heuristic for multi-step turns that benefit from a reasoning paragraph once slow enough. */
+export function isComplexReasoningTurn(input: ReasoningComplexityInput): boolean {
+  if (input.useAgentTools) return true;
+  if (input.wantsTableOutput) return true;
+  if (input.multipleSessionsSelected) return true;
+  if (input.asksDetail) return true;
+  if (input.needsList) return true;
+  if (input.topics.length > 1) return true;
+  if (!input.isSimple) return true;
+  return false;
+}
+
+export function shouldEmitReasoningParagraph(
+  turnStartMs: number,
+  now: number = Date.now()
+): boolean {
+  return now - turnStartMs >= REASONING_PARAGRAPH_DELAY_MS;
+}
+
+export function shouldShowThinkingIndicator(
+  turnStartMs: number,
+  now: number = Date.now()
+): boolean {
+  return now - turnStartMs >= THINKING_INDICATOR_DELAY_MS;
+}
+
+export function captureThinkingMetadata(
+  messageTimestamp: number | undefined,
+  options?: { now?: number; hasReasoning?: boolean }
+): { hadThinking: boolean; thinkingDurationSec?: number } {
+  const now = options?.now ?? Date.now();
+  const started = messageTimestamp ?? now;
+  const elapsed = now - started;
+  const hadVisibleThinking = elapsed >= THINKING_INDICATOR_DELAY_MS;
+  const hasReasoning = options?.hasReasoning ?? false;
+
+  if (!hadVisibleThinking && !hasReasoning) {
+    return { hadThinking: false };
+  }
+
+  return {
+    hadThinking: true,
+    thinkingDurationSec: Math.max(1, Math.ceil(elapsed / 1000)),
+  };
+}

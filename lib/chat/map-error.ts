@@ -44,7 +44,11 @@ export function mapChatError(error: unknown): { message: string; status: number 
     errMsg.includes("rate limit") ||
     errMsg.includes("too many requests")
   ) {
-    return { message: "AI service is busy or at its usage limit. Please try again later.", status: 429 };
+    return {
+      message:
+        "AI service is busy or at its usage limit. Please try again in a few minutes.",
+      status: 429,
+    };
   }
   if (
     status === 503 ||

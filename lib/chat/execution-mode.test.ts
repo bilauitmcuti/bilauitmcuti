@@ -14,7 +14,7 @@ describe("resolveChatExecutionMode", () => {
     expect(resolveChatExecutionMode({ isAgentToolsPath: true })).toBe("agent");
   });
 
-  it("short-circuits matched activity turns to single_stream on tools path", () => {
+  it("short-circuits matched or simple turns to single_stream on tools path", () => {
     expect(
       resolveChatExecutionMode({
         isAgentToolsPath: true,
@@ -31,7 +31,7 @@ describe("resolveChatExecutionMode", () => {
 });
 
 describe("shouldPreferSingleStream", () => {
-  it("prefers single_stream only for matched activities", () => {
+  it("prefers single_stream for matched activities", () => {
     expect(
       shouldPreferSingleStream({
         hasMatchedActivity: true,
@@ -41,53 +41,97 @@ describe("shouldPreferSingleStream", () => {
     ).toBe(true);
   });
 
-  it("uses agent for simple date questions without a matched activity", () => {
+  it("prefers single_stream for simple date questions", () => {
     expect(
       shouldPreferSingleStream({
         hasMatchedActivity: false,
         isSimple: true,
         topics: ["academic_calendar"],
       })
-    ).toBe(false);
+    ).toBe(true);
   });
 
-  it("uses agent for calendar-only topics without a matched activity", () => {
+  it("prefers single_stream for calendar-only topics including long academic questions", () => {
     expect(
       shouldPreferSingleStream({
         hasMatchedActivity: false,
         isSimple: false,
         topics: ["academic_calendar"],
       })
-    ).toBe(false);
+    ).toBe(true);
+    expect(
+      shouldPreferSingleStream({
+        hasMatchedActivity: false,
+        isSimple: false,
+        topics: ["lecture_weeks"],
+      })
+    ).toBe(true);
+    expect(
+      shouldPreferSingleStream({
+        hasMatchedActivity: false,
+        isSimple: false,
+        topics: ["public_holiday"],
+      })
+    ).toBe(true);
     expect(
       shouldPreferSingleStream({
         hasMatchedActivity: false,
         isSimple: false,
         topics: ["lecture_weeks", "public_holiday"],
       })
-    ).toBe(false);
+    ).toBe(true);
+    expect(
+      shouldPreferSingleStream({
+        hasMatchedActivity: false,
+        isSimple: false,
+        topics: ["academic_calendar", "lecture_weeks"],
+      })
+    ).toBe(true);
   });
 
-  it("uses agent when uitm_general is involved without a matched activity", () => {
+  it("prefers single_stream for uitm_general topics", () => {
     expect(
       shouldPreferSingleStream({
         hasMatchedActivity: false,
         isSimple: false,
         topics: ["uitm_general"],
       })
-    ).toBe(false);
+    ).toBe(true);
     expect(
       shouldPreferSingleStream({
         hasMatchedActivity: false,
         isSimple: false,
         topics: ["academic_calendar", "uitm_general"],
       })
+    ).toBe(true);
+  });
+
+  it("uses agent only when no topics are routed", () => {
+    expect(
+      shouldPreferSingleStream({
+        hasMatchedActivity: false,
+        isSimple: false,
+        topics: [],
+      })
     ).toBe(false);
   });
 });
 
+describe("appendReasoningLine", () => {
+  it("replaces reasoning paragraphs without duplicating", async () => {
+    const { replaceReasoningParagraph } = await import("@/lib/chat/handler");
+    const first =
+      "I'm checking the official UiTM academic calendar for all programmes to find the correct semester and confirm the dates before preparing your answer.";
+    const second =
+      "The relevant semester has been identified. I'm verifying the dates to ensure the information matches the latest official academic calendar.";
+    expect(replaceReasoningParagraph("", first)).toBe(first);
+    expect(replaceReasoningParagraph(first, second)).toBe(second);
+    expect(replaceReasoningParagraph(second, second)).toBe(second);
+  });
+});
+
 describe("MAX_AGENT_TOOL_STEPS", () => {
-  it("caps tool steps at 4 for complex production Gemma turns", () => {
-    expect(MAX_AGENT_TOOL_STEPS).toBe(4);
+  it("caps tool steps at 2 for agent fallback turns", () => {
+    expect(MAX_AGENT_TOOL_STEPS).toBe(2);
   });
 });

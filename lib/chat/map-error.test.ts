@@ -14,4 +14,12 @@ describe("mapChatError", () => {
     expect(mapped.status).toBe(502);
     expect(mapped.message).toContain("empty reply");
   });
+
+  it("maps rate limit errors to 429 with distinct message", () => {
+    const mapped = mapChatErrorForTest(
+      Object.assign(new Error("rate limit exceeded"), { status: 429 })
+    );
+    expect(mapped.status).toBe(429);
+    expect(mapped.message).toContain("usage limit");
+  });
 });

@@ -123,7 +123,7 @@ export function StreamdownRenderer({
       <Streamdown
         mode={isStreaming ? "streaming" : "static"}
         isAnimating={isStreaming}
-        animated={isStreaming ? { animation: "blurIn", duration: 200 } : false}
+        animated={{ animation: "blurIn", duration: 250, easing: "ease-out", sep: "word" }}
         components={COMPONENTS}
         disallowedElements={["img"]}
         unwrapDisallowed

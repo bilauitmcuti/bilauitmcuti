@@ -31,7 +31,7 @@ export interface CompactFallbackParams {
 }
 
 /**
- * Dev-tier fallback when function calling is unavailable (e.g. Llama 3.2).
+ * Dev-tier / Gemma single-stream fallback when the tool agent is not used.
  * Injects compact API-backed context instead of the full production prompt.
  */
 export async function buildCompactFallbackSystemPrompt(

@@ -42,7 +42,14 @@ import {
   askAiWithRetry,
   askAgentWithRetry,
 } from "@/lib/chat/ai-retry";
-import { toolStatusLabel } from "@/lib/chat/agent/embedded-tools";
+import type { ChatToolName } from "@/lib/chat/agent/types";
+import { runDeterministicPrefetch } from "@/lib/chat/agent/deterministic-prefetch";
+import {
+  buildReasoningParagraph,
+  replaceReasoningParagraph,
+  type ReasoningPhase,
+} from "@/lib/chat/reasoning-status";
+import { shouldEmitReasoningParagraph } from "@/lib/chat/reasoning-gate";
 import {
   agentModeForModelChain,
   buildAgentTurnContext,
@@ -112,9 +119,11 @@ import { mapChatError } from "@/lib/chat/map-error";
 import { trimHistoryForModel } from "@/lib/chat/history-for-model";
 
 /** Soft deadline for compact / single-stream turns (under Pages Edge limits). */
-const CHAT_SERVER_DEADLINE_MS = 25_000;
-/** Longer budget for Gemma tool-agent turns (tool steps + synthesis). */
-const CHAT_AGENT_DEADLINE_MS = 55_000;
+const CHAT_SERVER_DEADLINE_MS = 22_000;
+/** Longer budget for rare tool-agent fallback turns. */
+const CHAT_AGENT_DEADLINE_MS = 28_000;
+/** Skip date/incomplete retries when the turn already consumed this much time. */
+const RETRY_BUDGET_SKIP_MS = 18_000;
 
 const AGENT_CALENDAR_TOOLS = new Set([
   "search_calendar_activities",
@@ -129,6 +138,8 @@ function agentUsedCalendarTools(toolsUsed: string[]): boolean {
   return toolsUsed.some((tool) => AGENT_CALENDAR_TOOLS.has(tool));
 }
 
+export { replaceReasoningParagraph } from "@/lib/chat/reasoning-status";
+
 export type ChatExecutionMode = "single_stream" | "agent";
 
 export interface ChatExecutionModeInput {
@@ -138,9 +149,9 @@ export interface ChatExecutionModeInput {
 }
 
 /**
- * Production Gemma (`isAgentToolsPath`) uses the tool agent for most in-scope
- * turns. Only authoritative activity matches short-circuit to single_stream.
- * Llama compact / legacy stays on single_stream.
+ * Production Gemma (`isAgentToolsPath`) uses the tool agent for uitm_general and
+ * other complex turns. Matched activities, simple date questions, and pure
+ * calendar/holiday topics short-circuit to single_stream.
  */
 export function resolveChatExecutionMode(
   input: ChatExecutionModeInput
@@ -151,17 +162,16 @@ export function resolveChatExecutionMode(
 }
 
 /**
- * Prefer one LLM call only when the handler already has an authoritative
- * calendar row match (preloaded in the agent). All other Gemma production
- * turns use the tool agent so the model can search calendar, sessions,
- * holidays, and UiTM knowledge via function calling.
+ * Prefer one LLM call with deterministic prefetch for all routed topics.
+ * Agent loop is reserved for turns with no topic match.
  */
 export function shouldPreferSingleStream(input: {
   hasMatchedActivity: boolean;
   isSimple: boolean;
   topics: string[];
 }): boolean {
-  return input.hasMatchedActivity;
+  if (input.hasMatchedActivity || input.isSimple) return true;
+  return input.topics.length > 0;
 }
 
 async function runWithServerDeadline<T>(
@@ -259,6 +269,22 @@ export async function POST(request: NextRequest) {
       shouldSetVerifiedCookie = true;
     }
 
+    const requestHost = request.headers.get("host");
+    const origin = new URL(request.url).origin;
+
+    type StreamHooks = {
+      enqueue: (text: string) => void;
+      emitReasoningParagraph: (paragraph: string) => void;
+      emitStatus: (phase: string, message: string) => void;
+      onToken: (token: string) => void;
+      onReasoningToken: (token: string) => void;
+      onToolCall: (toolName: string) => void;
+      onSynthesis: () => void;
+      onRetry: (reason: string) => void;
+    };
+
+    const executeChatTurn = async (streamHooks?: StreamHooks): Promise<string> => {
+    const turnStartMs = Date.now();
     const meta = await loadMetaIntoStore();
     const { validSessionIds, validPrograms } = validSetsFromMeta(meta);
 
@@ -329,6 +355,35 @@ export async function POST(request: NextRequest) {
     const topicRoute = routeChatTopics(sanitizedMessage, hasMatchedActivity);
     const useIntentFilter = shouldUseCalendarIntentFilter(topicRoute, activityMatches.length);
 
+    const reasoningBase = {
+      message: sanitizedMessage,
+      topics: topicRoute.topics,
+      programLabel,
+      sessionCount: effectiveSessions.length,
+      hasMatchedActivity,
+      activityMatches,
+    };
+    const emitReasoningPhase = (
+      phase: ReasoningPhase,
+      extra?: Partial<typeof reasoningBase> & { toolName?: ChatToolName; retryReason?: "dates" | "incomplete" }
+    ) => {
+      if (!streamHooks) return;
+      if (!shouldEmitReasoningParagraph(turnStartMs)) return;
+      streamHooks.emitReasoningParagraph(
+        buildReasoningParagraph({ ...reasoningBase, phase, ...extra })
+      );
+    };
+
+    const emitReasoningRetry = (
+      phase: ReasoningPhase,
+      extra?: Partial<typeof reasoningBase> & { retryReason?: "dates" | "incomplete" }
+    ) => {
+      if (!streamHooks) return;
+      streamHooks.emitReasoningParagraph(
+        buildReasoningParagraph({ ...reasoningBase, phase, ...extra })
+      );
+    };
+
     const sanitizedHistory: ChatMessage[] = trimHistoryForModel(
       (history ?? []).map((msg) => ({
         role: msg.role,
@@ -337,7 +392,6 @@ export async function POST(request: NextRequest) {
       }))
     );
 
-    const requestHost = request.headers.get("host");
     const useAgentPath = isChatAgentEnabled();
     const modelChain = resolveProductionChatModelChain(requestHost);
     const agentMode = useAgentPath ? agentModeForModelChain(modelChain) : "compact";
@@ -374,18 +428,17 @@ export async function POST(request: NextRequest) {
 
     const cachedReply = getCachedReply(cacheKey);
     if (cachedReply) {
-      return withVerifiedCookie(jsonChatReply(cachedReply, correlationId, "cache"));
+      return cachedReply;
     }
 
     const aiBindingPromise = getAiBinding();
-    const origin = new URL(request.url).origin;
 
     const aiBinding = await aiBindingPromise;
     if (!aiBinding) {
       const noAi = mapChatError(
         Object.assign(new Error("Workers AI binding not available"), { status: 503 })
       );
-      return withVerifiedCookie(jsonError(noAi.message, noAi.status));
+      throw Object.assign(new Error(noAi.message), { status: noAi.status });
     }
 
     const useCalendarPrompt = topicNeedsCalendarPrompt(topicRoute.topics);
@@ -483,7 +536,7 @@ export async function POST(request: NextRequest) {
               maxPrimaryChars,
             });
 
-      if (useAgentPath && agentMode === "compact") {
+      if (useAgentPath) {
         systemPrompt = await buildCompactFallbackSystemPrompt({
           ctx: buildAgentTurnContext({
             message: sanitizedMessage,
@@ -542,6 +595,17 @@ export async function POST(request: NextRequest) {
       includeSecondary,
     });
 
+    let prefetchDirective = "";
+    if (useAgentPath && !useAgentTools) {
+      const prefetch = await runDeterministicPrefetch(agentTurnContext, () => {});
+      if (streamHooks) {
+        emitReasoningPhase("progress");
+      }
+      if (prefetch.outputBlock) {
+        prefetchDirective = `\n\n=== PREFETCHED TOOL DATA (authoritative) ===\n${prefetch.outputBlock}`;
+      }
+    }
+
     const modelTier = resolveWorkersAiModelTier(requestHost);
     const maxOutputTokens = getMaxOutputTokensForHost(requestHost);
     const modelBudget = getModelResponseBudget(
@@ -563,7 +627,8 @@ export async function POST(request: NextRequest) {
       publicHolidayDirective +
       languageDirective;
 
-    const systemPromptWithCompletion = systemPrompt + completionSuffix;
+    const systemPromptWithCompletion =
+      systemPrompt + prefetchDirective + completionSuffix;
 
     let cachedLegacyFallbackBase: string | null = null;
     const getLegacyFallbackPromptWithCompletion = async (
@@ -709,7 +774,6 @@ export async function POST(request: NextRequest) {
       onToken: (token: string) => void | Promise<void>,
       onProgress?: {
         onReasoningToken?: (token: string) => void | Promise<void>;
-        onToolStep?: (step: number, maxSteps: number) => void | Promise<void>;
         onToolCall?: (toolName: string) => void | Promise<void>;
         onSynthesis?: () => void | Promise<void>;
         /** Clear client partial content before a regenerate. */
@@ -732,7 +796,6 @@ export async function POST(request: NextRequest) {
           onToken,
           onReasoningToken: onProgress?.onReasoningToken,
           emitTokensToClient: streamTokensToClient,
-          onToolStep: onProgress?.onToolStep,
           onToolCall: onProgress?.onToolCall,
           onSynthesis: onProgress?.onSynthesis,
         });
@@ -773,6 +836,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (
+        Date.now() - turnStartMs < RETRY_BUDGET_SKIP_MS &&
         !useResearchOnly &&
         !hasMatchedActivity &&
         allowedDates.size > 0 &&
@@ -800,7 +864,9 @@ export async function POST(request: NextRequest) {
       }
 
       const cleanedFirst = normalizeAssistantTables(cleanAiReply(rawReply));
-      const incomplete = detectIncompleteReply(cleanedFirst, needsList || asksDetail);
+      const incomplete =
+        Date.now() - turnStartMs < RETRY_BUDGET_SKIP_MS &&
+        detectIncompleteReply(cleanedFirst, needsList || asksDetail);
       if (incomplete) {
         await onProgress?.onRetry?.("incomplete");
         const bumpedBudget = {
@@ -857,71 +923,84 @@ export async function POST(request: NextRequest) {
       return cleanedFirst;
     };
 
+    if (streamHooks) {
+      let progressReasoningEmitted = !useAgentTools;
+      let finalReasoningEmitted = !useAgentTools;
+      if (!useAgentTools) {
+        emitReasoningPhase("final");
+      }
+      const streamedReply = await runWithServerDeadline(
+        useAgentTools ? CHAT_AGENT_DEADLINE_MS : CHAT_SERVER_DEADLINE_MS,
+        () =>
+          runLlm((token) => {
+            if (!finalReasoningEmitted && token.trim()) {
+              finalReasoningEmitted = true;
+              emitReasoningPhase("final");
+            }
+            streamHooks.onToken(token);
+          }, {
+            onToolCall: (toolName) => {
+              if (!progressReasoningEmitted) {
+                progressReasoningEmitted = true;
+                emitReasoningPhase("progress", { toolName: toolName as ChatToolName });
+              }
+            },
+            onRetry: (reason) => {
+              streamHooks.onRetry(reason);
+              emitReasoningRetry("retry", {
+                retryReason: reason === "dates" ? "dates" : "incomplete",
+              });
+            },
+          })
+      );
+      setCachedReply(cacheKey, streamedReply);
+      return streamedReply;
+    }
+
+    const bufferedReply = await runLlm(() => undefined);
+    setCachedReply(cacheKey, bufferedReply);
+    return bufferedReply;
+    };
+
     if (wantStream) {
+      const aiBinding = await getAiBinding();
+      if (!aiBinding) {
+        const noAi = mapChatError(
+          Object.assign(new Error("Workers AI binding not available"), { status: 503 })
+        );
+        return withVerifiedCookie(jsonError(noAi.message, noAi.status));
+      }
+
       const sseStream = new ReadableStream<Uint8Array>({
         async start(controller) {
           const encoder = new TextEncoder();
           const enqueue = (text: string) => controller.enqueue(encoder.encode(text));
           try {
-            const onToken = streamTokensToClient
-              ? (token: string) => {
-                  enqueue(encodeSseEvent("token", { token }));
-                }
-              : () => {};
-            const onReasoningToken = (token: string) => {
-              enqueue(encodeSseEvent("reasoning", { token }));
+            let reasoningBuffer = "";
+            const emitReasoningParagraph = (paragraph: string) => {
+              const next = replaceReasoningParagraph(reasoningBuffer, paragraph);
+              if (next === reasoningBuffer) return;
+              reasoningBuffer = next;
+              enqueue(encodeSseEvent("reasoning", { text: next, replace: true }));
             };
-            const onToolStep = (step: number, maxSteps: number) => {
-              enqueue(
-                encodeSseEvent("status", {
-                  phase: "searching",
-                  message: `Reasoning… (${step + 1}/${maxSteps})`,
-                })
-              );
+            const emitStatus = (phase: string, statusMessage: string) => {
+              enqueue(encodeSseEvent("status", { phase, message: statusMessage }));
             };
-            const onToolCall = (toolName: string) => {
-              enqueue(
-                encodeSseEvent("status", {
-                  phase: "searching",
-                  message: toolStatusLabel(toolName),
-                })
-              );
+            const streamHooks: StreamHooks = {
+              enqueue,
+              emitReasoningParagraph,
+              emitStatus,
+              onToken: (token) => enqueue(encodeSseEvent("token", { token })),
+              onReasoningToken: () => {},
+              onToolCall: () => {},
+              onSynthesis: () => {},
+              onRetry: (reason) => {
+                reasoningBuffer = "";
+                enqueue(encodeSseEvent("reset", { reason }));
+              },
             };
-            const onSynthesis = () => {
-              enqueue(
-                encodeSseEvent("status", {
-                  phase: "generating",
-                  message: "Writing your answer…",
-                })
-              );
-            };
-            const onRetry = (reason: string) => {
-              enqueue(encodeSseEvent("reset", { reason }));
-              enqueue(
-                encodeSseEvent("status", {
-                  phase: "retry",
-                  message: "Refining your answer…",
-                })
-              );
-            };
-            enqueue(
-              encodeSseEvent("status", {
-                phase: useAgentTools ? "searching" : "generating",
-                message: useAgentTools ? "Reasoning…" : "Thinking…",
-              })
-            );
-            const reply = await runWithServerDeadline(
-              useAgentTools ? CHAT_AGENT_DEADLINE_MS : CHAT_SERVER_DEADLINE_MS,
-              () =>
-                runLlm(onToken, {
-                  onReasoningToken,
-                  onToolStep,
-                  onToolCall,
-                  onSynthesis,
-                  onRetry,
-                })
-            );
-            setCachedReply(cacheKey, reply);
+
+            const reply = await executeChatTurn(streamHooks);
             enqueue(
               encodeSseEvent("done", {
                 reply,
@@ -936,10 +1015,8 @@ export async function POST(request: NextRequest) {
               errMsg: mapped.message,
               status: mapped.status,
               cause: error instanceof Error ? error.message : String(error),
-              modelTier,
-              modelChain: modelChain.join(" → "),
-              agentMode,
-              executionMode,
+              modelTier: resolveWorkersAiModelTier(requestHost),
+              modelChain: resolveProductionChatModelChain(requestHost).join(" → "),
             });
             enqueue(encodeSseEvent("error", { error: mapped.message, status: mapped.status }));
             controller.close();
@@ -951,8 +1028,7 @@ export async function POST(request: NextRequest) {
       return withVerifiedCookie(response);
     }
 
-    const reply = await runLlm(() => undefined);
-    setCachedReply(cacheKey, reply);
+    const reply = await executeChatTurn();
     return withVerifiedCookie(jsonChatReply(reply, correlationId, "llm"));
   } catch (error: unknown) {
     if (error instanceof SyntaxError || (error instanceof Error && error.message?.includes("JSON"))) {

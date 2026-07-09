@@ -1,3 +1,9 @@
+import {
+  CHAT_RATE_LIMIT_MESSAGE,
+  CHAT_TIMEOUT_MESSAGE,
+  resolveChatErrorMessage,
+} from "@/lib/chat/user-messages";
+
 export const SSE_HEADERS: Record<string, string> = {
   "Content-Type": "text/event-stream; charset=utf-8",
   "Cache-Control": "no-cache, no-transform",
@@ -28,7 +34,9 @@ export interface ChatStreamErrorPayload {
 }
 
 export interface ChatStreamReasoningPayload {
-  token: string;
+  token?: string;
+  text?: string;
+  replace?: boolean;
 }
 
 export interface ChatStreamTokenPayload {
@@ -46,6 +54,39 @@ export interface ChatStreamResetPayload {
   reason?: string;
 }
 
+/** Paint reasoning tokens in small chunks for smoother streaming UI updates. */
+export function createReasoningStreamPainter(
+  onFlush: (chunk: string) => void,
+  options?: { maxChunkChars?: number }
+): {
+  push: (token: string) => void;
+  reset: () => void;
+  flush: () => void;
+} {
+  const maxChunkChars = options?.maxChunkChars ?? 6;
+  let buf = "";
+
+  return {
+    push(token: string) {
+      if (!token) return;
+      buf += token;
+      while (buf.length >= maxChunkChars) {
+        const chunk = buf.slice(0, maxChunkChars);
+        buf = buf.slice(maxChunkChars);
+        onFlush(chunk);
+      }
+    },
+    reset() {
+      buf = "";
+    },
+    flush() {
+      if (!buf) return;
+      onFlush(buf);
+      buf = "";
+    },
+  };
+}
+
 /**
  * Buffers raw model tokens into sentence/paragraph-sized chunks so mid-stream
  * markdown paints less broken while preserving an early first paint.
@@ -58,8 +99,8 @@ export function createMarkdownStreamPainter(
   reset: () => void;
   flush: () => void;
 } {
-  const maxChunkChars = options?.maxChunkChars ?? 64;
-  const firstFlushChars = options?.firstFlushChars ?? 12;
+  const maxChunkChars = options?.maxChunkChars ?? 16;
+  const firstFlushChars = options?.firstFlushChars ?? 4;
   let buf = "";
   let hasFlushed = false;
 
@@ -130,6 +171,91 @@ export function createMarkdownStreamPainter(
       hasFlushed = true;
       onFlush(buf);
       buf = "";
+    },
+  };
+}
+
+/** Coalesce stream painter flushes to one update per animation frame. */
+export function createRafMarkdownStreamPainter(
+  onFlush: (chunk: string) => void,
+  options?: { maxChunkChars?: number; firstFlushChars?: number }
+) {
+  let pending = "";
+  let rafId: number | null = null;
+  const inner = createMarkdownStreamPainter((chunk) => {
+    pending += chunk;
+    if (rafId !== null) return;
+    rafId = requestAnimationFrame(() => {
+      rafId = null;
+      if (!pending) return;
+      const chunkToFlush = pending;
+      pending = "";
+      onFlush(chunkToFlush);
+    });
+  }, options);
+
+  return {
+    push: inner.push,
+    reset() {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      pending = "";
+      inner.reset();
+    },
+    flush() {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      inner.flush();
+      if (pending) {
+        onFlush(pending);
+        pending = "";
+      }
+    },
+  };
+}
+
+export function createRafReasoningStreamPainter(
+  onFlush: (chunk: string) => void,
+  options?: { maxChunkChars?: number }
+) {
+  let pending = "";
+  let rafId: number | null = null;
+  const inner = createReasoningStreamPainter((chunk) => {
+    pending += chunk;
+    if (rafId !== null) return;
+    rafId = requestAnimationFrame(() => {
+      rafId = null;
+      if (!pending) return;
+      const chunkToFlush = pending;
+      pending = "";
+      onFlush(chunkToFlush);
+    });
+  }, options);
+
+  return {
+    push: inner.push,
+    reset() {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      pending = "";
+      inner.reset();
+    },
+    flush() {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      inner.flush();
+      if (pending) {
+        onFlush(pending);
+        pending = "";
+      }
     },
   };
 }
@@ -211,6 +337,7 @@ export async function consumeChatStream(
   let donePromise: Promise<void> | undefined;
   let receivedDone = false;
   let receivedError = false;
+  let lastErrorStatus: number | undefined;
 
   const handleEvent = (event: string, data: unknown) => {
     if (event === "token") {
@@ -223,14 +350,20 @@ export async function consumeChatStream(
       );
     } else if (event === "error") {
       receivedError = true;
-      handlers.onError(data as ChatStreamErrorPayload);
+      const payload = data as ChatStreamErrorPayload;
+      lastErrorStatus = payload.status;
+      handlers.onError(payload);
     } else if (event === "reset") {
       handlers.onReset?.(data as ChatStreamResetPayload);
     } else if (event === "status") {
       handlers.onStatus?.(data as ChatStreamStatusPayload);
     } else if (event === "reasoning") {
       const payload = data as ChatStreamReasoningPayload;
-      if (payload.token) handlers.onReasoning?.(payload);
+      if (payload.replace && payload.text) {
+        handlers.onReasoning?.(payload);
+      } else if (payload.token) {
+        handlers.onReasoning?.(payload);
+      }
     }
   };
 
@@ -245,7 +378,10 @@ export async function consumeChatStream(
   if (signal) {
     if (signal.aborted) {
       onAbort();
-      handlers.onError({ error: "Request took too long. Please try again.", status: 504 });
+      handlers.onError({
+        error: resolveChatErrorMessage(lastErrorStatus, undefined),
+        status: lastErrorStatus ?? 504,
+      });
       return;
     }
     signal.addEventListener("abort", onAbort, { once: true });
@@ -271,7 +407,10 @@ export async function consumeChatStream(
 
     if (!receivedDone && !receivedError) {
       if (signal?.aborted) {
-        handlers.onError({ error: "Request took too long. Please try again.", status: 504 });
+        handlers.onError({
+          error: resolveChatErrorMessage(lastErrorStatus, undefined),
+          status: lastErrorStatus ?? 504,
+        });
       } else {
         handlers.onError({
           error: "Connection closed before response completed. Please try again.",
