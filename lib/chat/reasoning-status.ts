@@ -504,6 +504,98 @@ export interface ReasoningParagraphInput {
   retryReason?: "dates" | "incomplete";
 }
 
+type RetryStatusFocus =
+  | "academic_calendar"
+  | "lecture_weeks"
+  | "public_holiday"
+  | "uitm_general"
+  | "multi_session"
+  | "matched_activity";
+
+const RETRY_STATUS_POOLS: Record<
+  "dates" | "incomplete",
+  Record<RetryStatusFocus, Record<LangBucket, string[]>>
+> = {
+  dates: {
+    academic_calendar: {
+      en: ["Verifying calendar dates…", "Double-checking official dates…"],
+      malay: ["Mengesahkan tarikh kalendar…", "Menyemak semula tarikh rasmi…"],
+    },
+    lecture_weeks: {
+      en: ["Verifying lecture week dates…", "Double-checking week dates…"],
+      malay: ["Mengesahkan tarikh minggu kuliah…", "Menyemak semula tarikh minggu…"],
+    },
+    public_holiday: {
+      en: ["Verifying holiday dates…", "Double-checking public holidays…"],
+      malay: ["Mengesahkan tarikh cuti…", "Menyemak semula cuti umum…"],
+    },
+    uitm_general: {
+      en: ["Verifying dates and details…", "Double-checking official dates…"],
+      malay: ["Mengesahkan tarikh dan butiran…", "Menyemak semula tarikh rasmi…"],
+    },
+    multi_session: {
+      en: ["Verifying session dates…", "Double-checking semester dates…"],
+      malay: ["Mengesahkan tarikh sesi…", "Menyemak semula tarikh semester…"],
+    },
+    matched_activity: {
+      en: ["Verifying event dates…", "Double-checking calendar dates…"],
+      malay: ["Mengesahkan tarikh acara…", "Menyemak semula tarikh kalendar…"],
+    },
+  },
+  incomplete: {
+    academic_calendar: {
+      en: ["Completing your answer…", "Finishing the response…"],
+      malay: ["Menyiapkan jawapan anda…", "Melengkapkan respons…"],
+    },
+    lecture_weeks: {
+      en: ["Completing your answer…", "Finishing the response…"],
+      malay: ["Menyiapkan jawapan anda…", "Melengkapkan respons…"],
+    },
+    public_holiday: {
+      en: ["Completing your answer…", "Finishing the response…"],
+      malay: ["Menyiapkan jawapan anda…", "Melengkapkan respons…"],
+    },
+    uitm_general: {
+      en: ["Completing your answer…", "Finishing the response…"],
+      malay: ["Menyiapkan jawapan anda…", "Melengkapkan respons…"],
+    },
+    multi_session: {
+      en: ["Completing your answer…", "Finishing the response…"],
+      malay: ["Menyiapkan jawapan anda…", "Melengkapkan respons…"],
+    },
+    matched_activity: {
+      en: ["Completing your answer…", "Finishing the response…"],
+      malay: ["Menyiapkan jawapan anda…", "Melengkapkan respons…"],
+    },
+  },
+};
+
+export type RetryStatusInput = Pick<
+  ReasoningParagraphInput,
+  | "message"
+  | "topics"
+  | "sessionCount"
+  | "hasMatchedActivity"
+  | "retryReason"
+>;
+
+/** Short shimmer label for mid-stream regenerate (retry) — topic + language aware. */
+export function buildRetryStatusLine(input: RetryStatusInput): string {
+  const lang = langBucket(detectUserLanguage(input.message));
+  const retryReason = input.retryReason ?? "incomplete";
+  const focus = resolveTopicFocus({
+    message: input.message,
+    topics: input.topics,
+    hasMatchedActivity: input.hasMatchedActivity,
+    sessionCount: input.sessionCount,
+  }) as RetryStatusFocus;
+  const pool =
+    RETRY_STATUS_POOLS[retryReason][focus]?.[lang] ??
+    RETRY_STATUS_POOLS[retryReason].academic_calendar[lang];
+  const seed = `${input.message}:retry-status:${retryReason}:${focus}`;
+  return pickProgressPhrase(pool, seed);
+}
+
 export interface ReasoningOpenerInput {
   message: string;
   topics: ChatTopic[];

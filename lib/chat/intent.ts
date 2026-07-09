@@ -1,5 +1,11 @@
 import { CHAT_LONG_MESSAGE_THRESHOLD_CHARS } from "@/lib/chat/limits";
 import { CHAT_IN_SCOPE_COMPLETION_HINT } from "@/lib/chat/response-format";
+import {
+  messageAsksAcademicCalendar,
+  messageAsksLectureWeeks,
+  messageAsksPublicHoliday,
+  messageAsksUitmGeneral,
+} from "@/lib/chat/topic-router";
 
 /** Soft cap for "simple date Q" completion style (not a hard block on fast path). */
 const SIMPLE_QUESTION_MAX_CHARS = CHAT_LONG_MESSAGE_THRESHOLD_CHARS * 2; // 640
@@ -305,6 +311,53 @@ export function isSimpleCalendarQuestion(
   if (messageAsksDetail(message)) return false;
   if (isTableFormatRequested(message)) return false;
   return true;
+}
+
+const MINIMAL_CHITCHAT_MAX_WORDS = 2;
+const MINIMAL_CHITCHAT_MAX_CHARS = 24;
+
+const MINIMAL_CHITCHAT_PATTERNS = [
+  /^h(i|ey|ai|alo)\b/i,
+  /^hello\b/i,
+  /^salam\b/i,
+  /^ass?alamu/i,
+  /^thanks?\b/i,
+  /^thank you\b/i,
+  /^ok(ay)?\b/i,
+  /^test\b/i,
+  /^yo\b/i,
+  /^good\s+(morning|afternoon|evening|night)\b/i,
+  /^apa\s+khabar/i,
+  /^how\s+are\s+you\b/i,
+  /^hmm+\b/i,
+];
+
+function hasSubstantiveTopicIntent(message: string): boolean {
+  return (
+    messageAsksAcademicCalendar(message) ||
+    messageAsksLectureWeeks(message) ||
+    messageAsksPublicHoliday(message) ||
+    messageAsksUitmGeneral(message) ||
+    messageAsksDetail(message) ||
+    messageNeedsListOrSchedule(message) ||
+    isTableFormatRequested(message)
+  );
+}
+
+/** Short chitchat or random typing with no calendar/UiTM intent — skip thinking/reasoning UI. */
+export function isMinimalConversationalMessage(message: string): boolean {
+  const trimmed = message.trim();
+  if (!trimmed) return true;
+  if (hasSubstantiveTopicIntent(trimmed)) return false;
+
+  const lower = trimmed.toLowerCase();
+  const words = trimmed.split(/\s+/).filter(Boolean);
+
+  if (MINIMAL_CHITCHAT_PATTERNS.some((pattern) => pattern.test(lower))) {
+    return true;
+  }
+
+  return words.length <= MINIMAL_CHITCHAT_MAX_WORDS && trimmed.length <= MINIMAL_CHITCHAT_MAX_CHARS;
 }
 
 /** Long user input — allow a larger completion budget. */

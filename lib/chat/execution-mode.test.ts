@@ -37,6 +37,7 @@ describe("shouldPreferSingleStream", () => {
         hasMatchedActivity: true,
         isSimple: false,
         topics: ["academic_calendar"],
+        isComplexTurn: true,
       })
     ).toBe(true);
   });
@@ -47,16 +48,18 @@ describe("shouldPreferSingleStream", () => {
         hasMatchedActivity: false,
         isSimple: true,
         topics: ["academic_calendar"],
+        isComplexTurn: false,
       })
     ).toBe(true);
   });
 
-  it("prefers single_stream for calendar-only topics including long academic questions", () => {
+  it("prefers single_stream for calendar-only topics including complex questions", () => {
     expect(
       shouldPreferSingleStream({
         hasMatchedActivity: false,
         isSimple: false,
         topics: ["academic_calendar"],
+        isComplexTurn: true,
       })
     ).toBe(true);
     expect(
@@ -64,6 +67,7 @@ describe("shouldPreferSingleStream", () => {
         hasMatchedActivity: false,
         isSimple: false,
         topics: ["lecture_weeks"],
+        isComplexTurn: true,
       })
     ).toBe(true);
     expect(
@@ -71,6 +75,7 @@ describe("shouldPreferSingleStream", () => {
         hasMatchedActivity: false,
         isSimple: false,
         topics: ["public_holiday"],
+        isComplexTurn: true,
       })
     ).toBe(true);
     expect(
@@ -78,6 +83,7 @@ describe("shouldPreferSingleStream", () => {
         hasMatchedActivity: false,
         isSimple: false,
         topics: ["lecture_weeks", "public_holiday"],
+        isComplexTurn: true,
       })
     ).toBe(true);
     expect(
@@ -85,35 +91,66 @@ describe("shouldPreferSingleStream", () => {
         hasMatchedActivity: false,
         isSimple: false,
         topics: ["academic_calendar", "lecture_weeks"],
+        isComplexTurn: true,
       })
     ).toBe(true);
   });
 
-  it("prefers single_stream for uitm_general topics", () => {
+  it("uses agent for complex uitm_general turns", () => {
     expect(
       shouldPreferSingleStream({
         hasMatchedActivity: false,
         isSimple: false,
         topics: ["uitm_general"],
+        isComplexTurn: true,
       })
-    ).toBe(true);
+    ).toBe(false);
     expect(
       shouldPreferSingleStream({
         hasMatchedActivity: false,
         isSimple: false,
         topics: ["academic_calendar", "uitm_general"],
+        isComplexTurn: true,
+      })
+    ).toBe(false);
+  });
+
+  it("prefers single_stream for simple uitm_general turns", () => {
+    expect(
+      shouldPreferSingleStream({
+        hasMatchedActivity: false,
+        isSimple: true,
+        topics: ["uitm_general"],
+        isComplexTurn: false,
+      })
+    ).toBe(true);
+    expect(
+      shouldPreferSingleStream({
+        hasMatchedActivity: false,
+        isSimple: false,
+        topics: ["uitm_general"],
+        isComplexTurn: false,
       })
     ).toBe(true);
   });
 
-  it("uses agent only when no topics are routed", () => {
+  it("uses agent when no topics are routed and the turn is complex", () => {
     expect(
       shouldPreferSingleStream({
         hasMatchedActivity: false,
         isSimple: false,
         topics: [],
+        isComplexTurn: true,
       })
     ).toBe(false);
+    expect(
+      shouldPreferSingleStream({
+        hasMatchedActivity: false,
+        isSimple: false,
+        topics: [],
+        isComplexTurn: false,
+      })
+    ).toBe(true);
   });
 });
 

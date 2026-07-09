@@ -1,4 +1,4 @@
-# Bila UiTM Cuti - Academic Calenar
+# Bila UiTM Cuti - Academic Calendar
 
 This file is intended for LLM indexing and summarization.
 Primary site: https://bilauitmcuti.com
@@ -12,7 +12,8 @@ Bila UiTM Cuti helps UiTM students check academic dates (registration, lectures,
 - Supports program-specific schedules from Foundation/Professional to PhD.
 - Includes Group A and Group B schedule differences.
 - Handles regional date variations for Kedah, Kelantan, and Terengganu.
-- Provides an AI chat assistant for calendar and UiTM general questions.
+- Provides an AI chat assistant for calendar and UiTM general questions (English or Malay).
+- Installable PWA with offline-friendly service worker and light/dark themes.
 - Links to Find My Internship for discovering internship opportunities from multiple sources across Malaysia.
 
 ## Intended users
@@ -20,34 +21,51 @@ Bila UiTM Cuti helps UiTM students check academic dates (registration, lectures,
 - UiTM community members looking for a simpler calendar reference.
 
 ## Stack
-- Next.js (App Router)
-- React + TypeScript
-- Tailwind CSS + shadcn/ui + Radix UI
+- Next.js 16 (App Router)
+- React 19 + TypeScript
+- Tailwind CSS 4 + shadcn/ui + Radix UI
 - Cloudflare Pages (deployment)
 - Cloudflare Workers AI (chat)
+- Cloudflare AI Gateway (chat rate/spend controls at the edge)
 - Service worker (PWA support)
+- Cloudflare Zaraz → Google Analytics 4 (usage analytics)
 
 ## Data source
 Calendar data comes from an upstream API origin configured by server environment (`CALENDAR_API_BASE`, default `https://api.bilauitmcuti.com`).
-Client requests use same-origin API routes; upstream details stay server-side.
+The browser calls same-origin API routes (`/api/v1/meta`, `/api/v1/calendar`); upstream details stay server-side.
+
+## AI chat assistant
+- Page: /chat
+- API: POST /chat/api (SSE streaming by default; cache hits return JSON)
+- Feedback: POST /chat/feedback/api with assistant correlationId (thumbs up/down)
+- Models by host: Gemma 4 (`@cf/google/gemma-4-26b-a4b-it`) on bilauitmcuti.com and *.pages.dev; Llama 3.2 3B on localhost
+- Production uses a hybrid agent (tool calling for complex turns; single-stream for simple calendar questions)
+- UI streams tokens and human-readable reasoning/tool-status lines over SSE
+- Built-in model thinking is off for latency; reasoning shown in the UI is app-generated status text
+- Chat abuse/cost control is via Cloudflare AI Gateway and optional WAF rules (no in-app daily chat cap)
+- Turnstile protects chat and feedback in production
 
 ## Privacy and security notes
 - No user accounts.
 - No personal profile storage.
-- Uses Cloudflare Analytics and Google Analytics for traffic/usage analytics.
+- Analytics via Cloudflare Zaraz and Google Analytics 4 (no gtag.js in the client bundle).
 - AI queries are stateless and not tied to user profiles.
 - Security reporting: https://bilauitmcuti.com/feedback and hello@bilauitmcuti.com
 
 ## Main pages
-- / : main calendar
+- / : main calendar (grid)
 - /list : list calendar view
+- /[program] and /[program]/list : program-specific calendar views (e.g. /diploma, /bachelor)
 - /chat : AI assistant
+- /download : PWA install instructions
 - /feedback : feedback and report form
-- /sponsor : redirects to https://shahrulestar.com/sponsor
 - /about : project details
+- /sponsor : redirects to https://shahrulestar.com/sponsor
 - /internship : Find My Internship — discover internship opportunities from multiple sources across Malaysia
+- /roadmap : redirects to public Notion roadmap
 
 ## Important context for LLMs
 - This is not an official UiTM product.
 - Use it as a convenience layer for calendar lookup, not as legal/official policy text.
 - If date conflicts happen, official UiTM announcements should be treated as final source of truth.
+- Maintainer: shahrulestar (https://github.com/shahrulestar). Source is MIT-licensed and public for transparency.

@@ -52,6 +52,10 @@ export interface ChatStreamStatusPayload {
 /** Clears partial assistant content before a server-side regenerate (date/incomplete retry). */
 export interface ChatStreamResetPayload {
   reason?: string;
+  /** Stream phase hint, e.g. `retry`. */
+  phase?: string;
+  /** Short user-facing status from server reasoning pools (not hardcoded in UI). */
+  message?: string;
 }
 
 /** Paint reasoning tokens in small chunks for smoother streaming UI updates. */

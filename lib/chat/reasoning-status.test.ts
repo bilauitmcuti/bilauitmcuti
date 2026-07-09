@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildReasoningOpener,
   buildReasoningParagraph,
+  buildRetryStatusLine,
   MAX_REASONING_WORDS,
   MIN_REASONING_WORDS,
   pickProgressPhrase,
@@ -136,5 +137,27 @@ describe("reasoning-status", () => {
     });
     expectParagraph(paragraph);
     expect(paragraph).toMatch(/session|sesi/i);
+  });
+
+  it("builds short retry status lines by language and reason", () => {
+    const datesEn = buildRetryStatusLine({
+      message: "when does semester start?",
+      topics: ["academic_calendar"],
+      sessionCount: 1,
+      hasMatchedActivity: false,
+      retryReason: "dates",
+    });
+    expect(datesEn.length).toBeGreaterThan(0);
+    expect(datesEn.length).toBeLessThan(80);
+    expect(datesEn).toMatch(/verif|double-check/i);
+
+    const incompleteMs = buildRetryStatusLine({
+      message: "senarai cuti semester",
+      topics: ["academic_calendar"],
+      sessionCount: 1,
+      hasMatchedActivity: false,
+      retryReason: "incomplete",
+    });
+    expect(incompleteMs).toMatch(/jawapan|respons/i);
   });
 });

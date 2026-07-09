@@ -138,7 +138,7 @@ export function ChatComposer({
   return (
     <div
       className={cn(
-        "chat-input-area relative min-w-0 overflow-x-hidden pt-1 lg:pt-0.5 pb-6",
+        "chat-input-area relative min-w-0 shrink-0 overflow-x-hidden pt-1 lg:pt-0.5 pb-6",
         isEmptyChat && "lg:pt-0 lg:pb-10"
       )}
     >

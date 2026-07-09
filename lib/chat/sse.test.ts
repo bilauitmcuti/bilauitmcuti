@@ -121,18 +121,24 @@ describe("consumeChatStream", () => {
   it("clears tokens on reset before continuing", async () => {
     const res = streamResponse([
       encodeSseEvent("token", { token: "partial " }),
-      encodeSseEvent("reset", { reason: "incomplete" }),
+      encodeSseEvent("reset", {
+        reason: "incomplete",
+        phase: "retry",
+        message: "Completing your answer…",
+      }),
       encodeSseEvent("token", { token: "final" }),
       encodeSseEvent("done", { reply: "final", correlationId: "c1" }),
     ]);
     const tokens: string[] = [];
     let resetCount = 0;
+    let resetPayload: { message?: string; phase?: string } | undefined;
     let done: { reply: string } | undefined;
 
     await consumeChatStream(res, {
       onToken: (t) => tokens.push(t),
-      onReset: () => {
+      onReset: (payload) => {
         resetCount += 1;
+        resetPayload = payload;
         tokens.length = 0;
       },
       onDone: (p) => {
@@ -142,6 +148,8 @@ describe("consumeChatStream", () => {
     });
 
     expect(resetCount).toBe(1);
+    expect(resetPayload?.phase).toBe("retry");
+    expect(resetPayload?.message).toBe("Completing your answer…");
     expect(tokens).toEqual(["final"]);
     expect(done?.reply).toBe("final");
   });
