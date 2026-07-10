@@ -1,18 +1,64 @@
 import type { MatchedActivity } from "@/lib/chat/activity-match";
 import type { ChatToolName } from "@/lib/chat/agent/types";
+import type { CalendarContextIntent } from "@/lib/chat/calendar-intent";
 import { detectUserLanguage, type UserLanguageMode } from "@/lib/chat-language";
 import type { ChatTopic } from "@/lib/chat/topic-router";
 
-export const MIN_REASONING_WORDS = 15;
-export const MAX_REASONING_WORDS = 40;
+export const MIN_REASONING_WORDS = 18;
+export const MAX_REASONING_WORDS = 64;
 
-const FORBIDDEN_STATUS_TERMS =
-  /\b(function calling|tool calls?|rag\b|embeddings?|vector search|loading data|internal apis?|composing answer|chain of thought|reasoning process|prefetch|prompts?)\b/i;
+export const FORBIDDEN_STATUS_TERMS =
+  /\b(function[\s-]?calling|function calls?|tool calls?|\btools\b|\brag\b|embeddings?|vector search|loading data|internal apis?|\bapi\b|\bapis\b|databases?|composing answer|chain of thought|reasoning process|prefetch|\bprompts?\b)\b/i;
 
 export type ReasoningPhase = "start" | "progress" | "final" | "retry";
+export type ReasoningPhaseHint = "pre_answer" | "tool_progress" | "retry";
 export type LangBucket = "en" | "malay";
 
-function langBucket(mode: UserLanguageMode): LangBucket {
+/** Internal intent keys used for template fallback and LLM hints. */
+export type ReasoningIntent =
+  | "semester_start"
+  | "short_semester"
+  | "lecture_weeks"
+  | "lecture_week_list"
+  | "semester_break"
+  | "exam_dates"
+  | "public_holiday"
+  | "registration"
+  | "student_fees"
+  | "uitm_general"
+  | "matched_activity"
+  | "multi_session"
+  | "general_info"
+  | "retry";
+
+export interface ReasoningStatus {
+  intent: string;
+  topic: string;
+  source: string;
+  progress_summary: string;
+}
+
+export interface ReasoningStatusInput {
+  message: string;
+  topics: ChatTopic[];
+  programLabel: string;
+  sessionCount: number;
+  hasMatchedActivity: boolean;
+  activityMatches?: MatchedActivity[];
+  contextIntent?: CalendarContextIntent;
+  needsList?: boolean;
+  phaseHint?: ReasoningPhaseHint;
+  toolName?: ChatToolName;
+  retryReason?: "dates" | "incomplete";
+}
+
+export interface ReasoningValidationResult {
+  status: ReasoningStatus;
+  /** True when status.topic does not match the final answer topic — handler should refine via LLM. */
+  needsLlmRefine: boolean;
+}
+
+export function langBucket(mode: UserLanguageMode): LangBucket {
   return mode === "malay" ? "malay" : "en";
 }
 
@@ -34,7 +80,7 @@ export function pickProgressPhrase(pool: readonly string[], seed: string): strin
   return pool[hashSeed(seed) % pool.length]!;
 }
 
-function fillTemplate(template: string, vars: Record<string, string>): string {
+export function fillTemplate(template: string, vars: Record<string, string>): string {
   return template
     .replace(/\{(\w+)\}/g, (_, key: string) => vars[key] ?? "")
     .replace(/\s{2,}/g, " ")
@@ -42,7 +88,11 @@ function fillTemplate(template: string, vars: Record<string, string>): string {
     .trim();
 }
 
-function clampWords(text: string, min = MIN_REASONING_WORDS, max = MAX_REASONING_WORDS): string {
+export function clampWords(
+  text: string,
+  min = MIN_REASONING_WORDS,
+  max = MAX_REASONING_WORDS
+): string {
   const cleaned = text.replace(/\s+/g, " ").trim();
   const words = cleaned.split(" ").filter(Boolean);
   if (words.length <= max && words.length >= min) return cleaned;
@@ -53,13 +103,45 @@ function clampWords(text: string, min = MIN_REASONING_WORDS, max = MAX_REASONING
   return cleaned;
 }
 
-function isValidParagraph(text: string): boolean {
+export function hasForbiddenStatusTerms(text: string): boolean {
+  return FORBIDDEN_STATUS_TERMS.test(text);
+}
+
+export function isValidProgressSummary(text: string): boolean {
   const words = wordCount(text);
   return (
     words >= MIN_REASONING_WORDS &&
     words <= MAX_REASONING_WORDS &&
-    !FORBIDDEN_STATUS_TERMS.test(text)
+    !hasForbiddenStatusTerms(text) &&
+    !text.includes("\n")
   );
+}
+
+function isStudentFeeMessage(message: string): boolean {
+  return /\b(yuran pengajian|yuran kolej|tuition fee|college fee|hostel fee|bilik berdua|bilik bertiga|bilik berempat|barang elektrik|senarai yuran)\b/i.test(
+    message
+  );
+}
+
+function isShortSemesterMessage(message: string): boolean {
+  return /\b(short semester|intersession|semester pendek|sesi pendek)\b/i.test(message);
+}
+
+function isSemesterStartMessage(message: string): boolean {
+  return /\b(bermula|mula kuliah|kuliah.*mula|start(s|ing)?\s+(of\s+)?(the\s+)?(semester|lecture|class)|when\s+do(es)?\s+(lecture|class|semester)|semester\s+start|lecture\s+start)\b/i.test(
+    message
+  );
+}
+
+function isLectureWeekListMessage(message: string, needsList?: boolean): boolean {
+  if (
+    /\b(week\s*1\s*[-–to]+\s*14|minggu\s*1\s*[-–hingga]+\s*14|list\s+(semua\s+)?week|senarai\s+(semua\s+)?minggu|all\s+weeks?)\b/i.test(
+      message
+    )
+  ) {
+    return true;
+  }
+  return Boolean(needsList && /\b(week|minggu)\b/i.test(message));
 }
 
 function isStudentFocusedMessage(message: string): boolean {
@@ -98,399 +180,275 @@ function resolveTopicFocus(input: {
   return "academic_calendar";
 }
 
-function programPhrase(programLabel: string, lang: LangBucket): string {
-  if (programLabel === "All") {
-    return lang === "malay" ? "semua program" : "all programmes";
+export function resolveReasoningIntent(input: ReasoningStatusInput): ReasoningIntent {
+  if (input.phaseHint === "retry") return "retry";
+
+  const lower = input.message.toLowerCase().trim();
+  const contextIntent = input.contextIntent ?? "all";
+
+  if (input.hasMatchedActivity) return "matched_activity";
+  if (input.sessionCount > 1) return "multi_session";
+
+  if (isShortSemesterMessage(lower)) return "short_semester";
+  if (isLectureWeekListMessage(lower, input.needsList)) return "lecture_week_list";
+  if (
+    isSemesterStartMessage(lower) ||
+    (contextIntent === "lecture" && /\b(bermula|start|mula)\b/i.test(lower))
+  ) {
+    return "semester_start";
   }
-  return lang === "malay" ? `program ${programLabel}` : `the ${programLabel} programme`;
+
+  if (input.topics.includes("lecture_weeks") || contextIntent === "lecture_count") {
+    return "lecture_weeks";
+  }
+  if (input.topics.includes("public_holiday")) return "public_holiday";
+
+  if (
+    isStudentFeeMessage(lower) ||
+    (contextIntent === "fee" && input.topics.includes("uitm_general"))
+  ) {
+    return "student_fees";
+  }
+  if (contextIntent === "registration") return "registration";
+  if (contextIntent === "exam") return "exam_dates";
+  if (
+    contextIntent === "break" ||
+    /\b(cuti semester|semester break|mid-semester|cuti pertengahan)\b/i.test(lower)
+  ) {
+    return "semester_break";
+  }
+
+  if (input.topics.includes("uitm_general") && !input.topics.includes("academic_calendar")) {
+    return isStudentFocusedMessage(lower) ? "student_fees" : "uitm_general";
+  }
+  if (input.topics.includes("uitm_general")) return "uitm_general";
+  if (input.topics.includes("academic_calendar")) {
+    if (contextIntent === "lecture") return "semester_start";
+    return "general_info";
+  }
+
+  return "general_info";
 }
 
-function sessionPhrase(sessionCount: number, lang: LangBucket): string {
-  if (lang === "malay") return `${sessionCount} sesi`;
-  return sessionCount === 1 ? "one session" : `${sessionCount} sessions`;
+export function resolveReasoningSource(
+  intent: ReasoningIntent,
+  topics: ChatTopic[]
+): string {
+  if (intent === "public_holiday" || topics.includes("public_holiday")) {
+    return "official public holiday calendar";
+  }
+  if (
+    intent === "uitm_general" ||
+    intent === "student_fees" ||
+    (topics.includes("uitm_general") && !topics.includes("academic_calendar"))
+  ) {
+    return "official UiTM information";
+  }
+  return "official academic calendar";
 }
 
-const PARAGRAPH_POOLS: Record<
-  ReasoningPhase,
-  Record<TopicFocus, Record<LangBucket, readonly string[]>>
-> = {
-  start: {
-    academic_calendar: {
-      en: [
-        "I'm checking the official UiTM academic calendar for {program} to find the correct semester and confirm the dates before preparing your answer.",
-        "I'm reviewing the official UiTM academic calendar for {program} students to locate the right semester and verify the dates before I answer.",
-        "Let me look through the official UiTM academic calendar for {program} to identify the correct semester and double-check the dates for you.",
-      ],
-      malay: [
-        "Saya sedang menyemak kalendar akademik rasmi UiTM untuk {program} bagi mencari semester yang betul dan mengesahkan tarikh sebelum menyediakan jawapan anda.",
-        "Saya meneliti kalendar akademik rasmi UiTM untuk pelajar {program} bagi mencari semester yang tepat dan mengesahkan tarikh sebelum menjawab.",
-        "Izinkan saya menyemak kalendar akademik rasmi UiTM untuk {program} bagi mengenal pasti semester yang betul dan memastikan tarikhnya tepat untuk anda.",
-      ],
-    },
-    lecture_weeks: {
-      en: [
-        "I'm checking the official lecture week schedule for {program} to find the right week and confirm the dates before preparing your answer.",
-        "I'm reviewing the UiTM lecture week calendar for {program} students so I can identify the correct week and verify the dates for you.",
-        "Let me look through the official lecture week dates for {program} to make sure I point you to the right week before answering.",
-      ],
-      malay: [
-        "Saya sedang menyemak jadual minggu kuliah rasmi untuk {program} bagi mencari minggu yang betul dan mengesahkan tarikh sebelum menyediakan jawapan anda.",
-        "Saya meneliti kalendar minggu kuliah UiTM untuk pelajar {program} supaya minggu yang tepat dapat dikenal pasti dan tarikhnya disahkan.",
-        "Izinkan saya menyemak tarikh minggu kuliah rasmi untuk {program} bagi memastikan minggu yang betul dikenal pasti sebelum saya menjawab.",
-      ],
-    },
-    public_holiday: {
-      en: [
-        "I'm checking the official public holiday dates that apply to UiTM and your {program} calendar, so I can confirm what's correct before answering.",
-        "I'm reviewing the public holiday schedule for UiTM and {program} students to make sure the dates I share match the official calendar.",
-        "Let me verify the public holiday dates relevant to UiTM and {program}, so I can confirm the right days before preparing your answer.",
-      ],
-      malay: [
-        "Saya sedang menyemak tarikh cuti umum rasmi yang berkaitan dengan UiTM dan kalendar {program} anda, supaya perkara yang betul dapat disahkan sebelum saya menjawab.",
-        "Saya meneliti jadual cuti umum untuk pelajar UiTM dan {program} bagi memastikan tarikh yang dikongsi sepadan dengan kalendar rasmi.",
-        "Izinkan saya mengesahkan tarikh cuti umum yang relevan untuk UiTM dan {program}, supaya hari yang betul dapat dipastikan sebelum jawapan disediakan.",
-      ],
-    },
-    uitm_only: {
-      en: [
-        "I'm looking up reliable UiTM information on campuses, fees, and student services that fits your question, so I can answer clearly and accurately.",
-        "I'm reviewing trusted UiTM details about campuses, student life, and official policies, so what I share is easy to understand and accurate.",
-        "Let me gather the UiTM information that best matches your question about student services and official details before I prepare the answer.",
-      ],
-      malay: [
-        "Saya sedang mencari maklumat UiTM yang boleh dipercayai tentang kampus, yuran, dan perkhidmatan pelajar yang sepadan dengan soalan anda, supaya jawapan jelas dan tepat.",
-        "Saya meneliti butiran UiTM tentang kampus, kehidupan pelajar, dan polisi rasmi, supaya perkongsian saya mudah difahami dan tepat.",
-        "Izinkan saya mengumpulkan maklumat UiTM yang paling relevan tentang perkhidmatan pelajar dan butiran rasmi sebelum jawapan disediakan.",
-      ],
-    },
-    uitm_calendar: {
-      en: [
-        "I'm cross-checking the official UiTM academic calendar and student information for {program}, so I can confirm the right dates and details before answering.",
-        "I'm reviewing both the academic calendar and UiTM information for {program} students to make sure the dates and context line up before I respond.",
-        "Let me compare the official calendar with relevant UiTM details for {program}, so I can verify the dates and share a clear answer.",
-      ],
-      malay: [
-        "Saya sedang membandingkan kalendar akademik rasmi UiTM dan maklumat pelajar untuk {program}, supaya tarikh dan butiran yang betul dapat disahkan sebelum saya menjawab.",
-        "Saya meneliti kalendar akademik serta maklumat UiTM untuk pelajar {program} bagi memastikan tarikh dan konteks adalah selari sebelum jawapan diberi.",
-        "Izinkan saya memadankan kalendar rasmi dengan butiran UiTM yang relevan untuk {program}, supaya tarikh disahkan dan jawapan yang jelas dapat dikongsi.",
-      ],
-    },
-    student: {
-      en: [
-        "I'm reviewing official UiTM information that matters to students, including fees, campuses, and academic dates, so I can answer your question clearly and confidently.",
-        "I'm checking trusted UiTM student information across fees, registration, and campus details, so what I share is accurate and easy to follow.",
-        "Let me gather the UiTM student details that fit your question, including official dates and programme information, before I prepare the answer.",
-      ],
-      malay: [
-        "Saya sedang meneliti maklumat rasmi UiTM yang penting untuk pelajar, termasuk yuran, kampus, dan tarikh akademik, supaya soalan anda dapat dijawab dengan jelas dan yakin.",
-        "Saya menyemak maklumat pelajar UiTM yang dipercayai merangkumi yuran, pendaftaran, dan butiran kampus, supaya perkongsian saya tepat dan mudah difahami.",
-        "Izinkan saya mengumpulkan butiran pelajar UiTM yang relevan dengan soalan anda, termasuk tarikh rasmi dan maklumat program, sebelum jawapan disediakan.",
-      ],
-    },
-    multi_session: {
-      en: [
-        "You've selected {sessions}, so I'm comparing the official UiTM academic calendar across them to make sure the dates line up before answering.",
-        "Because you chose {sessions}, I'm reviewing the academic calendar for each one to confirm the right semester dates before preparing your answer.",
-        "I'm checking {sessions} against the official UiTM calendar to verify the semester dates match before I share a clear answer with you.",
-      ],
-      malay: [
-        "Anda telah memilih {sessions}, jadi saya membandingkan kalendar akademik rasmi UiTM bagi setiap satu supaya tarikh adalah selari sebelum saya menjawab.",
-        "Memandangkan anda memilih {sessions}, saya meneliti kalendar akademik untuk setiap sesi bagi mengesahkan tarikh semester yang betul sebelum jawapan disediakan.",
-        "Saya sedang menyemak {sessions} berdasarkan kalendar rasmi UiTM untuk memastikan tarikh semester sepadan sebelum jawapan yang jelas dikongsi.",
-      ],
-    },
-    matched_activity: {
-      en: [
-        "I found {activity} on the academic calendar. I'm confirming the official dates so what I share matches the published UiTM schedule before answering.",
-        "I can see {activity} in the calendar. I'm double-checking the official dates for {program} so your answer reflects the latest published information.",
-        "I've spotted {activity} on the UiTM calendar and I'm verifying the official dates for {program} before preparing a clear answer for you.",
-      ],
-      malay: [
-        "Saya menjumpai {activity} dalam kalendar akademik. Saya mengesahkan tarikh rasmi supaya perkongsian saya sepadan dengan jadual UiTM yang diterbitkan sebelum menjawab.",
-        "Saya dapat melihat {activity} dalam kalendar. Saya menyemak semula tarikh rasmi untuk {program} supaya jawapan anda mencerminkan maklumat terkini.",
-        "Saya telah mengenal pasti {activity} dalam kalendar UiTM dan sedang mengesahkan tarikh rasmi untuk {program} sebelum jawapan yang jelas disediakan.",
-      ],
-    },
-  },
-  progress: {
-    academic_calendar: {
-      en: [
-        "The relevant semester has been identified. I'm verifying the dates to ensure the information matches the latest official academic calendar.",
-        "I've narrowed down the right semester. Now I'm cross-checking the dates against the official UiTM academic calendar before finishing your answer.",
-        "The semester looks clear now. I'm confirming each date against the official academic calendar so the details I share are reliable.",
-      ],
-      malay: [
-        "Semester yang relevan telah dikenal pasti. Saya mengesahkan tarikh supaya maklumat sepadan dengan kalendar akademik rasmi yang terkini.",
-        "Saya telah mengecilkan kepada semester yang betul. Kini tarikh sedang dibandingkan dengan kalendar akademik rasmi UiTM sebelum jawapan disiapkan.",
-        "Semester kelihatan jelas sekarang. Saya mengesahkan setiap tarikh berdasarkan kalendar akademik rasmi supaya butiran yang dikongsi boleh dipercayai.",
-      ],
-    },
-    lecture_weeks: {
-      en: [
-        "The relevant lecture week is coming into focus. I'm verifying the dates against the official schedule so the week I mention is accurate.",
-        "I've identified the likely week. Now I'm confirming the dates on the official UiTM lecture week calendar before preparing your answer.",
-        "The week looks clearer now. I'm double-checking the official lecture week dates for {program} so what I share is reliable.",
-      ],
-      malay: [
-        "Minggu kuliah yang relevan semakin jelas. Saya mengesahkan tarikh berdasarkan jadual rasmi supaya minggu yang disebut adalah tepat.",
-        "Saya telah mengenal pasti minggu yang berkemungkinan. Kini tarikh sedang disahkan pada kalendar minggu kuliah rasmi UiTM sebelum jawapan disediakan.",
-        "Minggu tersebut kelihatan lebih jelas. Saya menyemak semula tarikh minggu kuliah rasmi untuk {program} supaya perkongsian saya boleh dipercayai.",
-      ],
-    },
-    public_holiday: {
-      en: [
-        "The relevant holidays are coming into view. I'm verifying each date against the official public holiday calendar before I answer.",
-        "I've identified the holidays that apply. Now I'm confirming the dates match the official UiTM and national holiday schedule.",
-        "The holiday dates look clearer now. I'm double-checking them against the official calendar so what I share is accurate.",
-      ],
-      malay: [
-        "Cuti yang relevan semakin jelas. Saya mengesahkan setiap tarikh berdasarkan kalendar cuti umum rasmi sebelum saya menjawab.",
-        "Saya telah mengenal pasti cuti yang berkenaan. Kini tarikh sedang disahkan supaya ia sepadan dengan jadual cuti UiTM dan kebangsaan.",
-        "Tarikh cuti kelihatan lebih jelas. Saya menyemak semula tarikh tersebut berdasarkan kalendar rasmi supaya perkongsian saya tepat.",
-      ],
-    },
-    uitm_only: {
-      en: [
-        "The most relevant UiTM details are coming together. I'm confirming campuses, fees, and student information so your answer is accurate.",
-        "I've found the UiTM information that fits your question. Now I'm reviewing it carefully so what I share is clear and trustworthy.",
-        "The key UiTM student details are clearer now. I'm verifying them before I put your answer together.",
-      ],
-      malay: [
-        "Butiran UiTM yang paling relevan semakin lengkap. Saya mengesahkan kampus, yuran, dan maklumat pelajar supaya jawapan anda tepat.",
-        "Saya telah menemui maklumat UiTM yang sepadan dengan soalan anda. Kini ia disemak dengan teliti supaya perkongsian saya jelas dan boleh dipercayai.",
-        "Butiran pelajar UiTM utama kelihatan lebih jelas. Saya mengesahkannya sebelum jawapan anda disediakan.",
-      ],
-    },
-    uitm_calendar: {
-      en: [
-        "The calendar dates and UiTM details are lining up. I'm verifying both so the semester information and student context are accurate.",
-        "I've matched the academic dates with the relevant UiTM information. Now I'm confirming everything before preparing your answer.",
-        "The dates and UiTM details look consistent now. I'm double-checking them so your answer reflects the latest official information.",
-      ],
-      malay: [
-        "Tarikh kalendar dan butiran UiTM semakin selari. Saya mengesahkan kedua-duanya supaya maklumat semester dan konteks pelajar adalah tepat.",
-        "Saya telah memadankan tarikh akademik dengan maklumat UiTM yang relevan. Kini semuanya disahkan sebelum jawapan anda disediakan.",
-        "Tarikh dan butiran UiTM kelihatan konsisten. Saya menyemak semula supaya jawapan anda mencerminkan maklumat rasmi terkini.",
-      ],
-    },
-    student: {
-      en: [
-        "The student information that matters is coming together. I'm verifying fees, campuses, and official dates so your answer is reliable.",
-        "I've found the UiTM details most relevant to students. Now I'm confirming them carefully before I finish your answer.",
-        "The key details for students look clearer now. I'm double-checking official UiTM information so what I share is accurate.",
-      ],
-      malay: [
-        "Maklumat pelajar yang penting semakin lengkap. Saya mengesahkan yuran, kampus, dan tarikh rasmi supaya jawapan anda boleh dipercayai.",
-        "Saya telah menemui butiran UiTM yang paling relevan untuk pelajar. Kini ia disahkan dengan teliti sebelum jawapan disiapkan.",
-        "Butiran utama untuk pelajar kelihatan lebih jelas. Saya menyemak semula maklumat rasmi UiTM supaya perkongsian saya tepat.",
-      ],
-    },
-    multi_session: {
-      en: [
-        "The sessions you selected are lining up. I'm verifying the semester dates across each one so the comparison I share is accurate.",
-        "I've compared the calendars for your selected sessions. Now I'm confirming the dates match the official UiTM schedule.",
-        "The session dates look clearer now. I'm double-checking each semester against the official calendar before answering.",
-      ],
-      malay: [
-        "Sesi yang anda pilih semakin selari. Saya mengesahkan tarikh semester bagi setiap satu supaya perbandingan yang dikongsi adalah tepat.",
-        "Saya telah membandingkan kalendar untuk sesi terpilih. Kini tarikh disahkan supaya ia sepadan dengan jadual rasmi UiTM.",
-        "Tarikh sesi kelihatan lebih jelas. Saya menyemak semula setiap semester berdasarkan kalendar rasmi sebelum menjawab.",
-      ],
-    },
-    matched_activity: {
-      en: [
-        "I've confirmed where {activity} sits on the calendar. I'm verifying the official dates for {program} so your answer reflects the published schedule.",
-        "The event dates are coming into focus. I'm double-checking {activity} against the official UiTM calendar before preparing your answer.",
-        "I've matched {activity} to the right period. Now I'm confirming the official dates so what I share is accurate and up to date.",
-      ],
-      malay: [
-        "Saya telah mengesahkan kedudukan {activity} dalam kalendar. Saya menyemak tarikh rasmi untuk {program} supaya jawapan mencerminkan jadual diterbitkan.",
-        "Tarikh acara semakin jelas. Saya menyemak semula {activity} berdasarkan kalendar rasmi UiTM sebelum jawapan disediakan.",
-        "Saya telah memadankan {activity} dengan tempoh yang betul. Kini tarikh rasmi disahkan supaya perkongsian saya tepat dan terkini.",
-      ],
-    },
-  },
-  final: {
-    academic_calendar: {
-      en: [
-        "Everything has been verified. I'm preparing a clear and accurate answer based on the latest official information.",
-        "The dates check out. I'm putting together a clear answer you can rely on from the official academic calendar.",
-        "All the key details are confirmed. I'm preparing a straightforward answer based on the latest official UiTM calendar.",
-      ],
-      malay: [
-        "Semuanya telah disahkan. Saya sedang menyediakan jawapan yang jelas dan tepat berdasarkan maklumat rasmi terkini.",
-        "Tarikh tersebut tepat. Saya menyusun jawapan yang jelas yang boleh anda rujuk daripada kalendar akademik rasmi.",
-        "Semua butiran penting telah disahkan. Saya menyediakan jawapan yang mudah difahami berdasarkan kalendar rasmi UiTM terkini.",
-      ],
-    },
-    lecture_weeks: {
-      en: [
-        "The lecture week dates are verified. I'm preparing a clear answer based on the official UiTM schedule.",
-        "Everything checks out for your week. I'm putting together a straightforward answer you can trust.",
-        "The week and dates are confirmed. I'm preparing a clear response from the official lecture week calendar.",
-      ],
-      malay: [
-        "Tarikh minggu kuliah telah disahkan. Saya sedang menyediakan jawapan yang jelas berdasarkan jadual rasmi UiTM.",
-        "Semuanya tepat untuk minggu anda. Saya menyusun jawapan yang mudah difahami dan boleh dipercayai.",
-        "Minggu dan tarikh telah disahkan. Saya menyediakan jawapan yang jelas daripada kalendar minggu kuliah rasmi.",
-      ],
-    },
-    public_holiday: {
-      en: [
-        "The holiday dates are verified. I'm preparing a clear answer based on the official public holiday calendar.",
-        "Everything checks out. I'm putting together a straightforward answer about the public holidays that apply.",
-        "The dates are confirmed. I'm preparing a clear response you can rely on from the official holiday schedule.",
-      ],
-      malay: [
-        "Tarikh cuti telah disahkan. Saya sedang menyediakan jawapan yang jelas berdasarkan kalendar cuti umum rasmi.",
-        "Semuanya tepat. Saya menyusun jawapan yang mudah difahami tentang cuti umum yang berkenaan.",
-        "Tarikh telah disahkan. Saya menyediakan jawapan yang jelas daripada jadual cuti rasmi yang boleh dipercayai.",
-      ],
-    },
-    uitm_only: {
-      en: [
-        "The UiTM information is verified. I'm preparing a clear and helpful answer based on official student details.",
-        "Everything looks consistent. I'm putting together a straightforward answer about UiTM that you can trust.",
-        "The details are confirmed. I'm preparing a clear response based on reliable UiTM information for students.",
-      ],
-      malay: [
-        "Maklumat UiTM telah disahkan. Saya sedang menyediakan jawapan yang jelas dan membantu berdasarkan butiran rasmi pelajar.",
-        "Semuanya kelihatan konsisten. Saya menyusun jawapan yang mudah difahami tentang UiTM yang boleh anda percayai.",
-        "Butiran telah disahkan. Saya menyediakan jawapan yang jelas berdasarkan maklumat UiTM yang boleh dipercayai untuk pelajar.",
-      ],
-    },
-    uitm_calendar: {
-      en: [
-        "The calendar and UiTM details are verified. I'm preparing a clear answer based on the latest official information.",
-        "Everything lines up. I'm putting together a straightforward answer that combines the dates and UiTM context you need.",
-        "All the key details are confirmed. I'm preparing a clear response you can rely on from official UiTM sources.",
-      ],
-      malay: [
-        "Kalendar dan butiran UiTM telah disahkan. Saya sedang menyediakan jawapan yang jelas berdasarkan maklumat rasmi terkini.",
-        "Semuanya selari. Saya menyusun jawapan yang mudah difahami yang menggabungkan tarikh dan konteks UiTM yang anda perlukan.",
-        "Semua butiran penting telah disahkan. Saya menyediakan jawapan yang jelas daripada sumber rasmi UiTM yang boleh dipercayai.",
-      ],
-    },
-    student: {
-      en: [
-        "The student details are verified. I'm preparing a clear answer based on official UiTM information you can trust.",
-        "Everything checks out. I'm putting together a helpful answer about fees, campuses, and dates for UiTM students.",
-        "The information is confirmed. I'm preparing a clear and accurate response tailored to what students need to know.",
-      ],
-      malay: [
-        "Butiran pelajar telah disahkan. Saya sedang menyediakan jawapan yang jelas berdasarkan maklumat rasmi UiTM yang boleh dipercayai.",
-        "Semuanya tepat. Saya menyusun jawapan yang membantu tentang yuran, kampus, dan tarikh untuk pelajar UiTM.",
-        "Maklumat telah disahkan. Saya menyediakan jawapan yang jelas dan tepat mengikut apa yang pelajar perlu tahu.",
-      ],
-    },
-    multi_session: {
-      en: [
-        "The session dates are verified across your selection. I'm preparing a clear answer that compares them accurately.",
-        "Everything lines up between the sessions. I'm putting together a straightforward comparison you can rely on.",
-        "All selected sessions are confirmed. I'm preparing a clear answer based on the official academic calendar.",
-      ],
-      malay: [
-        "Tarikh sesi telah disahkan merentas pilihan anda. Saya sedang menyediakan jawapan yang jelas untuk perbandingan yang tepat.",
-        "Semuanya selari antara sesi. Saya menyusun perbandingan yang mudah difahami dan boleh dipercayai.",
-        "Semua sesi terpilih telah disahkan. Saya menyediakan jawapan yang jelas berdasarkan kalendar akademik rasmi.",
-      ],
-    },
-    matched_activity: {
-      en: [
-        "The dates for {activity} are verified. I'm preparing a clear answer based on the official UiTM calendar.",
-        "Everything checks out for {activity}. I'm putting together a straightforward answer you can rely on.",
-        "The event details are confirmed. I'm preparing a clear response about {activity} from the official schedule.",
-      ],
-      malay: [
-        "Tarikh untuk {activity} telah disahkan. Saya sedang menyediakan jawapan yang jelas berdasarkan kalendar rasmi UiTM.",
-        "Semuanya tepat untuk {activity}. Saya menyusun jawapan yang mudah difahami dan boleh dipercayai.",
-        "Butiran acara telah disahkan. Saya menyediakan jawapan yang jelas tentang {activity} daripada jadual rasmi.",
-      ],
-    },
-  },
-  retry: {
-    academic_calendar: {
-      en: [
-        "I want to be sure about the dates, so I'm double-checking them against the official academic calendar before finishing your answer.",
-        "The dates deserve another look. I'm verifying them once more against the official UiTM calendar so your answer is accurate.",
-      ],
-      malay: [
-        "Saya mahu memastikan tarikh adalah tepat, jadi saya menyemak semula berdasarkan kalendar akademik rasmi sebelum menyiapkan jawapan anda.",
-        "Tarikh perlu disemak sekali lagi. Saya mengesahkannya berdasarkan kalendar rasmi UiTM supaya jawapan anda tepat.",
-      ],
-    },
-    lecture_weeks: {
-      en: [
-        "I want to be sure about the week and dates, so I'm verifying them again against the official lecture week calendar.",
-        "The week deserves another check. I'm confirming the dates once more before finishing your answer.",
-      ],
-      malay: [
-        "Saya mahu memastikan minggu dan tarikh adalah tepat, jadi saya mengesahkannya sekali lagi berdasarkan kalendar minggu kuliah rasmi.",
-        "Minggu tersebut perlu disemak semula. Saya mengesahkan tarikh sekali lagi sebelum menyiapkan jawapan anda.",
-      ],
-    },
-    public_holiday: {
-      en: [
-        "I want to be sure about the holiday dates, so I'm verifying them again against the official public holiday calendar.",
-        "The holidays deserve another look. I'm confirming the dates once more before finishing your answer.",
-      ],
-      malay: [
-        "Saya mahu memastikan tarikh cuti adalah tepat, jadi saya mengesahkannya sekali lagi berdasarkan kalendar cuti umum rasmi.",
-        "Cuti tersebut perlu disemak semula. Saya mengesahkan tarikh sekali lagi sebelum menyiapkan jawapan anda.",
-      ],
-    },
-    uitm_only: {
-      en: [
-        "I want to be sure the UiTM details are right, so I'm reviewing the official student information once more before answering.",
-        "The information deserves another check. I'm confirming the UiTM details before finishing your answer.",
-      ],
-      malay: [
-        "Saya mahu memastikan butiran UiTM adalah betul, jadi saya meneliti maklumat pelajar rasmi sekali lagi sebelum menjawab.",
-        "Maklumat tersebut perlu disemak semula. Saya mengesahkan butiran UiTM sebelum menyiapkan jawapan anda.",
-      ],
-    },
-    uitm_calendar: {
-      en: [
-        "I want to be sure the dates and UiTM details match, so I'm reviewing them once more before finishing your answer.",
-        "The calendar and student details deserve another check. I'm confirming everything before I respond.",
-      ],
-      malay: [
-        "Saya mahu memastikan tarikh dan butiran UiTM sepadan, jadi saya menelitinya sekali lagi sebelum menyiapkan jawapan anda.",
-        "Kalendar dan butiran pelajar perlu disemak semula. Saya mengesahkan semuanya sebelum menjawab.",
-      ],
-    },
-    student: {
-      en: [
-        "I want to be sure the student information is accurate, so I'm reviewing the official UiTM details once more before answering.",
-        "The student details deserve another look. I'm confirming fees, campuses, and dates before finishing your answer.",
-      ],
-      malay: [
-        "Saya mahu memastikan maklumat pelajar adalah tepat, jadi saya meneliti butiran rasmi UiTM sekali lagi sebelum menjawab.",
-        "Butiran pelajar perlu disemak semula. Saya mengesahkan yuran, kampus, dan tarikh sebelum menyiapkan jawapan anda.",
-      ],
-    },
-    multi_session: {
-      en: [
-        "I want to be sure the session dates line up, so I'm comparing them once more against the official academic calendar.",
-        "The sessions deserve another check. I'm verifying the semester dates again before finishing your answer.",
-      ],
-      malay: [
-        "Saya mahu memastikan tarikh sesi adalah selari, jadi saya membandingkannya sekali lagi berdasarkan kalendar akademik rasmi.",
-        "Sesi tersebut perlu disemak semula. Saya mengesahkan tarikh semester sekali lagi sebelum menyiapkan jawapan anda.",
-      ],
-    },
-    matched_activity: {
-      en: [
-        "I want to be sure about the dates for {activity}, so I'm verifying them again against the official UiTM calendar.",
-        "The event deserves another check. I'm confirming {activity} once more before finishing your answer.",
-      ],
-      malay: [
-        "Saya mahu memastikan tarikh untuk {activity} adalah tepat, jadi saya mengesahkannya sekali lagi berdasarkan kalendar rasmi UiTM.",
-        "Acara tersebut perlu disemak semula. Saya mengesahkan {activity} sekali lagi sebelum menyiapkan jawapan anda.",
-      ],
-    },
-  },
+export function resolveReasoningTopic(
+  intent: ReasoningIntent,
+  input: ReasoningStatusInput
+): string {
+  const activityName = input.activityMatches?.[0]?.activity.name?.trim();
+  switch (intent) {
+    case "semester_start":
+      return "lecture start date";
+    case "short_semester":
+      return "short semester dates";
+    case "lecture_weeks":
+    case "lecture_week_list":
+      return "lecture week dates";
+    case "semester_break":
+      return "semester break dates";
+    case "exam_dates":
+      return "exam dates";
+    case "public_holiday":
+      return "public holiday dates";
+    case "registration":
+      return "registration dates";
+    case "student_fees":
+      return "student fees and services";
+    case "uitm_general":
+      return "UiTM general information";
+    case "matched_activity":
+      return activityName ? `${activityName} dates` : "calendar event dates";
+    case "multi_session":
+      return "multi-session calendar dates";
+    case "retry":
+      return "official calendar information";
+    case "general_info":
+    default:
+      return "academic calendar information";
+  }
+}
+
+const TOPIC_CATEGORY_ALIASES: Record<string, string[]> = {
+  "lecture start date": ["lecture start date", "semester start", "kuliah mula", "lecture begin"],
+  "short semester dates": ["short semester dates", "short semester", "intersession"],
+  "lecture week dates": [
+    "lecture week dates",
+    "lecture weeks",
+    "minggu kuliah",
+    "week 1",
+    "week 14",
+  ],
+  "semester break dates": [
+    "semester break dates",
+    "semester break",
+    "cuti semester",
+    "mid-semester",
+  ],
+  "exam dates": ["exam dates", "peperiksaan", "examination"],
+  "public holiday dates": ["public holiday dates", "public holiday", "cuti umum", "cuti awam"],
+  "registration dates": ["registration dates", "pendaftaran", "registration"],
+  "student fees and services": [
+    "student fees and services",
+    "yuran",
+    "fee",
+    "fees",
+    "kampus",
+    "campus",
+    "hostel",
+    "asrama",
+  ],
+  "UiTM general information": [
+    "UiTM general information",
+    "uitm",
+    "kampus",
+    "campus",
+    "fakulti",
+    "faculty",
+  ],
+  "calendar event dates": ["calendar event dates", "activity", "acara"],
+  "multi-session calendar dates": [
+    "multi-session calendar dates",
+    "session",
+    "sesi",
+    "compare",
+  ],
+  "official calendar information": ["official calendar information", "calendar", "kalendar"],
+  "academic calendar information": [
+    "academic calendar information",
+    "academic calendar",
+    "kalendar akademik",
+    "semester",
+    "tarikh",
+  ],
 };
+
+function normalizeTopicKey(topic: string): string {
+  return topic.trim().toLowerCase();
+}
+
+export function topicsMatch(a: string, b: string): boolean {
+  const na = normalizeTopicKey(a);
+  const nb = normalizeTopicKey(b);
+  if (na === nb) return true;
+
+  for (const [canonical, aliases] of Object.entries(TOPIC_CATEGORY_ALIASES)) {
+    const set = new Set([canonical.toLowerCase(), ...aliases.map((x) => x.toLowerCase())]);
+    if (set.has(na) && set.has(nb)) return true;
+    if (na === canonical.toLowerCase() && aliases.some((al) => nb.includes(al.toLowerCase()))) {
+      return true;
+    }
+    if (nb === canonical.toLowerCase() && aliases.some((al) => na.includes(al.toLowerCase()))) {
+      return true;
+    }
+  }
+
+  const tokensA = na.split(/\s+/).filter((t) => t.length > 3);
+  const tokensB = new Set(nb.split(/\s+/).filter((t) => t.length > 3));
+  return tokensA.some((t) => tokensB.has(t));
+}
+
+function classifyTopicFromText(text: string): string | null {
+  const lower = text.toLowerCase();
+  if (/\b(short semester|intersession|semester pendek)\b/i.test(lower)) {
+    return "short semester dates";
+  }
+  if (
+    /\b(week\s*1|week\s*14|minggu\s*1|minggu\s*14|lecture week|minggu kuliah)\b/i.test(lower)
+  ) {
+    return "lecture week dates";
+  }
+  if (/\b(public holiday|cuti umum|cuti awam|hari kelepasan)\b/i.test(lower)) {
+    return "public holiday dates";
+  }
+  if (/\b(peperiksaan|examination|\bexam\b)\b/i.test(lower)) {
+    return "exam dates";
+  }
+  if (/\b(cuti semester|semester break|mid-semester|cuti pertengahan)\b/i.test(lower)) {
+    return "semester break dates";
+  }
+  if (/\b(pendaftaran|registration|add\/drop|tambah\/gugur)\b/i.test(lower)) {
+    return "registration dates";
+  }
+  if (/\b(yuran|fee|fees|kampus|campus|asrama|hostel|biasiswa)\b/i.test(lower)) {
+    return "student fees and services";
+  }
+  if (
+    /\b(bermula|mula kuliah|lecture start|semester start|kuliah.*mula|classes?\s+begin)\b/i.test(
+      lower
+    )
+  ) {
+    return "lecture start date";
+  }
+  if (/\b(uitm|fakulti|faculty|intake|admission)\b/i.test(lower)) {
+    return "UiTM general information";
+  }
+  if (/\b(kalendar|calendar|semester|tarikh|date)\b/i.test(lower)) {
+    return "academic calendar information";
+  }
+  return null;
+}
+
+/**
+ * Infer a topic label from the final answer (prefer reply; message is fallback)
+ * so we can validate that progress_summary stayed on-topic.
+ */
+export function inferAnswerTopic(reply: string, message: string): string {
+  return (
+    classifyTopicFromText(reply) ??
+    classifyTopicFromText(message) ??
+    "academic calendar information"
+  );
+}
+
+export const VALIDATION_FALLBACK: Record<LangBucket, string> = {
+  en: "Reviewing the official information so the answer stays accurate and relevant.",
+  malay: "Menyemak maklumat rasmi supaya jawapan kekal tepat dan relevan.",
+};
+
+/**
+ * Compare status.topic with the final answer topic.
+ * On mismatch, leave progress_summary unchanged and set needsLlmRefine so the
+ * handler can call the post-answer LLM (or fall back to templates).
+ */
+export function validateReasoningStatus(
+  status: ReasoningStatus,
+  reply: string,
+  message: string
+): ReasoningValidationResult {
+  const answerTopic = inferAnswerTopic(reply, message);
+  if (topicsMatch(status.topic, answerTopic)) {
+    return { status, needsLlmRefine: false };
+  }
+  return { status, needsLlmRefine: true };
+}
+
+/** Apply static bilingual fallback when LLM refine is unavailable. */
+export function applyValidationFallback(
+  status: ReasoningStatus,
+  message: string
+): ReasoningStatus {
+  const lang = langBucket(detectUserLanguage(message));
+  return {
+    ...status,
+    progress_summary: VALIDATION_FALLBACK[lang],
+  };
+}
 
 export interface ReasoningParagraphInput {
   message: string;
@@ -502,6 +460,8 @@ export interface ReasoningParagraphInput {
   activityMatches?: MatchedActivity[];
   toolName?: ChatToolName;
   retryReason?: "dates" | "incomplete";
+  contextIntent?: CalendarContextIntent;
+  needsList?: boolean;
 }
 
 type RetryStatusFocus =
@@ -572,11 +532,7 @@ const RETRY_STATUS_POOLS: Record<
 
 export type RetryStatusInput = Pick<
   ReasoningParagraphInput,
-  | "message"
-  | "topics"
-  | "sessionCount"
-  | "hasMatchedActivity"
-  | "retryReason"
+  "message" | "topics" | "sessionCount" | "hasMatchedActivity" | "retryReason"
 >;
 
 /** Short shimmer label for mid-stream regenerate (retry) — topic + language aware. */
@@ -605,78 +561,6 @@ export interface ReasoningOpenerInput {
   sessionCount: number;
 }
 
-function templateVars(input: ReasoningParagraphInput, lang: LangBucket): Record<string, string> {
-  const activity =
-    input.activityMatches?.[0]?.activity.name?.trim() ||
-    (lang === "malay" ? "acara ini" : "this event");
-  return {
-    program: programPhrase(input.programLabel, lang),
-    activity,
-    sessions: sessionPhrase(input.sessionCount, lang),
-  };
-}
-
-export function buildReasoningParagraph(input: ReasoningParagraphInput): string {
-  const lang = langBucket(detectUserLanguage(input.message));
-  const focus = resolveTopicFocus({
-    message: input.message,
-    topics: input.topics,
-    hasMatchedActivity: input.hasMatchedActivity,
-    sessionCount: input.sessionCount,
-  });
-  const vars = templateVars(input, lang);
-  const pool =
-    PARAGRAPH_POOLS[input.phase]?.[focus]?.[lang] ??
-    PARAGRAPH_POOLS[input.phase].academic_calendar[lang];
-  const seed = `${input.message}:${input.phase}:${focus}:${input.toolName ?? ""}:${input.retryReason ?? ""}`;
-  const template = pickProgressPhrase(pool, seed);
-  const paragraph = clampWords(fillTemplate(template, vars));
-  if (!isValidParagraph(paragraph)) {
-    const fallback = clampWords(
-      fillTemplate(PARAGRAPH_POOLS[input.phase].academic_calendar[lang][0]!, vars)
-    );
-    return isValidParagraph(fallback) ? fallback : paragraph;
-  }
-  return paragraph;
-}
-
-/** @deprecated Use buildReasoningParagraph with phase "start". */
-export function buildReasoningOpener(input: ReasoningOpenerInput): string {
-  return buildReasoningParagraph({ ...input, phase: "start" });
-}
-
-/** @deprecated Use buildReasoningParagraph with phase "progress". */
-export function buildToolReasoningLine(
-  toolName: ChatToolName,
-  ctx: { message: string; topics?: ChatTopic[]; programLabel?: string }
-): string {
-  return buildReasoningParagraph({
-    message: ctx.message,
-    phase: "progress",
-    topics: ctx.topics ?? ["academic_calendar"],
-    programLabel: ctx.programLabel ?? "All",
-    sessionCount: 1,
-    hasMatchedActivity: false,
-    toolName,
-  });
-}
-
-/** @deprecated Use buildReasoningParagraph with phase "retry". */
-export function buildRetryReasoningLine(
-  reason: "dates" | "incomplete",
-  message: string
-): string {
-  return buildReasoningParagraph({
-    message,
-    phase: "retry",
-    topics: ["academic_calendar"],
-    programLabel: "All",
-    sessionCount: 1,
-    hasMatchedActivity: false,
-    retryReason: reason,
-  });
-}
-
 /** Replace the visible reasoning paragraph (never append). */
 export function replaceReasoningParagraph(current: string, next: string): string {
   const paragraph = next.trim();
@@ -685,7 +569,6 @@ export function replaceReasoningParagraph(current: string, next: string): string
   return paragraph;
 }
 
-// Kept for compatibility with older tests/callers that trim snippets elsewhere.
 export function truncateForReasoning(message: string): string {
   const oneLine = message.replace(/\s+/g, " ").trim();
   const max = 72;
