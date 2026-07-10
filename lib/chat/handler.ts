@@ -43,14 +43,20 @@ import {
   askAiWithRetry,
   askAgentWithRetry,
 } from "@/lib/chat/ai-retry";
-import type { ChatToolName } from "@/lib/chat/agent/types";
 import { runDeterministicPrefetch } from "@/lib/chat/agent/deterministic-prefetch";
 import {
-  buildReasoningParagraph,
   buildRetryStatusLine,
   replaceReasoningParagraph,
+  validateReasoningStatus,
   type ReasoningPhase,
+  type ReasoningStatus,
+  type ReasoningStatusInput,
 } from "@/lib/chat/reasoning-status";
+import { buildReasoningStatusTemplate } from "@/lib/chat/reasoning-templates";
+import {
+  generateReasoningStatusLlm,
+  isChatReasoningLlmEnabled,
+} from "@/lib/chat/reasoning-llm";
 import { CHAT_STREAM_PHASE } from "@/lib/chat/stream-phase";
 import {
   buildReasoningComplexityInput,
@@ -377,15 +383,6 @@ export async function POST(request: NextRequest) {
     const topicRoute = routeChatTopics(sanitizedMessage, hasMatchedActivity);
     const useIntentFilter = shouldUseCalendarIntentFilter(topicRoute, activityMatches.length);
 
-    const reasoningBase = {
-      message: sanitizedMessage,
-      topics: topicRoute.topics,
-      programLabel,
-      sessionCount: effectiveSessions.length,
-      hasMatchedActivity,
-      activityMatches,
-    };
-
     const sanitizedHistory: ChatMessage[] = trimHistoryForModel(
       (history ?? []).map((msg) => ({
         role: msg.role,
@@ -431,25 +428,60 @@ export async function POST(request: NextRequest) {
     });
     const useAgentTools = executionMode === "agent";
 
-    const emitReasoningPhase = (
-      phase: ReasoningPhase,
-      extra?: Partial<typeof reasoningBase> & { toolName?: ChatToolName; retryReason?: "dates" | "incomplete" }
-    ) => {
+    /** Reset for every user message — structured status is turn-scoped. */
+    const reasoningInputBase: Omit<ReasoningStatusInput, "phaseHint" | "toolName" | "retryReason"> =
+      {
+        message: sanitizedMessage,
+        topics: topicRoute.topics,
+        contextIntent,
+        programLabel,
+        sessionCount: effectiveSessions.length,
+        hasMatchedActivity,
+        activityMatches,
+        needsList,
+      };
+
+    let turnReasoningStatus: ReasoningStatus = buildReasoningStatusTemplate({
+      ...reasoningInputBase,
+      phaseHint: "pre_answer",
+    });
+
+    const reasoningLlmEnabled = reasoningUiSupported && isChatReasoningLlmEnabled();
+
+    /** Pre-answer LLM runs in parallel with the main answer; null when disabled. */
+    const preReasoningPromise: Promise<ReasoningStatus | null> | null = reasoningLlmEnabled
+      ? generateReasoningStatusLlm({
+          ...reasoningInputBase,
+          phase: "pre_answer",
+          phaseHint: "pre_answer",
+          requestHost,
+          correlationId,
+        })
+      : null;
+
+    let templateEmitted = false;
+    let llmSummaryApplied = false;
+
+    const emitCurrentSummary = (phase: ReasoningPhase = "start") => {
       if (!streamHooks || !reasoningUiSupported) return;
       if (!shouldEmitReasoningPhase(turnStartMs, isComplexTurn, phase)) return;
-      streamHooks.emitReasoningParagraph(
-        buildReasoningParagraph({ ...reasoningBase, phase, ...extra })
-      );
+      streamHooks.emitReasoningParagraph(turnReasoningStatus.progress_summary);
+      templateEmitted = true;
     };
 
-    const emitReasoningRetry = (
-      phase: ReasoningPhase,
-      extra?: Partial<typeof reasoningBase> & { retryReason?: "dates" | "incomplete" }
-    ) => {
-      if (!streamHooks || !reasoningUiSupported) return;
-      streamHooks.emitReasoningParagraph(
-        buildReasoningParagraph({ ...reasoningBase, phase, ...extra })
-      );
+    const applyLlmStatusIfReady = async () => {
+      if (!preReasoningPromise || llmSummaryApplied) return;
+      const llmStatus = await preReasoningPromise;
+      if (!llmStatus) return;
+      if (llmStatus.progress_summary === turnReasoningStatus.progress_summary) {
+        llmSummaryApplied = true;
+        return;
+      }
+      turnReasoningStatus = llmStatus;
+      llmSummaryApplied = true;
+      if (streamHooks && reasoningUiSupported) {
+        streamHooks.emitReasoningParagraph(llmStatus.progress_summary);
+      }
     };
 
     const emitStreamRetry = (retryReason: "dates" | "incomplete") => {
@@ -462,7 +494,12 @@ export async function POST(request: NextRequest) {
         retryReason,
       });
       streamHooks.onRetry(retryReason, statusMessage);
-      emitReasoningRetry("retry", { retryReason });
+      turnReasoningStatus = buildReasoningStatusTemplate({
+        ...reasoningInputBase,
+        phaseHint: "retry",
+        retryReason,
+      });
+      emitCurrentSummary("retry");
     };
 
     const cacheKey = [
@@ -650,12 +687,14 @@ export async function POST(request: NextRequest) {
 
     let prefetchDirective = "";
     if (streamHooks && isComplexTurn) {
-      emitReasoningPhase("start");
+      emitCurrentSummary("start");
+      void applyLlmStatusIfReady();
     }
     if (useAgentPath && !useAgentTools) {
       const prefetch = await runDeterministicPrefetch(agentTurnContext, () => {});
-      if (streamHooks && !isMinimalTurn) {
-        emitReasoningPhase("progress");
+      if (streamHooks && !isMinimalTurn && !templateEmitted) {
+        emitCurrentSummary("progress");
+        void applyLlmStatusIfReady();
       }
       if (prefetch.outputBlock) {
         prefetchDirective = `\n\n=== PREFETCHED TOOL DATA (authoritative) ===\n${prefetch.outputBlock}`;
@@ -981,24 +1020,24 @@ export async function POST(request: NextRequest) {
 
     if (streamHooks) {
       let progressReasoningEmitted = !useAgentTools;
-      let finalReasoningEmitted = !useAgentTools;
-      if (!useAgentTools) {
-        emitReasoningPhase("final");
+      if (!useAgentTools && reasoningUiSupported && !templateEmitted) {
+        emitCurrentSummary("start");
+        void applyLlmStatusIfReady();
       }
       const streamedReply = await runWithServerDeadline(
         useAgentTools ? CHAT_AGENT_DEADLINE_MS : CHAT_SERVER_DEADLINE_MS,
         () =>
           runLlm((token) => {
-            if (!finalReasoningEmitted && token.trim()) {
-              finalReasoningEmitted = true;
-              emitReasoningPhase("final");
+            if (token.trim()) {
+              void applyLlmStatusIfReady();
             }
             streamHooks.onToken(token);
           }, {
-            onToolCall: (toolName) => {
+            onToolCall: () => {
               if (!progressReasoningEmitted) {
                 progressReasoningEmitted = true;
-                emitReasoningPhase("progress", { toolName: toolName as ChatToolName });
+                if (!templateEmitted) emitCurrentSummary("progress");
+                void applyLlmStatusIfReady();
               }
             },
             onRetry: (reason) => {
@@ -1007,6 +1046,35 @@ export async function POST(request: NextRequest) {
             },
           })
       );
+
+      // Ensure pre-answer LLM finished (or timed out) before post-answer refine.
+      await applyLlmStatusIfReady();
+
+      const { needsLlmRefine } = validateReasoningStatus(
+        turnReasoningStatus,
+        streamedReply,
+        sanitizedMessage
+      );
+      if (reasoningUiSupported && needsLlmRefine) {
+        const refined = reasoningLlmEnabled
+          ? await generateReasoningStatusLlm({
+              ...reasoningInputBase,
+              phase: "post_answer",
+              phaseHint: "retry",
+              finalAnswer: streamedReply,
+              requestHost,
+              correlationId,
+            })
+          : null;
+        turnReasoningStatus =
+          refined ??
+          buildReasoningStatusTemplate({
+            ...reasoningInputBase,
+            phaseHint: "retry",
+          });
+        streamHooks.emitReasoningParagraph(turnReasoningStatus.progress_summary);
+      }
+
       setCachedReply(cacheKey, streamedReply);
       return streamedReply;
     }
