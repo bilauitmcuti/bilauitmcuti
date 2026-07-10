@@ -563,10 +563,6 @@ export function CalendarControls({
             >
               <MessageCircle className="h-6 w-6" strokeWidth={2} />
             </Button>
-            <div 
-              className="mx-1 w-px bg-border transition-none h-full flex items-center" 
-              suppressHydrationWarning
-            />
             <Popover open={isOpen} onOpenChange={(open) => {
               setIsOpen(open);
               if (open) recordEngagementAction('settings_open');
@@ -574,9 +570,9 @@ export function CalendarControls({
               <PopoverTrigger
                 render={
                   <Button
-                    variant="ghost"
+                    variant={isOpen ? 'secondary' : 'ghost'}
                     size="icon"
-                    className={`${iconBaseClass} ${iconInactiveClass} aria-expanded:!bg-transparent aria-expanded:!text-muted-foreground`}
+                    className={`${iconBaseClass} ${isOpen ? iconActiveClass : iconInactiveClass}`}
                     title="Settings"
                     suppressHydrationWarning
                   />
@@ -704,7 +700,7 @@ export function CalendarControls({
 
                     <div className="pt-2 transition-none relative h-5">
                       <div 
-                        className="absolute inset-0 transition-opacity duration-500"
+                        className="absolute inset-0 transition-opacity duration-200 ease-out"
                         style={{
                           opacity: currentFooterText === 0 ? 1 : 0,
                           pointerEvents: currentFooterText === 0 ? 'auto' : 'none',
@@ -715,14 +711,14 @@ export function CalendarControls({
                           href="https://www.threads.com/@arezmie"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="font-medium hover:underline relative z-10"
+                          className="font-medium md:hover:underline relative z-10"
                           style={{color: '#2563eb'}}
                         >
                           @arezmie
                         </a>
                       </div>
                       <div 
-                        className="absolute inset-0 transition-opacity duration-500"
+                        className="absolute inset-0 transition-opacity duration-200 ease-out"
                         style={{
                           opacity: currentFooterText === 1 ? 1 : 0,
                           pointerEvents: currentFooterText === 1 ? 'auto' : 'none',
@@ -733,7 +729,7 @@ export function CalendarControls({
                           href="https://www.threads.com/@shahrulestar"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="font-medium hover:underline relative z-10"
+                          className="font-medium md:hover:underline relative z-10"
                           style={{color: '#2563eb'}}
                         >
                           @shahrulestar

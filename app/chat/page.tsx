@@ -1027,7 +1027,7 @@ export default function ChatPage() {
         <header className="flex items-center gap-3 pt-8 pb-3 mx-auto max-w-[600px] w-full">
           <button
             onClick={() => router.push(getRoutePath(selectedProgram, "grid"))}
-            className="flex items-center justify-center w-9 h-9 rounded-full bg-secondary hover:bg-secondary/80 dark:bg-[#2A2A2A] dark:hover:bg-[#333] transition-colors"
+            className="flex items-center justify-center w-9 h-9 rounded-full bg-secondary hover:opacity-80"
             aria-label="Back to home"
           >
             <ChevronLeft className="w-5 h-5" />

@@ -3,7 +3,7 @@
 import type { Components } from "react-markdown";
 import { Streamdown } from "streamdown";
 import "streamdown/styles.css";
-import { Component, type ReactNode } from "react";
+import { Component, type ReactNode, useSyncExternalStore } from "react";
 
 import {
   Table,
@@ -29,6 +29,28 @@ export const CHAT_STREAM_ANIMATION = {
   easing: "ease-out",
   sep: "word",
 } as const;
+
+function subscribeReducedMotion(onStoreChange: () => void) {
+  const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+  mq.addEventListener("change", onStoreChange);
+  return () => mq.removeEventListener("change", onStoreChange);
+}
+
+function getReducedMotionSnapshot() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function getReducedMotionServerSnapshot() {
+  return false;
+}
+
+function usePrefersReducedMotion() {
+  return useSyncExternalStore(
+    subscribeReducedMotion,
+    getReducedMotionSnapshot,
+    getReducedMotionServerSnapshot
+  );
+}
 
 function PlainTextFallback({
   content,
@@ -171,19 +193,21 @@ export function StreamdownRenderer({
   className,
   isComplete = true,
 }: StreamdownRendererProps) {
+  const prefersReducedMotion = usePrefersReducedMotion();
   const trimmed = content.trim();
   if (!trimmed) return null;
 
   const markdown = contentToMarkdown(trimmed);
   const isStreaming = !isComplete;
+  const shouldAnimate = isStreaming && !prefersReducedMotion;
 
   return (
     <StreamdownErrorBoundary content={trimmed} className={className}>
       <div className={cn("text-sm leading-relaxed break-words", className)}>
         <Streamdown
           mode={isStreaming ? "streaming" : "static"}
-          isAnimating={isStreaming}
-          animated={CHAT_STREAM_ANIMATION}
+          isAnimating={shouldAnimate}
+          animated={shouldAnimate ? CHAT_STREAM_ANIMATION : false}
           components={COMPONENTS}
           disallowedElements={["img"]}
           unwrapDisallowed

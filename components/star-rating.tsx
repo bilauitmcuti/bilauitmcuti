@@ -41,7 +41,7 @@ export function StarRating({
             aria-label={`${value} star${value === 1 ? "" : "s"}`}
             aria-pressed={rating >= value ? "true" : "false"}
             onClick={() => onRatingChange(value)}
-            className="touch-manipulation rounded-md p-1 transition-colors hover:bg-muted outline-none focus:outline-none focus-visible:outline-none disabled:opacity-50"
+            className="touch-manipulation rounded-md p-1 md:hover:bg-muted outline-none focus:outline-none focus-visible:outline-none disabled:opacity-50"
           >
             <Star
               className={cn(

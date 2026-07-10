@@ -88,7 +88,7 @@ function EngagementPromptBody({
         <div className="grid">
           <div
             className={cn(
-              "col-start-1 row-start-1 grid transition-[grid-template-rows,opacity] duration-200 ease-out",
+              "col-start-1 row-start-1 grid transition-opacity duration-200 ease-out",
               requiresFeedback
                 ? "z-10 grid-rows-[1fr] opacity-100"
                 : "pointer-events-none z-0 grid-rows-[0fr] opacity-0"
@@ -127,7 +127,7 @@ function EngagementPromptBody({
 
           <div
             className={cn(
-              "col-start-1 row-start-1 grid transition-[grid-template-rows,opacity] duration-200 ease-out",
+              "col-start-1 row-start-1 grid transition-opacity duration-200 ease-out",
               requiresFeedback
                 ? "pointer-events-none z-0 grid-rows-[0fr] opacity-0"
                 : "z-10 grid-rows-[1fr] opacity-100"

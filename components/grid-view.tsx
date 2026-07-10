@@ -119,7 +119,7 @@ function TooltipActivityList({
             <button
               type="button"
               onClick={() => setStartIndex((prev) => Math.max(0, prev - 1))}
-              className="flex h-6 w-full items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              className="flex h-6 w-full items-center justify-center rounded-md text-muted-foreground md:hover:bg-accent md:hover:text-accent-foreground"
               aria-label="Show previous events"
             >
               <ChevronUp className="h-4 w-4" />
@@ -186,7 +186,7 @@ function TooltipActivityList({
             <button
               type="button"
               onClick={() => setStartIndex((prev) => Math.min(activities.length - PAGE_SIZE, prev + 1))}
-              className="flex h-6 w-full items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              className="flex h-6 w-full items-center justify-center rounded-md text-muted-foreground md:hover:bg-accent md:hover:text-accent-foreground"
               aria-label="Show next events"
             >
               <ChevronDown className="h-4 w-4" />

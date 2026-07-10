@@ -102,6 +102,12 @@ button[type="button"][title*="View"],
   transition: none !important;
 }
 
+/* Allowlist: toggle thumb must animate inside settings popover */
+[data-slot="popover-content"] .toggle-switch-thumb,
+.sticky.top-0 .toggle-switch-thumb {
+  transition: transform var(--motion-toggle) var(--ease-out) !important;
+}
+
 /* Re-enable transitions only for interactive hover states (opacity only, not colors) */
 .sticky.top-0 button:hover,
 [data-slot="select-trigger"]:hover,
@@ -128,27 +134,17 @@ a:hover,
   transition-timing-function: ease-out !important;
 }
 
-/* Keep smooth transitions for interactive elements like toggles and switches - but disable for theme changes */
-[role="switch"],
-input[type="checkbox"],
-.toggle-switch {
-  transition-property: background-color, transform !important;
-  transition-duration: 200ms !important;
-  transition-timing-function: ease-in-out !important;
-}
-
-/* Disable transitions for toggle switches in calendar controls when theme changes */
-.sticky.top-0 [role="switch"],
-.sticky.top-0 input[type="checkbox"],
-.sticky.top-0 .toggle-switch,
-[data-slot="popover-content"] [role="switch"],
-[data-slot="popover-content"] input[type="checkbox"],
-[data-slot="popover-content"] .toggle-switch,
-[data-slot="popover-content"] label[class*="cursor-pointer"] > div {
-  transition: none !important;
-}
-
+/*
+ * Motion allowlist (survives global transition kill-switch above):
+ * .toggle-switch-thumb, .chat-header, .nav-icon-btn:active,
+ * [data-slot="drawer-*"], overlay animate-in/out (keyframes, not transitions).
+ */
 :root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --motion-toggle: 220ms;
+  --motion-press: 160ms;
+  --motion-header: 200ms;
   --radius: 0.625rem;
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -355,8 +351,8 @@ input[type="checkbox"],
     }
   }
 
-  /* Hover text color on nav icon buttons - desktop only */
-  @media (hover: hover) {
+  /* Hover text color + press feedback on nav icon buttons - desktop only */
+  @media (hover: hover) and (pointer: fine) {
     .nav-icon-btn:hover,
     .nav-icon-btn:active {
       color: var(--foreground) !important;
@@ -364,6 +360,10 @@ input[type="checkbox"],
     .nav-icon-btn:hover svg,
     .nav-icon-btn:active svg {
       color: var(--foreground) !important;
+    }
+    .nav-icon-btn:active {
+      transform: scale(0.97);
+      transition: transform var(--motion-press) var(--ease-out) !important;
     }
   }
 
@@ -413,7 +413,7 @@ input[type="checkbox"],
 
   /* Chat header scroll hide/show animation */
   .chat-header {
-    transition: transform 300ms ease, translate 300ms ease !important;
+    transition: transform var(--motion-header) var(--ease-out) !important;
   }
 
   /* Chat auto-growing input - hide scrollbar, limit max height */
@@ -456,5 +456,25 @@ input[type="checkbox"],
   }
   html {
     @apply font-sans;
+  }
+}
+
+/* Toggle thumb slide — interruptible CSS transition, no overshoot */
+.toggle-switch-thumb {
+  transition: transform var(--motion-toggle) var(--ease-out) !important;
+}
+
+/* Keyboard-initiated theme toggle: instant snap (100+/day frequency) */
+html[data-keyboard-theme="1"] .toggle-switch-thumb {
+  transition: none !important;
+}
+
+/* Reduced motion: keep opacity/color comprehension, drop transform movement */
+@media (prefers-reduced-motion: reduce) {
+  .toggle-switch-thumb,
+  .chat-header,
+  .nav-icon-btn:active {
+    transition: none !important;
+    transform: none !important;
   }
 }
