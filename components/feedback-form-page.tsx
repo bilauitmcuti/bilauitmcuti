@@ -187,14 +187,14 @@ export function FeedbackFormPage({
       <div className="chat-top-fade absolute left-0 right-0 top-0 z-[9] pointer-events-none" />
 
       <div
-        className={`chat-header absolute left-0 right-0 top-0 z-10 px-4 transition-transform md:px-0 ${
+        className={`chat-header absolute left-0 right-0 top-0 z-10 px-4 md:px-0 ${
           headerVisible ? "translate-y-0" : "-translate-y-full"
         }`}
       >
         <header className="mx-auto flex w-full max-w-[600px] items-center gap-3 pt-8 pb-3">
           <button
             onClick={() => router.push("/")}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary transition-colors hover:bg-secondary/80 dark:bg-[#2A2A2A] dark:hover:bg-[#333]"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary hover:opacity-80"
             aria-label="Back to home"
           >
             <ChevronLeft className="h-5 w-5" />
@@ -383,6 +383,7 @@ export function FeedbackFormPage({
                       rel="noopener noreferrer"
                     />
                   }
+                  nativeButton={false}
                   className="w-full sm:w-auto h-[38px]"
                 >
                   Sponsor
@@ -396,6 +397,7 @@ export function FeedbackFormPage({
                       rel="noopener noreferrer"
                     />
                   }
+                  nativeButton={false}
                   className="w-full sm:w-auto h-[38px]"
                 >
                   Github Sponsor

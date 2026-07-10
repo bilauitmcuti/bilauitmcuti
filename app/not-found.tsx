@@ -34,7 +34,7 @@ export default function NotFound() {
           </p>
         </div>
 
-        <Button render={<Link href="/" />} variant="outline">
+        <Button render={<Link href="/" />} nativeButton={false} variant="outline">
           Back to calendar
         </Button>
       </div>

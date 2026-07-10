@@ -70,7 +70,10 @@ export function ChatMessageRow({
   const isThinkingPhase =
     assistantInProgress && !answerStreaming && !isRegenerating;
 
-  const { showThinking } = useReasoningVisibility(isThinkingPhase, message.timestamp);
+  const { showThinking, showReasoningSlot } = useReasoningVisibility(
+    isThinkingPhase,
+    message.timestamp
+  );
 
   const showThinkingUi =
     isThinkingPhase && (showThinking || hasReasoningContent);
@@ -101,7 +104,7 @@ export function ChatMessageRow({
 
   const enterAnimation =
     message.role === "user"
-      ? "animate-in fade-in blur-in duration-300 fill-mode-both"
+      ? "animate-in fade-in duration-150 ease-out fill-mode-both motion-reduce:animate-none"
       : undefined;
 
   const timestamp = formatTime24(
@@ -162,7 +165,10 @@ export function ChatMessageRow({
             <Reasoning
               className="w-full"
               collapsible={hasReasoningContent}
-              collapseWhen={answerComplete && hasReasoningContent}
+              collapseWhen={message.isComplete === true && hasReasoningContent}
+              expandReasoning={
+                hasReasoningContent && showReasoningSlot && isThinkingPhase
+              }
               defaultOpen={false}
               duration={resolvedDurationSec}
               isStreaming={showThinkingUi || showLiveRegenerating}
@@ -218,7 +224,7 @@ export function ChatMessageRow({
                 onClick={() => onReaction(message.id, "up")}
                 aria-label="Thumbs up"
                 className={cn(
-                  "active:scale-90 transition-transform duration-150",
+                  "active:scale-[0.97] transition-transform duration-[160ms] ease-out motion-reduce:transition-none",
                   reaction === "up" ? "text-foreground" : "text-muted-foreground"
                 )}
               >
@@ -231,7 +237,7 @@ export function ChatMessageRow({
                 onClick={() => onReaction(message.id, "down")}
                 aria-label="Thumbs down"
                 className={cn(
-                  "active:scale-90 transition-transform duration-150",
+                  "active:scale-[0.97] transition-transform duration-[160ms] ease-out motion-reduce:transition-none",
                   reaction === "down" ? "text-foreground" : "text-muted-foreground"
                 )}
               >

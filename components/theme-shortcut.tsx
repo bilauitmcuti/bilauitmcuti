@@ -39,7 +39,12 @@ export function ThemeShortcut() {
       if (event.key.toLowerCase() !== 'd') return;
       if (isTypingTarget(event.target)) return;
 
+      // Instant snap for keyboard-initiated theme (100+/day frequency)
+      document.documentElement.dataset.keyboardTheme = '1';
       setTheme(theme === 'dark' ? 'light' : 'dark');
+      window.setTimeout(() => {
+        delete document.documentElement.dataset.keyboardTheme;
+      }, 0);
     }
 
     window.addEventListener('keydown', handleShortcut);

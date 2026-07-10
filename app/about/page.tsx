@@ -56,7 +56,7 @@ export default function AboutPage() {
       <div className="chat-top-fade pointer-events-none absolute left-0 right-0 top-0 z-[9]" />
 
       <div
-        className={`chat-header absolute left-0 right-0 top-0 z-10 px-4 transition-transform md:px-0 ${
+        className={`chat-header absolute left-0 right-0 top-0 z-10 px-4 md:px-0 ${
           headerVisible ? 'translate-y-0' : '-translate-y-full'
         }`}
       >
@@ -64,7 +64,7 @@ export default function AboutPage() {
           <button
             type="button"
             onClick={() => router.push('/')}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary transition-colors hover:bg-secondary/80 dark:bg-[#2A2A2A] dark:hover:bg-[#333]"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary hover:opacity-80"
             aria-label="Back to home"
           >
             <ChevronLeft className="h-5 w-5" />

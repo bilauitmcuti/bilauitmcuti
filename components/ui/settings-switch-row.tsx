@@ -25,7 +25,7 @@ export function SettingsSwitchRow({
 }: SettingsSwitchRowProps) {
   return (
     <label
-      className={`flex items-center justify-between cursor-pointer py-0.5 transition-none${nested ? ' pl-4' : ''}`}
+      className={`flex items-center justify-between cursor-pointer py-0.5${nested ? ' pl-4' : ''}`}
     >
       <div className="flex items-center gap-2">
         {typeof label === 'string' ? (
@@ -44,19 +44,15 @@ export function SettingsSwitchRow({
         {kbd}
       </div>
       <div
-        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-none ${checked ? 'bg-primary' : 'bg-muted'}`}
-        style={{ transition: 'none' }}
+        className={`toggle-switch relative inline-flex h-6 w-11 items-center rounded-full ${checked ? 'bg-primary' : 'bg-muted'}`}
       >
         <span
-          className={`inline-block h-4 w-4 transform rounded-full transition-none shadow-sm ${checked ? 'bg-background' : 'bg-background dark:bg-foreground'}`}
-          style={{
-            transform: checked ? 'translateX(20px)' : 'translateX(2px)',
-            transition: 'none',
-          }}
+          className={`toggle-switch-thumb inline-block h-4 w-4 rounded-full shadow-sm ${checked ? 'translate-x-5 bg-background' : 'translate-x-0.5 bg-background dark:bg-foreground'}`}
         />
         {interactive ? (
           <input
             type="checkbox"
+            role="switch"
             checked={checked}
             onChange={(e) => onChange?.(e.target.checked)}
             className="sr-only"

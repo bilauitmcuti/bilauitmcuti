@@ -30,7 +30,7 @@ export function SuggestionCarousel({
               type="button"
               disabled={disabled}
               onClick={() => onSelect(suggestion)}
-              className="shrink-0 text-xs px-3 py-1.5 rounded-full border border-border bg-secondary/50 hover:bg-secondary dark:bg-[#2A2A2A] dark:hover:bg-[#333] text-foreground transition-colors whitespace-nowrap disabled:opacity-40 disabled:pointer-events-none disabled:cursor-not-allowed"
+              className="shrink-0 text-xs px-3 py-1.5 rounded-full border border-border bg-secondary/50 md:hover:bg-secondary text-foreground whitespace-nowrap disabled:opacity-40 disabled:pointer-events-none disabled:cursor-not-allowed"
             >
               {suggestion}
             </button>

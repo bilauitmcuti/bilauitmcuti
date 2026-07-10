@@ -282,7 +282,7 @@ export default function RootLayout({
           defaultTheme="light"
           enableSystem={false}
           storageKey="theme"
-          disableTransitionOnChange={false}
+          disableTransitionOnChange={true}
         >
           <ThemeShortcut />
           <TooltipProviderRoot>
