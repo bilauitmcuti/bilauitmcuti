@@ -202,9 +202,9 @@ a:hover,
   transition-duration: calc(var(--drawer-swipe-strength, 1) * 350ms) !important;
 }
 
-/* Optimistic 35% snap until Base UI measures — open can slide up immediately with content visible. */
+/* Optimistic 40% snap until Base UI measures — open can slide up immediately with content visible. */
 [data-slot="drawer-popup"][data-snap-points]:not([data-snap-ready]):not([data-swiping]):not([data-ending-style]):not([data-starting-style]) {
-  --drawer-snap-point-offset: calc(0.65 * 100svh);
+  --drawer-snap-point-offset: calc(0.6 * 100svh);
 }
 
 [data-slot="drawer-overlay"] {

@@ -48,7 +48,7 @@ interface TooltipActivityListProps {
   weekNum?: number | null;
   surface: 'tooltip' | 'drawer';
   /** Drawer only: ref for horizontal swipe navigation on the list scroller. */
-  listScrollRef?: React.Ref<HTMLDivElement>;
+  listScrollRef?: React.RefCallback<HTMLDivElement>;
   /** Drawer only: enable inner scroll (long lists with snap). */
   listScrollable?: boolean;
 }
@@ -85,11 +85,7 @@ function TooltipActivityList({
   const setListScrollNode = useCallback(
     (node: HTMLDivElement | null) => {
       listScrollElRef.current = node;
-      if (typeof listScrollRef === 'function') listScrollRef(node);
-      else if (listScrollRef && typeof listScrollRef === 'object') {
-        (listScrollRef as React.MutableRefObject<HTMLDivElement | null>).current =
-          node;
-      }
+      listScrollRef?.(node);
     },
     [listScrollRef]
   );
@@ -352,7 +348,7 @@ interface GridDayActivitiesPanelProps {
   currentDateStr: string | null;
   showKKT: boolean;
   surface: 'tooltip' | 'drawer';
-  listScrollRef?: React.Ref<HTMLDivElement>;
+  listScrollRef?: React.RefCallback<HTMLDivElement>;
   listScrollable?: boolean;
 }
 

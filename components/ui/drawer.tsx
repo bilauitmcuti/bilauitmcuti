@@ -20,9 +20,9 @@ export const drawerContentClassName = cn(
 
 /**
  * Activity drawer snap points (Base UI: 0–1 = viewport fraction; px/rem strings only).
- * 0.35 ≈ 35dvh (default), 1 = full height (expanded).
+ * 0.4 ≈ 40dvh (default), 1 = full height (expanded).
  */
-const ACTIVITY_DRAWER_SNAP_POINTS = [0.35, 1] as const
+const ACTIVITY_DRAWER_SNAP_POINTS = [0.4, 1] as const
 export { ACTIVITY_DRAWER_SNAP_POINTS }
 export const ACTIVITY_DRAWER_DEFAULT_SNAP = ACTIVITY_DRAWER_SNAP_POINTS[0]
 /** Stable array reference for Drawer.Root (avoid new [] each render). */
@@ -50,7 +50,7 @@ export const activityDrawerContentClassName = cn(
 export const activityDrawerBodyClassName =
   "flex min-h-0 flex-1 flex-col overflow-hidden"
 
-/** Optimistic row count: ~3 rows + header usually exceeds 35dvh on phones. */
+/** Optimistic row count: ~3 rows + header usually exceeds 40dvh on phones. */
 export function estimateActivityDrawerNeedsSnap(
   activityCount: number,
   hasWeekBadge: boolean
