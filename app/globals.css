@@ -411,6 +411,11 @@ a:hover,
     background: linear-gradient(to bottom, var(--background), transparent);
   }
 
+  /* Drawer bottom inner padding — fixed 16px on Safari, Chrome, and others. */
+  .drawer-safe-area-bottom {
+    padding-bottom: 1rem;
+  }
+
   /* Chat header scroll hide/show animation */
   .chat-header {
     transition: transform var(--motion-header) var(--ease-out) !important;

@@ -1,10 +1,12 @@
 'use client';
 
-import { Suspense, useState, useEffect, useCallback, useRef } from 'react';
+import { Suspense, useState, useCallback, useRef, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
+import { toast } from 'sonner';
 
+import { PwaInstallOverlay } from '@/components/download/pwa-install-overlay';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -13,8 +15,19 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  drawerPrimaryButtonClassName,
+} from '@/components/ui/drawer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePwaInstalled } from '@/hooks/use-pwa-installed';
+import { usePwaInstallPrompt } from '@/hooks/use-pwa-install-prompt';
+import {
+  getPwaSharedCaption,
+  isIosSafari,
+  usePwaInstallPlatform,
+  type PwaInstallPlatform,
+} from '@/lib/pwa-platform';
+import { cn } from '@/lib/utils';
 
 const pwaBenefits = [
   'Open the app from your home screen in one tap.',
@@ -28,38 +41,7 @@ const bookmarkBenefits = [
   'No install required — works in Safari, Chrome, Edge, Firefox, and more.',
 ];
 
-const iosInstallSteps: React.ReactNode[] = [
-  <>
-    Open <strong className="font-semibold text-foreground">Safari</strong> and visit{' '}
-    <strong className="font-semibold text-foreground">bilauitmcuti.com</strong>
-  </>,
-  <>
-    Tap the <strong className="font-semibold text-foreground">Share</strong> button (square with arrow up)
-  </>,
-  <>
-    Choose <strong className="font-semibold text-foreground">&ldquo;Add to Home Screen&rdquo;</strong>
-  </>,
-  <>
-    Tap <strong className="font-semibold text-foreground">Add</strong> to finish
-  </>,
-];
-
-const androidInstallSteps: React.ReactNode[] = [
-  <>
-    Open <strong className="font-semibold text-foreground">Chrome</strong> and visit{' '}
-    <strong className="font-semibold text-foreground">bilauitmcuti.com</strong>
-  </>,
-  <>
-    Tap the <strong className="font-semibold text-foreground">menu</strong> (three dots)
-  </>,
-  <>
-    Select <strong className="font-semibold text-foreground">&ldquo;Install app&rdquo;</strong> or{' '}
-    <strong className="font-semibold text-foreground">&ldquo;Add to Home Screen&rdquo;</strong>
-  </>,
-  <>Confirm when prompted</>,
-];
-
-const iosBookmarkSteps: React.ReactNode[] = [
+const iosBookmarkSteps: ReactNode[] = [
   <>
     Open <strong className="font-semibold text-foreground">Safari</strong> and visit{' '}
     <strong className="font-semibold text-foreground">bilauitmcuti.com</strong>
@@ -76,7 +58,7 @@ const iosBookmarkSteps: React.ReactNode[] = [
   </>,
 ];
 
-const androidBookmarkSteps: React.ReactNode[] = [
+const androidBookmarkSteps: ReactNode[] = [
   <>
     Open <strong className="font-semibold text-foreground">Chrome</strong> and visit{' '}
     <strong className="font-semibold text-foreground">bilauitmcuti.com</strong>
@@ -91,7 +73,20 @@ const androidBookmarkSteps: React.ReactNode[] = [
   </>,
 ];
 
-function NumberedInstallList({ steps }: { steps: React.ReactNode[] }) {
+const desktopBookmarkSteps: ReactNode[] = [
+  <>
+    Press <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-xs">Ctrl+D</kbd>{' '}
+    (Windows) or <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-xs">⌘D</kbd>{' '}
+    (Mac), or click the <strong className="font-semibold">star</strong> in the address bar, then save.
+  </>,
+  <>
+    In Safari (macOS): Bookmarks menu → &ldquo;Add Bookmark&rdquo;, or press{' '}
+    <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-xs">⌘D</kbd>.
+  </>,
+  <>Add the bookmark to your bookmarks bar or Favorites for one-click access.</>,
+];
+
+function NumberedInstallList({ steps }: { steps: ReactNode[] }) {
   return (
     <ol className="flex flex-col gap-3">
       {steps.map((body, index) => (
@@ -109,7 +104,47 @@ function NumberedInstallList({ steps }: { steps: React.ReactNode[] }) {
   );
 }
 
-function PwaTabContent({ isInstalled }: { isInstalled: boolean }) {
+function platformCardMeta(platform: PwaInstallPlatform): {
+  title: string;
+  description: string;
+  blurb: string;
+} {
+  if (platform === 'ios') {
+    const safari = isIosSafari();
+    return {
+      title: 'iPhone & iPad',
+      description: safari ? 'Safari' : 'Open in Safari to install',
+      blurb: safari
+        ? 'Install Bila UiTM Cuti to your Home Screen from Safari.'
+        : 'Use Safari to add this app to your Home Screen.',
+    };
+  }
+  if (platform === 'android') {
+    return {
+      title: 'Android',
+      description: 'Chrome (recommended)',
+      blurb: 'Install Bila UiTM Cuti to your Home screen for quicker access.',
+    };
+  }
+  return {
+    title: 'Desktop & laptop',
+    description: 'Chrome or Edge',
+    blurb: 'Install the app on your computer so it opens in its own window.',
+  };
+}
+
+function PwaTabContent({
+  isInstalled,
+  platform,
+  onInstallClick,
+}: {
+  isInstalled: boolean;
+  platform: PwaInstallPlatform | null;
+  onInstallClick: () => void;
+}) {
+  const caption = platform ? getPwaSharedCaption(platform) : getPwaSharedCaption('desktop');
+  const meta = platform ? platformCardMeta(platform) : null;
+
   return (
     <>
       <Card className="gap-0 rounded-[10px] shadow-none">
@@ -118,10 +153,7 @@ function PwaTabContent({ isInstalled }: { isInstalled: boolean }) {
             <CardTitle render={<h2 />} className="text-2xl font-semibold">
               Install Bila UiTM Cuti
             </CardTitle>
-            <CardDescription className="mt-1 text-sm text-foreground">
-              Progressive Web App — add this site to your home screen for quick access to the calendar and chat. No app
-              store install is required.
-            </CardDescription>
+            <CardDescription className="mt-1 text-sm text-foreground">{caption}</CardDescription>
           </div>
         </CardHeader>
         <CardContent className="px-3 sm:px-6">
@@ -139,61 +171,60 @@ function PwaTabContent({ isInstalled }: { isInstalled: boolean }) {
       {isInstalled ? (
         <Card className="mt-4 gap-0 rounded-[10px] shadow-none" role="status">
           <CardHeader className="space-y-1 px-3 pb-4 sm:px-6">
-            <CardTitle className="text-xl font-semibold">Installed app</CardTitle>
+            <CardTitle className="text-xl font-semibold">Already installed</CardTitle>
             <CardDescription className="mt-1 text-sm text-foreground">
-              You are running Bila UiTM Cuti in standalone mode. You can return here from the main site if you need
-              these steps on another device.
+              Bila UiTM Cuti is already installed on this device.
             </CardDescription>
           </CardHeader>
         </Card>
+      ) : meta ? (
+        <Card className="mt-4 gap-0 rounded-[10px] shadow-none">
+          <CardHeader className="space-y-1 px-3 pb-4 sm:px-6">
+            <CardTitle className="text-xl font-semibold">{meta.title}</CardTitle>
+            <CardDescription className="mt-1 text-sm text-foreground">
+              {meta.description}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4 px-3 pt-0 sm:px-6">
+            <p className="text-sm leading-relaxed text-foreground">{meta.blurb}</p>
+            <Button
+              type="button"
+              size="sm"
+              variant="default"
+              className={cn(drawerPrimaryButtonClassName, "w-fit")}
+              onClick={onInstallClick}
+            >
+              Install app
+            </Button>
+          </CardContent>
+        </Card>
       ) : null}
-
-      <Card className="mt-4 gap-0 rounded-[10px] shadow-none">
-        <CardHeader className="space-y-1 px-3 pb-4 sm:px-6">
-          <CardTitle className="text-xl font-semibold">iPhone & iPad</CardTitle>
-          <CardDescription className="mt-1 text-sm text-foreground">Safari</CardDescription>
-        </CardHeader>
-        <CardContent className="px-3 pt-0 sm:px-6">
-          <NumberedInstallList steps={iosInstallSteps} />
-        </CardContent>
-      </Card>
-
-      <Card className="mt-4 gap-0 rounded-[10px] shadow-none">
-        <CardHeader className="space-y-1 px-3 pb-4 sm:px-6">
-          <CardTitle className="text-xl font-semibold">Android</CardTitle>
-          <CardDescription className="mt-1 text-sm text-foreground">Chrome (recommended)</CardDescription>
-        </CardHeader>
-        <CardContent className="px-3 pt-0 sm:px-6">
-          <NumberedInstallList steps={androidInstallSteps} />
-        </CardContent>
-      </Card>
-
-      <Card className="mt-4 gap-0 rounded-[10px] shadow-none">
-        <CardHeader className="space-y-1 px-3 pb-4 sm:px-6">
-          <CardTitle className="text-xl font-semibold">Desktop & laptop</CardTitle>
-          <CardDescription className="mt-1 text-sm text-foreground">
-            Chrome, Edge, or Safari — use{' '}
-            <span className="font-medium">bilauitmcuti.com</span> in a supported browser.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="px-3 pt-0 sm:px-6">
-          <ul className="flex flex-col gap-4 text-sm leading-relaxed text-foreground">
-            <li>
-              <strong className="font-semibold">Chrome / Edge:</strong> Use the install icon in the address bar, or open
-              the menu and choose &ldquo;Install app&rdquo; / &ldquo;Install Bila UiTM Cuti&rdquo;.
-            </li>
-            <li>
-              <strong className="font-semibold">Safari (macOS):</strong> File or Share menu → &ldquo;Add to Dock&rdquo;
-              (wording may vary by macOS version).
-            </li>
-          </ul>
-        </CardContent>
-      </Card>
     </>
   );
 }
 
-function BookmarkTabContent() {
+function BookmarkTabContent({ platform }: { platform: PwaInstallPlatform | null }) {
+  const bookmarkCard =
+    platform === 'ios'
+      ? {
+          title: 'iPhone & iPad',
+          description: 'Safari',
+          steps: iosBookmarkSteps,
+        }
+      : platform === 'android'
+        ? {
+            title: 'Android',
+            description: 'Chrome (recommended)',
+            steps: androidBookmarkSteps,
+          }
+        : platform === 'desktop'
+          ? {
+              title: 'Desktop & laptop',
+              description: 'Chrome, Edge, Safari, or Firefox',
+              steps: desktopBookmarkSteps,
+            }
+          : null;
+
   return (
     <>
       <Card className="gap-0 rounded-[10px] shadow-none">
@@ -203,8 +234,8 @@ function BookmarkTabContent() {
               Bookmark Bila UiTM Cuti
             </CardTitle>
             <CardDescription className="mt-1 text-sm text-foreground">
-              Save this site in your browser bookmarks or favorites so you can return to the calendar and chat without
-              searching again.
+              Save this site in your browser bookmarks or favorites so you can return to the calendar and
+              chat without searching again.
             </CardDescription>
           </div>
         </CardHeader>
@@ -220,53 +251,19 @@ function BookmarkTabContent() {
         </CardContent>
       </Card>
 
-      <Card className="mt-4 gap-0 rounded-[10px] shadow-none">
-        <CardHeader className="space-y-1 px-3 pb-4 sm:px-6">
-          <CardTitle className="text-xl font-semibold">iPhone & iPad</CardTitle>
-          <CardDescription className="mt-1 text-sm text-foreground">Safari</CardDescription>
-        </CardHeader>
-        <CardContent className="px-3 pt-0 sm:px-6">
-          <NumberedInstallList steps={iosBookmarkSteps} />
-        </CardContent>
-      </Card>
-
-      <Card className="mt-4 gap-0 rounded-[10px] shadow-none">
-        <CardHeader className="space-y-1 px-3 pb-4 sm:px-6">
-          <CardTitle className="text-xl font-semibold">Android</CardTitle>
-          <CardDescription className="mt-1 text-sm text-foreground">Chrome (recommended)</CardDescription>
-        </CardHeader>
-        <CardContent className="px-3 pt-0 sm:px-6">
-          <NumberedInstallList steps={androidBookmarkSteps} />
-        </CardContent>
-      </Card>
-
-      <Card className="mt-4 gap-0 rounded-[10px] shadow-none">
-        <CardHeader className="space-y-1 px-3 pb-4 sm:px-6">
-          <CardTitle className="text-xl font-semibold">Desktop & laptop</CardTitle>
-          <CardDescription className="mt-1 text-sm text-foreground">
-            Chrome, Edge, Safari, or Firefox — visit{' '}
-            <span className="font-medium">bilauitmcuti.com</span> in your browser first.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="px-3 pt-0 sm:px-6">
-          <ul className="flex flex-col gap-4 text-sm leading-relaxed text-foreground">
-            <li>
-              <strong className="font-semibold">Chrome / Edge / Firefox:</strong> Press{' '}
-              <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-xs">Ctrl+D</kbd> (Windows) or{' '}
-              <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-xs">⌘D</kbd> (Mac), or click the{' '}
-              <strong className="font-semibold">star</strong> in the address bar, then save.
-            </li>
-            <li>
-              <strong className="font-semibold">Safari (macOS):</strong> Bookmarks menu → &ldquo;Add Bookmark&rdquo;, or
-              press <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-xs">⌘D</kbd>.
-            </li>
-            <li>
-              <strong className="font-semibold">Tip:</strong> Add the bookmark to your bookmarks bar or Favorites for
-              one-click access.
-            </li>
-          </ul>
-        </CardContent>
-      </Card>
+      {bookmarkCard ? (
+        <Card className="mt-4 gap-0 rounded-[10px] shadow-none">
+          <CardHeader className="space-y-1 px-3 pb-4 sm:px-6">
+            <CardTitle className="text-xl font-semibold">{bookmarkCard.title}</CardTitle>
+            <CardDescription className="mt-1 text-sm text-foreground">
+              {bookmarkCard.description}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="px-3 pt-0 sm:px-6">
+            <NumberedInstallList steps={bookmarkCard.steps} />
+          </CardContent>
+        </Card>
+      ) : null}
     </>
   );
 }
@@ -283,11 +280,31 @@ function DownloadPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [headerVisible, setHeaderVisible] = useState(true);
+  const [installOpen, setInstallOpen] = useState(false);
   const isInstalled = usePwaInstalled();
+  const platform = usePwaInstallPlatform();
+  const { promptInstall } = usePwaInstallPrompt();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const lastScrollTop = useRef(0);
 
   const initialTab = searchParams.get('tab') === 'bookmark' ? 'bookmark' : 'pwa';
+
+  const handleInstallClick = useCallback(async () => {
+    // iOS has no beforeinstallprompt — show Share / Safari instructions drawer.
+    if (platform === 'ios') {
+      setInstallOpen(true);
+      return;
+    }
+
+    // Windows + Android: native browser Install app dialog only (no custom dialog).
+    const outcome = await promptInstall();
+    if (outcome === 'unavailable') {
+      toast.message('Install unavailable', {
+        description:
+          'Use your browser menu and choose Install app or Add to Home screen.',
+      });
+    }
+  }, [platform, promptInstall]);
 
   const handleScroll = useCallback(() => {
     const el = scrollContainerRef.current;
@@ -337,11 +354,15 @@ function DownloadPageContent() {
             </TabsList>
 
             <TabsContent value="pwa" className="mt-0">
-              <PwaTabContent isInstalled={isInstalled} />
+              <PwaTabContent
+                isInstalled={isInstalled}
+                platform={platform}
+                onInstallClick={handleInstallClick}
+              />
             </TabsContent>
 
             <TabsContent value="bookmark" className="mt-0">
-              <BookmarkTabContent />
+              <BookmarkTabContent platform={platform} />
             </TabsContent>
           </Tabs>
 
@@ -401,6 +422,10 @@ function DownloadPageContent() {
           </Card>
         </div>
       </div>
+
+      {platform === 'ios' ? (
+        <PwaInstallOverlay open={installOpen} onOpenChange={setInstallOpen} />
+      ) : null}
     </div>
   );
 }
