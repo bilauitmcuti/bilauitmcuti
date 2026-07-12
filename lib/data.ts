@@ -421,12 +421,34 @@ const allStudentsBadgeConfig: ProgramBadgeConfig = {
   textClass: 'text-zinc-700 dark:text-zinc-200',
 };
 
+/** Shared green badge when an activity covers both Diploma and Bachelor Part-Time. */
+const mergedPartTimeBadgeConfig: ProgramBadgeConfig = {
+  label: 'Part-Time',
+  bgClass: programBadgeConfigMap.DiplomaPartTime.bgClass,
+  textClass: programBadgeConfigMap.DiplomaPartTime.textClass,
+};
+
 export function getProgramBadgeConfig(activity: Activity): ProgramBadgeConfig | null {
   if (activity.allStudents && !activity.general) return allStudentsBadgeConfig;
   if (activity.programType && activity.programType in programBadgeConfigMap) {
     return programBadgeConfigMap[activity.programType];
   }
   return null;
+}
+
+/** Collapse Diploma + Bachelor Part-Time into one badge (same color as before the distinct labels). */
+function collapsePartTimeBadges(configs: ProgramBadgeConfig[]): ProgramBadgeConfig[] {
+  const hasDiplomaPartTime = configs.some((c) => c.label === programBadgeConfigMap.DiplomaPartTime.label);
+  const hasBachelorPartTime = configs.some((c) => c.label === programBadgeConfigMap.BachelorPartTime.label);
+  if (!hasDiplomaPartTime || !hasBachelorPartTime) return configs;
+  return [
+    ...configs.filter(
+      (c) =>
+        c.label !== programBadgeConfigMap.DiplomaPartTime.label &&
+        c.label !== programBadgeConfigMap.BachelorPartTime.label
+    ),
+    mergedPartTimeBadgeConfig,
+  ];
 }
 
 /** Get badge configs for activities with programTypes. For "All" view returns all; for specific program returns single if in list. */
@@ -436,9 +458,10 @@ export function getProgramBadgesConfig(
 ): ProgramBadgeConfig[] {
   if (activity.programTypes?.length) {
     if (selectedProgram === 'All') {
-      return activity.programTypes
+      const configs = activity.programTypes
         .filter((pt) => pt in programBadgeConfigMap)
         .map((pt) => programBadgeConfigMap[pt as ProgramTypeForBadge]);
+      return collapsePartTimeBadges(configs);
     }
     const match = activity.programTypes.find((pt) => pt === selectedProgram);
     if (match && match in programBadgeConfigMap) {
