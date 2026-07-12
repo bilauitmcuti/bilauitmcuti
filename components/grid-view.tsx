@@ -3,7 +3,7 @@
 import React, { memo } from "react"
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
-import { useState, useEffect, useMemo, useSyncExternalStore, useRef, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useSyncExternalStore, useRef, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import {
   Tooltip,
@@ -48,7 +48,7 @@ interface TooltipActivityListProps {
   weekNum?: number | null;
   surface: 'tooltip' | 'drawer';
   /** Drawer only: ref for horizontal swipe navigation on the list scroller. */
-  listScrollRef?: React.Ref<HTMLDivElement>;
+  listScrollRef?: React.RefCallback<HTMLDivElement>;
   /** Drawer only: enable inner scroll (long lists with snap). */
   listScrollable?: boolean;
 }
@@ -79,6 +79,16 @@ function TooltipActivityList({
   const PAGE_SIZE = 7;
   const [startIndex, setStartIndex] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
+  const [listOverflows, setListOverflows] = useState(false);
+  const listScrollElRef = useRef<HTMLDivElement | null>(null);
+
+  const setListScrollNode = useCallback(
+    (node: HTMLDivElement | null) => {
+      listScrollElRef.current = node;
+      listScrollRef?.(node);
+    },
+    [listScrollRef]
+  );
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -93,6 +103,54 @@ function TooltipActivityList({
     setStartIndex(0);
   }, [dateKey, activities.length, weekNum]);
 
+  // Overflow measure only gates scroll-fade — never gates overflow-y-auto,
+  // so long lists paint immediately (toggling overflow/mask was delaying text).
+  useLayoutEffect(() => {
+    if (surface !== 'drawer' || !listScrollable) {
+      setListOverflows(false);
+      return;
+    }
+
+    const el = listScrollElRef.current;
+    if (!el) {
+      setListOverflows(false);
+      return;
+    }
+
+    let fadeRaf = 0;
+    const measure = () => {
+      if (el.clientHeight < 8) {
+        setListOverflows(false);
+        return;
+      }
+      const overflows = el.scrollHeight > el.clientHeight + 1;
+      if (!overflows) {
+        if (fadeRaf) cancelAnimationFrame(fadeRaf);
+        fadeRaf = 0;
+        setListOverflows(false);
+        return;
+      }
+      // Defer fade until after the list has painted without a mask.
+      if (fadeRaf) cancelAnimationFrame(fadeRaf);
+      fadeRaf = requestAnimationFrame(() => {
+        fadeRaf = 0;
+        setListOverflows(true);
+      });
+    };
+
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    for (const child of el.children) ro.observe(child);
+    const popup = el.closest('[data-slot="drawer-popup"]');
+    if (popup) ro.observe(popup);
+
+    return () => {
+      if (fadeRaf) cancelAnimationFrame(fadeRaf);
+      ro.disconnect();
+    };
+  }, [surface, listScrollable, dateKey, activities, weekNum]);
+
   const shouldPaginate = listMode === 'paginated' && isMobile && activities.length > PAGE_SIZE;
   const hasPrev = startIndex > 0;
   const hasNext = startIndex + PAGE_SIZE < activities.length;
@@ -100,26 +158,30 @@ function TooltipActivityList({
     ? activities.slice(startIndex, startIndex + PAGE_SIZE)
     : activities;
   const mutedTextClass = cn(activityTextClass, 'font-normal leading-4 text-muted-foreground break-words');
+  const useDrawerScrollShell = surface === 'drawer' && listScrollable;
 
   return (
     <div
       data-grid-day-activities
       className={cn(
         'w-full min-w-0 border-0 py-1 text-left shadow-none outline-none ring-0 ring-offset-0',
-        surface === 'drawer' && listScrollable && 'flex min-h-0 flex-1 flex-col overflow-hidden'
+        useDrawerScrollShell && 'flex min-h-0 flex-1 flex-col overflow-hidden'
       )}
     >
       <div
-        ref={listScrollRef}
+        ref={setListScrollNode}
         data-grid-activity-list-scroll={surface === 'drawer' ? '' : undefined}
         data-slot={surface === 'drawer' ? 'drawer-no-drag' : undefined}
         data-base-ui-swipe-ignore={surface === 'drawer' ? '' : undefined}
         data-grid-activity-drawer-swipe={surface === 'drawer' ? '' : undefined}
+        data-overflows={useDrawerScrollShell && listOverflows ? '' : undefined}
         className={cn(
           'flex min-w-0 flex-col gap-2 border-0 shadow-none outline-none ring-0 ring-offset-0',
-          surface === 'drawer' &&
-            listScrollable &&
-            'min-h-0 flex-1 scroll-fade overflow-y-auto overscroll-contain scroll-pb-4'
+          // Always scrollable when constrained — do not wait on overflow measure.
+          useDrawerScrollShell &&
+            'min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-pb-4',
+          // Top + bottom fade only after overflow is confirmed (after paint).
+          useDrawerScrollShell && listOverflows && 'scroll-fade'
         )}
       >
         {shouldPaginate && hasPrev ? (
@@ -286,7 +348,7 @@ interface GridDayActivitiesPanelProps {
   currentDateStr: string | null;
   showKKT: boolean;
   surface: 'tooltip' | 'drawer';
-  listScrollRef?: React.Ref<HTMLDivElement>;
+  listScrollRef?: React.RefCallback<HTMLDivElement>;
   listScrollable?: boolean;
 }
 
