@@ -389,7 +389,7 @@ const programBadgeConfigMap: Record<ProgramTypeForBadge, ProgramBadgeConfig> = {
     textClass: 'text-[#0891B2] dark:text-[#22D3EE]',
   },
   DiplomaPartTime: {
-    label: 'Part-Time',
+    label: 'Diploma Part-Time',
     bgClass: 'bg-[#65A30D]/10 dark:bg-[#A3E635]/10',
     textClass: 'text-[#65A30D] dark:text-[#A3E635]',
   },
@@ -399,7 +399,7 @@ const programBadgeConfigMap: Record<ProgramTypeForBadge, ProgramBadgeConfig> = {
     textClass: 'text-[#DB2777] dark:text-[#F472B6]',
   },
   BachelorPartTime: {
-    label: 'Part-Time',
+    label: 'Bachelor Part-Time',
     bgClass: 'bg-[#65A30D]/10 dark:bg-[#A3E635]/10',
     textClass: 'text-[#65A30D] dark:text-[#A3E635]',
   },
