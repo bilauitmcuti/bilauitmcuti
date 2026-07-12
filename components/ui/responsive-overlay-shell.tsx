@@ -7,7 +7,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  responsiveDialogContentClassName,
 } from "@/components/ui/dialog";
 import {
   KeyboardAwareDrawer,
@@ -17,7 +16,6 @@ import {
   drawerBodyClassName,
   drawerBodyColumnClassName,
   drawerBodyRegionClassName,
-  responsiveDialogTitleClassName,
   responsiveDrawerBodyClassName,
   responsiveDrawerDescriptionClassName,
   responsiveDrawerShellClassName,
@@ -79,11 +77,13 @@ export function ResponsiveOverlayShell({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={responsiveDialogContentClassName} showCloseButton={false}>
-        <DialogHeader className="gap-3 text-center md:text-left">
-          <DialogTitle className={responsiveDialogTitleClassName}>{title}</DialogTitle>
+      <DialogContent showCloseButton={false}>
+        <DialogHeader className="gap-3 text-left">
+          <DialogTitle className="text-left text-lg font-semibold leading-snug tracking-tight">
+            {title}
+          </DialogTitle>
           {description ? (
-            <DialogDescription className={responsiveDrawerDescriptionClassName}>
+            <DialogDescription className="text-left text-sm text-muted-foreground">
               {description}
             </DialogDescription>
           ) : null}

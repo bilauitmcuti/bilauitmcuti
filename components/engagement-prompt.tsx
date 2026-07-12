@@ -17,7 +17,7 @@ import {
 } from "@/lib/engagement-prompt";
 import { trackZarazEvent, ZARAZ_EVENTS } from "@/lib/zaraz";
 import { EngagementPromptSheet } from "@/components/engagement-prompt-sheet";
-import { useMobileViewport } from "@/lib/use-mobile-viewport";
+import { usePhoneViewport } from "@/lib/use-mobile-viewport";
 
 interface EngagementPromptContextValue {
   open: boolean;
@@ -148,7 +148,7 @@ export function useEngagementPrompt(): EngagementPromptContextValue {
 function EngagementPromptHost() {
   const { open, setOpen, closeAfterShare, closeAfterFeedback, completeRating } =
     useEngagementPrompt();
-  const isMobileSheet = useMobileViewport();
+  const isMobileSheet = usePhoneViewport();
 
   return (
     <EngagementPromptSheet
