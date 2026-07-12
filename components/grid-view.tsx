@@ -91,9 +91,7 @@ function TooltipActivityList({
   const visibleActivities = shouldPaginate
     ? activities.slice(startIndex, startIndex + PAGE_SIZE)
     : activities;
-
-  const lineClampClass =
-    listMode === 'paginated' ? 'line-clamp-3' : '';
+  const mutedTextClass = cn(activityTextClass, 'font-normal leading-4 text-muted-foreground break-words');
 
   return (
     <div
@@ -173,9 +171,21 @@ function TooltipActivityList({
                     aria-hidden
                   />
                 </div>
-                <p className={cn(activityTextClass, 'min-w-0 flex-1 leading-relaxed whitespace-normal text-wrap break-words [overflow-wrap:anywhere] transition-none', lineClampClass)}>
-                  {displayName}
-                </p>
+                <div className="min-w-0 flex-1">
+                  <p className={cn(activityTextClass, 'leading-relaxed whitespace-normal text-wrap break-words [overflow-wrap:anywhere] transition-none')}>
+                    {displayName}
+                  </p>
+                  {activity.duration ? (
+                    <p className={cn('mt-1', mutedTextClass)}>
+                      Duration: {activity.duration}
+                    </p>
+                  ) : null}
+                  {activity.details ? (
+                    <p className={cn('mt-1', mutedTextClass)}>
+                      {activity.details}
+                    </p>
+                  ) : null}
+                </div>
               </div>
             </div>
           );
