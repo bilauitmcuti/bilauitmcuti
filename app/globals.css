@@ -411,9 +411,19 @@ a:hover,
     background: linear-gradient(to bottom, var(--background), transparent);
   }
 
-  /* Drawer bottom inner padding — fixed 16px on Safari, Chrome, and others. */
+  /*
+   * Drawer bottom inner padding under content/lists.
+   * Floor 1rem when safe-area is 0 (most Android browser chrome);
+   * uses home-indicator inset on iOS Safari / PWA (viewport-fit=cover).
+   */
   .drawer-safe-area-bottom {
-    padding-bottom: 1rem;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  @media (display-mode: standalone) {
+    .drawer-safe-area-bottom {
+      padding-bottom: max(1.25rem, env(safe-area-inset-bottom, 0px));
+    }
   }
 
   /* Chat header scroll hide/show animation */

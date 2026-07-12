@@ -72,8 +72,8 @@ export function activityDrawerContentNeedsSnap(listEl: HTMLElement): boolean {
     '[data-slot="drawer-no-drag"]'
   ) as HTMLElement | null
   const headerH = header?.offsetHeight ?? 0
-  // Swipe handle + safe-area padding inside the sheet.
-  const chrome = 56
+  // Swipe handle + bottom safe-area padding inside the sheet.
+  const chrome = 64
   return headerH + listEl.scrollHeight + chrome > snapBudget + 1
 }
 /** Body shell: fit by default; expands only when a DrawerScrollRegion child overflows. */
@@ -89,10 +89,14 @@ export const drawerBodyColumnClassName = "flex w-full shrink-0 flex-col"
 export const drawerBodyRegionClassName =
   "w-full min-w-0 shrink-0 overflow-y-hidden overscroll-none"
 
-/** Fixed bottom inset — same on Safari, Chrome, and others (ignores env safe-area). */
-export const DRAWER_SAFE_BOTTOM_PADDING = "1rem" as const
+/**
+ * Bottom padding under drawer content — max(1rem, safe-area); see globals.css.
+ * Prefer on body shell for content-fit drawers; on the list scroller for snap drawers.
+ */
+export const DRAWER_SAFE_BOTTOM_PADDING =
+  "max(1rem, env(safe-area-inset-bottom, 0px))" as const
 
-/** Applied on drawer body shell; value defined in globals.css. */
+/** Applied on drawer body shell (non-snap) or activity list scroller (snap). */
 export const drawerSafeAreaBottomClassName = "drawer-safe-area-bottom"
 
 export const drawerBodyClassName =
@@ -350,42 +354,109 @@ function DrawerContent({
   const { hasSnapPoints, modal, showSwipeHandle, swipeDirection } = useDrawer()
   const swipeAxis =
     swipeDirection === "down" || swipeDirection === "up" ? "y" : "x"
-  const popupRef = React.useRef<HTMLDivElement | null>(null)
-  const snapReadyAttemptsRef = React.useRef(0)
+  const [popupEl, setPopupEl] = React.useState<HTMLDivElement | null>(null)
   const [snapReady, setSnapReady] = React.useState(!hasSnapPoints)
 
   // Wait until Base UI has measured and applied the default snap offset (>0).
-  // Showing at offset 0px paints full height (the Safari flash). Never force the
-  // CSS variable or use clip-path — both break drag-to-expand.
+  // Showing at offset 0px paints full height (the Safari flash). Poll via rAF +
+  // MutationObserver — Base UI updates the CSS var inside Popup without
+  // re-rendering this parent, so attempt-count on layoutEffect never advances
+  // in production. Time failsafe so the drawer never stays invisible.
   React.useLayoutEffect(() => {
     if (!hasSnapPoints) {
       setSnapReady(true)
       return
     }
 
-    const el = popupRef.current
+    const el = popupEl
     if (!el) return
 
-    if (!el.hasAttribute("data-open")) {
-      snapReadyAttemptsRef.current = 0
-      if (snapReady) setSnapReady(false)
-      return
+    let cancelled = false
+    let rafId = 0
+    let failsafeId = 0
+    let watching = false
+    const popup = el
+
+    function readOffset() {
+      return (
+        Number.parseFloat(
+          popup.style.getPropertyValue("--drawer-snap-point-offset")
+        ) || 0
+      )
     }
 
-    if (snapReady) return
+    function stopWatching() {
+      if (rafId) cancelAnimationFrame(rafId)
+      if (failsafeId) window.clearTimeout(failsafeId)
+      rafId = 0
+      failsafeId = 0
+      watching = false
+    }
 
-    const offset =
-      Number.parseFloat(el.style.getPropertyValue("--drawer-snap-point-offset")) || 0
-    // Default snap leaves a large offset; 0px means "not measured yet".
-    if (offset > 1) {
+    function markReady() {
+      if (cancelled) return
+      stopWatching()
       setSnapReady(true)
-      return
     }
 
-    snapReadyAttemptsRef.current += 1
-    // Failsafe so the drawer never stays invisible if measurement stalls.
-    if (snapReadyAttemptsRef.current > 12) setSnapReady(true)
-  })
+    function pollUntilReady() {
+      if (cancelled || !watching) return
+      if (!popup.hasAttribute("data-open")) {
+        stopWatching()
+        setSnapReady(false)
+        return
+      }
+      // Default snap leaves a large offset; 0px means "not measured yet".
+      if (readOffset() > 1) {
+        markReady()
+        return
+      }
+      rafId = requestAnimationFrame(pollUntilReady)
+    }
+
+    function startWatching() {
+      if (cancelled || watching) return
+      watching = true
+      setSnapReady(false)
+      if (readOffset() > 1) {
+        markReady()
+        return
+      }
+      rafId = requestAnimationFrame(pollUntilReady)
+      failsafeId = window.setTimeout(markReady, 150)
+    }
+
+    if (popup.hasAttribute("data-open")) startWatching()
+    else setSnapReady(false)
+
+    const observer =
+      typeof MutationObserver === "function"
+        ? new MutationObserver(() => {
+            if (cancelled) return
+            if (!popup.hasAttribute("data-open")) {
+              stopWatching()
+              setSnapReady(false)
+              return
+            }
+            if (readOffset() > 1) {
+              markReady()
+              return
+            }
+            startWatching()
+          })
+        : null
+
+    observer?.observe(popup, {
+      attributes: true,
+      attributeFilter: ["style", "data-open"],
+    })
+
+    return () => {
+      cancelled = true
+      stopWatching()
+      observer?.disconnect()
+    }
+  }, [hasSnapPoints, popupEl])
 
   const { ref: propsRef, ...popupProps } = props as DrawerPrimitive.Popup.Props & {
     ref?: React.Ref<HTMLDivElement>
@@ -393,7 +464,7 @@ function DrawerContent({
 
   const setPopupRef = React.useCallback(
     (node: HTMLDivElement | null) => {
-      popupRef.current = node
+      setPopupEl(node)
       if (typeof propsRef === "function") propsRef(node)
       else if (propsRef && typeof propsRef === "object") {
         ;(propsRef as React.MutableRefObject<HTMLDivElement | null>).current = node
@@ -461,7 +532,9 @@ function DrawerContent({
               data-slot="drawer-body-shell"
               className={cn(
                 "pt-3",
-                drawerSafeAreaBottomClassName,
+                // Content-fit: pad shell. Snap: pad the list scroller instead
+                // so last rows can scroll clear of the home indicator.
+                !hasSnapPoints && drawerSafeAreaBottomClassName,
                 // Snap drawers must shrink into the snap height; shrink-0
                 // lets long lists force the old content-sized height.
                 hasSnapPoints

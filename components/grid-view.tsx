@@ -22,6 +22,7 @@ import {
   activityDrawerContentNeedsSnap,
   estimateActivityDrawerNeedsSnap,
   drawerBodyClassName,
+  drawerSafeAreaBottomClassName,
 } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { useCalendarHydrationVersion } from '@/components/calendar-hydration-context';
@@ -118,7 +119,12 @@ function TooltipActivityList({
           'flex min-w-0 flex-col gap-2 border-0 shadow-none outline-none ring-0 ring-offset-0',
           surface === 'drawer' &&
             listScrollable &&
-            'min-h-0 flex-1 scroll-fade overflow-y-auto overscroll-contain'
+            cn(
+              'min-h-0 flex-1 scroll-fade overflow-y-auto overscroll-contain',
+              // Snap list: bottom safe-area lives here (not on body shell).
+              drawerSafeAreaBottomClassName,
+              'scroll-pb-[max(1rem,env(safe-area-inset-bottom,0px))] standalone:scroll-pb-[max(1.25rem,env(safe-area-inset-bottom,0px))]'
+            )
         )}
       >
         {shouldPaginate && hasPrev ? (
