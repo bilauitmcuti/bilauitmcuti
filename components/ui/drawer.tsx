@@ -42,9 +42,10 @@ export const activityDrawerContentClassName = cn(
   "data-[swipe-axis=y]:data-snap-points:[--drawer-content-height:100svh]",
   // Hide until Base UI applies snap offset (avoids max-height flash without
   // clip-path, which can collapse measured height and break expand).
-  "data-snap-points:[&:not([data-snap-ready])]:opacity-0",
-  "data-snap-points:[&:not([data-snap-ready])]:!duration-0",
-  "data-snap-points:[&:not([data-snap-ready])]:transition-none",
+  // Never hide while swiping or exiting — offset hits 0 on swipe-dismiss.
+  "data-snap-points:[&:not([data-snap-ready]):not([data-swiping]):not([data-ending-style])]:opacity-0",
+  "data-snap-points:[&:not([data-snap-ready]):not([data-swiping]):not([data-ending-style])]:!duration-0",
+  "data-snap-points:[&:not([data-snap-ready]):not([data-swiping]):not([data-ending-style])]:transition-none",
   "[&_[data-slot=drawer-content]]:flex [&_[data-slot=drawer-content]]:min-h-0 [&_[data-slot=drawer-content]]:flex-1",
   "[&_[data-slot=drawer-body-shell]]:flex [&_[data-slot=drawer-body-shell]]:min-h-0 [&_[data-slot=drawer-body-shell]]:flex-1 [&_[data-slot=drawer-body-shell]]:overflow-hidden"
 )
@@ -363,6 +364,10 @@ function DrawerContent({
   // MutationObserver — Base UI updates the CSS var inside Popup without
   // re-rendering this parent, so attempt-count on layoutEffect never advances
   // in production. Time failsafe so the drawer never stays invisible.
+  //
+  // Once ready for an open cycle, never clear snapReady until the *next* open.
+  // Swipe-to-dismiss zeros --drawer-snap-point-offset / removes data-open while
+  // the exit animation still runs; resetting opacity-0 there flickers the sheet.
   React.useLayoutEffect(() => {
     if (!hasSnapPoints) {
       setSnapReady(true)
@@ -376,6 +381,7 @@ function DrawerContent({
     let rafId = 0
     let failsafeId = 0
     let watching = false
+    let wasOpen = el.hasAttribute("data-open")
     const popup = el
 
     function readOffset() {
@@ -404,7 +410,6 @@ function DrawerContent({
       if (cancelled || !watching) return
       if (!popup.hasAttribute("data-open")) {
         stopWatching()
-        setSnapReady(false)
         return
       }
       // Default snap leaves a large offset; 0px means "not measured yet".
@@ -427,23 +432,28 @@ function DrawerContent({
       failsafeId = window.setTimeout(markReady, 150)
     }
 
-    if (popup.hasAttribute("data-open")) startWatching()
+    if (wasOpen) startWatching()
     else setSnapReady(false)
 
     const observer =
       typeof MutationObserver === "function"
         ? new MutationObserver(() => {
             if (cancelled) return
-            if (!popup.hasAttribute("data-open")) {
+            const isOpen = popup.hasAttribute("data-open")
+            if (!isOpen) {
               stopWatching()
-              setSnapReady(false)
+              wasOpen = false
+              // Keep snapReady through exit / swipe-dismiss (no opacity flash).
               return
             }
-            if (readOffset() > 1) {
-              markReady()
+            if (!wasOpen) {
+              wasOpen = true
+              startWatching()
               return
             }
-            startWatching()
+            // Still open: only promote to ready. Never re-hide — swipe-to-close
+            // can briefly zero the snap offset while the sheet is still visible.
+            if (readOffset() > 1) markReady()
           })
         : null
 
