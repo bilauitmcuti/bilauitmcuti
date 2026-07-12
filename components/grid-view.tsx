@@ -177,7 +177,7 @@ function TooltipActivityList({
                   </p>
                   {activity.duration ? (
                     <p className={cn('mt-1', mutedTextClass)}>
-                      Duration: {activity.duration}
+                      {activity.duration}
                     </p>
                   ) : null}
                   {activity.details ? (
