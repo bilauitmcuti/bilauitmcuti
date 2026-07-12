@@ -327,7 +327,7 @@ export const ListView = memo(function ListView({
                         </p>
                         {activity.duration ? (
                           <p className={`mt-1 text-sm font-normal leading-4 break-words ${mutedClass}`} suppressHydrationWarning>
-                            Duration: {activity.duration}
+                            {activity.duration}
                           </p>
                         ) : null}
                         {activity.details ? (
