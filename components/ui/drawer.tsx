@@ -14,7 +14,8 @@ export const overlayBackdropClassName =
 export const drawerContentClassName = cn(
   "flex flex-col overflow-hidden overflow-x-hidden",
   "[--drawer-content-height:auto] [--drawer-height:unset]",
-  "data-[swipe-direction=down]:!h-auto data-[swipe-direction=down]:min-h-[35dvh] data-[swipe-direction=down]:overflow-y-hidden data-[swipe-direction=down]:overscroll-none"
+  // Auto height while open; lock measured height on close so slide-out can run.
+  "data-[swipe-direction=down]:not-data-ending-style:!h-auto data-[swipe-direction=down]:data-ending-style:!h-(--drawer-height,auto) data-[swipe-direction=down]:min-h-[35dvh] data-[swipe-direction=down]:overflow-y-hidden data-[swipe-direction=down]:overscroll-none"
 )
 
 /**
@@ -40,12 +41,7 @@ export const activityDrawerContentClassName = cn(
   "flex flex-col overflow-hidden",
   // Stable iOS track: avoid dvh URL-bar jumps while snapped.
   "data-[swipe-axis=y]:data-snap-points:[--drawer-content-height:100svh]",
-  // Hide until Base UI applies snap offset (avoids max-height flash without
-  // clip-path, which can collapse measured height and break expand).
-  // Never hide while swiping or exiting — offset hits 0 on swipe-dismiss.
-  "data-snap-points:[&:not([data-snap-ready]):not([data-swiping]):not([data-ending-style])]:opacity-0",
-  "data-snap-points:[&:not([data-snap-ready]):not([data-swiping]):not([data-ending-style])]:!duration-0",
-  "data-snap-points:[&:not([data-snap-ready]):not([data-swiping]):not([data-ending-style])]:transition-none",
+  // Snap open hold is in globals.css (closed transform until data-snap-ready).
   "[&_[data-slot=drawer-content]]:flex [&_[data-slot=drawer-content]]:min-h-0 [&_[data-slot=drawer-content]]:flex-1",
   "[&_[data-slot=drawer-body-shell]]:flex [&_[data-slot=drawer-body-shell]]:min-h-0 [&_[data-slot=drawer-body-shell]]:flex-1 [&_[data-slot=drawer-body-shell]]:overflow-hidden"
 )
@@ -366,8 +362,10 @@ function DrawerContent({
   // in production. Time failsafe so the drawer never stays invisible.
   //
   // Once ready for an open cycle, never clear snapReady until the *next* open.
+  // Open uses an optimistic snap offset in CSS until Base UI measures, so content
+  // stays visible during the slide-up (no closed-transform hold).
   // Swipe-to-dismiss zeros --drawer-snap-point-offset / removes data-open while
-  // the exit animation still runs; resetting opacity-0 there flickers the sheet.
+  // the exit animation still runs — do not re-hide during that.
   React.useLayoutEffect(() => {
     if (!hasSnapPoints) {
       setSnapReady(true)
@@ -504,10 +502,10 @@ function DrawerContent({
           data-swipe-axis={swipeAxis}
           data-snap-points={hasSnapPoints ? "" : undefined}
           className={cn(
-            // Floating inset (shadcn default look — margins from viewport edges).
-            "[--drawer-inset:1rem]",
+            // Edge-attached (not floating) — flush to viewport; top corners only.
+            "[--drawer-inset:0px]",
             // Base — springy bottom-sheet motion (open/close from bottom).
-            "group/drawer-popup pointer-events-auto fixed z-50 m-(--drawer-inset,0px) flex h-(--drawer-content-height) max-h-(--drawer-content-max-height,none) min-h-0 w-(--drawer-content-width,auto) transform-[translate3d(var(--translate-x,0px),var(--translate-y,0px),0)_scale(var(--stack-scale))] flex-col overflow-hidden rounded-xl border bg-popover text-sm text-popover-foreground transition-[transform,height,opacity,filter] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] will-change-transform outline-none select-none [interpolate-size:allow-keywords]",
+            "group/drawer-popup pointer-events-auto fixed z-50 flex h-(--drawer-content-height) max-h-(--drawer-content-max-height,none) min-h-0 w-(--drawer-content-width,auto) transform-[translate3d(var(--translate-x,0px),var(--translate-y,0px),0)_scale(var(--stack-scale))] flex-col overflow-hidden border bg-popover text-sm text-popover-foreground transition-[transform,height,opacity,filter] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] will-change-transform outline-none select-none [interpolate-size:allow-keywords]",
             // Nested.
             "data-nested-drawer-open:overflow-hidden data-nested-drawer-open:brightness-95",
             // Bleed.
@@ -516,20 +514,20 @@ function DrawerContent({
             "[--drawer-content-height:var(--drawer-height,auto)] data-[swipe-axis=x]:[--drawer-content-width:75%] data-[swipe-axis=y]:[--drawer-content-max-height:calc(100dvh-6rem)] data-[swipe-axis=y]:data-snap-points:[--drawer-content-height:100dvh] data-[swipe-axis=x]:sm:[--drawer-content-width:24rem]",
             // Stack.
             "[--bleed:3rem] [--peek:1rem] [--stack-height:var(--drawer-frontmost-height,var(--drawer-height,0px))] [--stack-peek-offset:max(0px,calc((var(--nested-drawers)-var(--stack-progress))*var(--peek)))] [--stack-progress:clamp(0,var(--drawer-swipe-progress),1)] [--stack-scale-base:max(0,calc(1-(var(--nested-drawers)*var(--stack-step))))] [--stack-scale:clamp(0,calc(var(--stack-scale-base)+(var(--stack-step)*var(--stack-progress))),1)] [--stack-shrink:calc(1-var(--stack-scale))] [--stack-step:0.05]",
-            // Transitions — snappier close, smooth open from bottom.
-            "data-starting-style:transform-(--closed-transform) data-ending-style:transform-(--closed-transform) data-ending-style:opacity-[0.9999] data-ending-style:duration-300 data-nested-drawer-swiping:duration-0 data-ending-style:data-nested-drawer-swiping:duration-[calc(var(--drawer-swipe-strength)*350ms)] data-swiping:duration-0 data-ending-style:data-swiping:duration-[calc(var(--drawer-swipe-strength)*350ms)]",
+            // Transitions — open slides up from --closed-transform; close slides down.
+            "data-starting-style:transform-(--closed-transform) data-ending-style:transform-(--closed-transform) data-ending-style:opacity-[0.9999]",
             // Axis: y.
             "data-[swipe-axis=y]:inset-x-0 data-[swipe-axis=y]:data-nested-drawer-open:h-(--stack-height)",
             // Axis: x.
             "data-[swipe-axis=x]:inset-y-0 data-[swipe-axis=x]:flex-row",
-            // Direction: down — slide fully below viewport including floating inset.
-            "data-[swipe-direction=down]:bottom-0 data-[swipe-direction=down]:origin-bottom data-[swipe-direction=down]:[--closed-transform:translate3d(0,calc(100%+var(--drawer-inset,0px)+1rem),0)] data-[swipe-direction=down]:[--translate-y:calc(var(--drawer-snap-point-offset,0px)+var(--drawer-swipe-movement-y)-var(--stack-peek-offset)-(var(--stack-shrink)*var(--stack-height)))]",
+            // Direction: down — flush bottom sheet, top corners rounded.
+            "data-[swipe-direction=down]:bottom-0 data-[swipe-direction=down]:origin-bottom data-[swipe-direction=down]:rounded-t-xl data-[swipe-direction=down]:border-b-0 data-[swipe-direction=down]:[--closed-transform:translate3d(0,calc(100%+1rem),0)] data-[swipe-direction=down]:[--translate-y:calc(var(--drawer-snap-point-offset,0px)+var(--drawer-swipe-movement-y)-var(--stack-peek-offset)-(var(--stack-shrink)*var(--stack-height)))]",
             // Direction: up.
-            "data-[swipe-direction=up]:top-0 data-[swipe-direction=up]:origin-top data-[swipe-direction=up]:[--closed-transform:translate3d(0,calc(-100%-var(--drawer-inset,0px)-1rem),0)] data-[swipe-direction=up]:[--translate-y:calc(var(--drawer-snap-point-offset,0px)+var(--drawer-swipe-movement-y)+var(--stack-peek-offset)+(var(--stack-shrink)*var(--stack-height)))]",
+            "data-[swipe-direction=up]:top-0 data-[swipe-direction=up]:origin-top data-[swipe-direction=up]:rounded-b-xl data-[swipe-direction=up]:border-t-0 data-[swipe-direction=up]:[--closed-transform:translate3d(0,calc(-100%-1rem),0)] data-[swipe-direction=up]:[--translate-y:calc(var(--drawer-snap-point-offset,0px)+var(--drawer-swipe-movement-y)+var(--stack-peek-offset)+(var(--stack-shrink)*var(--stack-height)))]",
             // Direction: left.
-            "data-[swipe-direction=left]:left-0 data-[swipe-direction=left]:origin-left data-[swipe-direction=left]:[--closed-transform:translate3d(calc(-100%-var(--drawer-inset,0px)-1rem),0,0)] data-[swipe-direction=left]:[--translate-x:calc(var(--drawer-swipe-movement-x)+var(--stack-peek-offset)+(var(--stack-shrink)*100%))]",
+            "data-[swipe-direction=left]:left-0 data-[swipe-direction=left]:origin-left data-[swipe-direction=left]:rounded-r-xl data-[swipe-direction=left]:border-l-0 data-[swipe-direction=left]:[--closed-transform:translate3d(calc(-100%-1rem),0,0)] data-[swipe-direction=left]:[--translate-x:calc(var(--drawer-swipe-movement-x)+var(--stack-peek-offset)+(var(--stack-shrink)*100%))]",
             // Direction: right.
-            "data-[swipe-direction=right]:right-0 data-[swipe-direction=right]:origin-right data-[swipe-direction=right]:[--closed-transform:translate3d(calc(100%+var(--drawer-inset,0px)+1rem),0,0)] data-[swipe-direction=right]:[--translate-x:calc(var(--drawer-swipe-movement-x)-var(--stack-peek-offset)-(var(--stack-shrink)*100%))]",
+            "data-[swipe-direction=right]:right-0 data-[swipe-direction=right]:origin-right data-[swipe-direction=right]:rounded-l-xl data-[swipe-direction=right]:border-r-0 data-[swipe-direction=right]:[--closed-transform:translate3d(calc(100%+1rem),0,0)] data-[swipe-direction=right]:[--translate-x:calc(var(--drawer-swipe-movement-x)-var(--stack-peek-offset)-(var(--stack-shrink)*100%))]",
             keyboardAware && keyboardAwareDrawerContentClassName,
             className
           )}
