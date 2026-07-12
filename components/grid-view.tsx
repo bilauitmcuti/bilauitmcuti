@@ -1,9 +1,9 @@
 'use client';
 
 import React, { memo } from "react"
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
-import { useState, useEffect, useLayoutEffect, useMemo, useSyncExternalStore, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useSyncExternalStore, useRef, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import {
   Tooltip,
@@ -11,17 +11,16 @@ import {
 } from '@/components/ui/tooltip';
 import {
   KeyboardAwareDrawer,
+  DrawerClose,
   DrawerContent,
   DrawerDescription,
   DrawerTitle,
   ACTIVITY_DRAWER_DEFAULT_SNAP,
   ACTIVITY_DRAWER_SNAP_POINTS_LIST,
   activityDrawerContentClassName,
-  activityDrawerContentFitClassName,
   activityDrawerBodyClassName,
-  activityDrawerContentNeedsSnap,
-  estimateActivityDrawerNeedsSnap,
   drawerBodyClassName,
+  drawerPrimaryButtonClassName,
   drawerSafeAreaBottomClassName,
 } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
@@ -114,17 +113,13 @@ function TooltipActivityList({
         ref={listScrollRef}
         data-grid-activity-list-scroll={surface === 'drawer' ? '' : undefined}
         data-slot={surface === 'drawer' ? 'drawer-no-drag' : undefined}
+        data-base-ui-swipe-ignore={surface === 'drawer' ? '' : undefined}
         data-grid-activity-drawer-swipe={surface === 'drawer' ? '' : undefined}
         className={cn(
           'flex min-w-0 flex-col gap-2 border-0 shadow-none outline-none ring-0 ring-offset-0',
           surface === 'drawer' &&
             listScrollable &&
-            cn(
-              'min-h-0 flex-1 scroll-fade overflow-y-auto overscroll-contain',
-              // Snap list: bottom safe-area lives here (not on body shell).
-              drawerSafeAreaBottomClassName,
-              'scroll-pb-[max(1rem,env(safe-area-inset-bottom,0px))] standalone:scroll-pb-[max(1.25rem,env(safe-area-inset-bottom,0px))]'
-            )
+            'min-h-0 flex-1 scroll-fade overflow-y-auto overscroll-contain scroll-pb-4'
         )}
       >
         {shouldPaginate && hasPrev ? (
@@ -345,9 +340,9 @@ function formatDateLabel(dateStr: string): string {
   if (!y || !m || !d) return dateStr;
   const date = new Date(y, m - 1, d);
   return date.toLocaleDateString('en-MY', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
     year: 'numeric',
   });
 }
@@ -523,7 +518,7 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
 
   const monthsForRange = useMemo(
     () => {
-      void calendarDataVersion;
+      if (calendarDataVersion < 0) return [];
       return getMonthsForSessions(selectedSessions, {
         selectedProgram,
         showRegistration,
@@ -571,9 +566,8 @@ function MiniCalendar({ month, year, selectedProgram, selectedSessions, showKKT,
   }
 
   const dayActivitiesMap = useMemo(() => {
-    void calendarDataVersion;
     const map = new Map<number, Activity[]>();
-    if (selectedSessions.length === 0) return map;
+    if (calendarDataVersion < 0 || selectedSessions.length === 0) return map;
     for (let day = 1; day <= daysInMonth; day++) {
       const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       const activities = getActivitiesForDateMultiSessions(dateStr, selectedSessions, showKKT, filterOptions);
@@ -889,8 +883,6 @@ export const GridView = memo(function GridView({
   const [activitySnapPoint, setActivitySnapPoint] = useState<number | string | null>(
     ACTIVITY_DRAWER_DEFAULT_SNAP
   );
-  /** Snap only when the day list needs a scroll area (long lists). */
-  const [activityUsesSnap, setActivityUsesSnap] = useState(false);
   const drawerListScrollElRef = useRef<HTMLDivElement | null>(null);
   const [drawerCurrentDateStr, setDrawerCurrentDateStr] = useState<string | null>(initialCurrentDate ?? null);
   const drawerSwipeGestureRef = useRef<{
@@ -920,17 +912,6 @@ export const GridView = memo(function GridView({
   }, []);
 
   const handleOpenActivityDrawer = (dateStr: string) => {
-    const activities = resolveDayActivitiesForDrawer(
-      dateStr,
-      selectedSessions,
-      showKKT,
-      gridFilterOptions,
-      selectedProgram
-    );
-    const hasWeekBadge = (lectureWeekByDate?.get(dateStr) ?? null) != null;
-    // Optimistic: enable snap for likely-long lists so first paint isn't full-height.
-    const needsSnap = estimateActivityDrawerNeedsSnap(activities.length, hasWeekBadge);
-    setActivityUsesSnap(needsSnap);
     setActivitySnapPoint(ACTIVITY_DRAWER_DEFAULT_SNAP);
     setDrawerDateKey(dateStr);
     setSelectedDate(dateStr);
@@ -981,7 +962,7 @@ export const GridView = memo(function GridView({
 
   const months = useMemo(
     () => {
-      void calendarDataVersion;
+      if (calendarDataVersion < 0) return [];
       return getMonthsForSessions(selectedSessions, {
         selectedProgram,
         showRegistration,
@@ -1033,8 +1014,7 @@ export const GridView = memo(function GridView({
   );
 
   const activityDateKeys = useMemo<string[]>(() => {
-    void calendarDataVersion;
-    if (selectedSessions.length === 0) return [];
+    if (calendarDataVersion < 0 || selectedSessions.length === 0) return [];
     const keys: string[] = [];
     for (const { month, year } of months) {
       const daysInMonth = new Date(year, month, 0).getDate();
@@ -1048,32 +1028,12 @@ export const GridView = memo(function GridView({
   }, [months, selectedSessions, showKKT, gridFilterOptions, calendarDataVersion]);
 
   const drawerActivities = useMemo<Activity[]>(() => {
-    if (!drawerDateKey) return [];
-    void calendarDataVersion;
+    if (calendarDataVersion < 0 || !drawerDateKey) return [];
     return resolveDayActivitiesForDrawer(drawerDateKey, selectedSessions, showKKT, gridFilterOptions, selectedProgram);
   }, [drawerDateKey, selectedSessions, showKKT, gridFilterOptions, selectedProgram, calendarDataVersion]);
 
-  // Refine snap after layout: only long (overflowing) lists keep snap points.
-  const drawerWeekNum = drawerDateKey
-    ? (lectureWeekByDate?.get(drawerDateKey) ?? null)
-    : null;
-  useLayoutEffect(() => {
-    if (!drawerDateKey) {
-      setActivityUsesSnap(false);
-      return;
-    }
-    const listEl = drawerListScrollElRef.current;
-    if (!listEl) return;
-    const needsSnap = activityDrawerContentNeedsSnap(listEl);
-    setActivityUsesSnap(needsSnap);
-    if (needsSnap) {
-      setActivitySnapPoint((prev) => prev ?? ACTIVITY_DRAWER_DEFAULT_SNAP);
-    }
-  }, [drawerDateKey, drawerActivities, drawerWeekNum]);
-
   const activeTooltipData = useMemo(() => {
-    if (!tooltipOpenKey) return null;
-    void calendarDataVersion;
+    if (calendarDataVersion < 0 || !tooltipOpenKey) return null;
     const activities = resolveDayActivitiesForDrawer(
       tooltipOpenKey,
       selectedSessions,
@@ -1093,8 +1053,6 @@ export const GridView = memo(function GridView({
   ]);
 
   const drawerNavIndex = drawerDateKey ? activityDateKeys.indexOf(drawerDateKey) : -1;
-  const canGoPrev = drawerNavIndex > 0;
-  const canGoNext = drawerNavIndex >= 0 && drawerNavIndex < activityDateKeys.length - 1;
 
   const navigateDrawerActivityDate = (delta: -1 | 1) => {
     if (drawerNavIndex < 0) return;
@@ -1118,13 +1076,6 @@ export const GridView = memo(function GridView({
       drawerSwipeCleanupRef.current = null;
     }
     if (!node) return;
-
-    // Ref can attach after the layout effect; remeasure so snap matches overflow.
-    const needsSnap = activityDrawerContentNeedsSnap(node);
-    setActivityUsesSnap(needsSnap);
-    if (needsSnap) {
-      setActivitySnapPoint((prev) => prev ?? ACTIVITY_DRAWER_DEFAULT_SNAP);
-    }
 
     const SWIPE_COMMIT_PX = 40;
     const SWIPE_HORIZONTAL_RATIO = 1.2;
@@ -1274,35 +1225,22 @@ export const GridView = memo(function GridView({
         </Tooltip>
       ) : null}
       <KeyboardAwareDrawer
-        // Remount when snap mode changes so Base UI never switches
-        // snapPoint between controlled and uncontrolled on the same root.
-        key={activityUsesSnap ? 'activity-drawer-snap' : 'activity-drawer-fit'}
         open={drawerDateKey != null}
         onOpenChange={(open) => {
           if (!open) setDrawerDateKey(null);
         }}
-        {...(activityUsesSnap
-          ? {
-              snapPoints: ACTIVITY_DRAWER_SNAP_POINTS_LIST,
-              snapPoint: activitySnapPoint,
-              onSnapPointChange: (point: number | string | null) => {
-                setActivitySnapPoint(point);
-              },
-            }
-          : {})}
+        snapPoints={ACTIVITY_DRAWER_SNAP_POINTS_LIST}
+        snapPoint={activitySnapPoint}
+        onSnapPointChange={(point: number | string | null) => {
+          setActivitySnapPoint(point);
+        }}
       >
-        <DrawerContent
-          className={
-            activityUsesSnap
-              ? activityDrawerContentClassName
-              : activityDrawerContentFitClassName
-          }
-        >
+        <DrawerContent className={activityDrawerContentClassName}>
           <div
             data-grid-activity-drawer-body
             className={cn(
               drawerBodyClassName,
-              activityUsesSnap ? activityDrawerBodyClassName : 'flex flex-col',
+              activityDrawerBodyClassName,
               'min-h-0 gap-0 px-0'
             )}
           >
@@ -1310,37 +1248,14 @@ export const GridView = memo(function GridView({
               <>
                 <div
                   data-slot="drawer-no-drag"
+                  data-base-ui-swipe-ignore=""
                   className="w-full shrink-0 px-4 pt-0"
                 >
-                  <div className="flex w-full items-center justify-between gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      disabled={!canGoPrev}
-                      onClick={() => navigateDrawerActivityDate(-1)}
-                      className="h-8 w-8 shrink-0"
-                      aria-label="Previous activity day"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <DrawerTitle className="min-w-0 flex-1 text-center">
-                      {formatDateLabel(drawerDateKey)}
-                    </DrawerTitle>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      disabled={!canGoNext}
-                      onClick={() => navigateDrawerActivityDate(1)}
-                      className="h-8 w-8 shrink-0"
-                      aria-label="Next activity day"
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  <DrawerTitle className="min-w-0 w-full text-center">
+                    {formatDateLabel(drawerDateKey)}
+                  </DrawerTitle>
                   <DrawerDescription className="sr-only border-0 shadow-none">
-                    Activities for the selected date
+                    Activities for the selected date. Swipe left or right to change day.
                   </DrawerDescription>
                 </div>
                 <ActivityDrawerAnimatedSection
@@ -1357,9 +1272,25 @@ export const GridView = memo(function GridView({
                     showKKT={showKKT}
                     surface="drawer"
                     listScrollRef={setDrawerSwipeAreaRef}
-                    listScrollable={activityUsesSnap}
+                    listScrollable
                   />
                 </ActivityDrawerAnimatedSection>
+                <div
+                  data-slot="drawer-no-drag"
+                  data-base-ui-swipe-ignore=""
+                  className={cn('w-full shrink-0 px-4', drawerSafeAreaBottomClassName)}
+                >
+                  <DrawerClose
+                    render={
+                      <Button
+                        type="button"
+                        className={drawerPrimaryButtonClassName}
+                      />
+                    }
+                  >
+                    Close
+                  </DrawerClose>
+                </div>
               </>
             ) : null}
           </div>

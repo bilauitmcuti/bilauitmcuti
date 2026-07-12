@@ -19,9 +19,10 @@ export const drawerContentClassName = cn(
 
 /**
  * Activity drawer snap points (Base UI: 0–1 = viewport fraction; px/rem strings only).
- * 0.35 ≈ 35dvh (default), 1 = full height (expanded). Only used when the list overflows.
+ * 0.35 ≈ 35dvh (default), 1 = full height (expanded).
  */
-export const ACTIVITY_DRAWER_SNAP_POINTS = [0.35, 1] as const
+const ACTIVITY_DRAWER_SNAP_POINTS = [0.35, 1] as const
+export { ACTIVITY_DRAWER_SNAP_POINTS }
 export const ACTIVITY_DRAWER_DEFAULT_SNAP = ACTIVITY_DRAWER_SNAP_POINTS[0]
 /** Stable array reference for Drawer.Root (avoid new [] each render). */
 export const ACTIVITY_DRAWER_SNAP_POINTS_LIST: Array<
@@ -462,16 +463,21 @@ function DrawerContent({
     ref?: React.Ref<HTMLDivElement>
   }
 
-  const setPopupRef = React.useCallback(
-    (node: HTMLDivElement | null) => {
-      setPopupEl(node)
-      if (typeof propsRef === "function") propsRef(node)
-      else if (propsRef && typeof propsRef === "object") {
-        ;(propsRef as React.MutableRefObject<HTMLDivElement | null>).current = node
-      }
-    },
-    [propsRef]
-  )
+  // Stable callback; read latest forwarded ref from a box updated in layout effect
+  // (avoids React Compiler "modified hook argument" + "refs during render").
+  const forwardedRefRef = React.useRef(propsRef)
+  React.useLayoutEffect(() => {
+    forwardedRefRef.current = propsRef
+  })
+
+  const setPopupRef = React.useCallback((node: HTMLDivElement | null) => {
+    setPopupEl(node)
+    const forwarded = forwardedRefRef.current
+    if (typeof forwarded === "function") forwarded(node)
+    else if (forwarded && typeof forwarded === "object") {
+      ;(forwarded as React.MutableRefObject<HTMLDivElement | null>).current = node
+    }
+  }, [])
 
   return (
     <DrawerPortal data-slot="drawer-portal">
