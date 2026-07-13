@@ -6,7 +6,7 @@ import {
   ReasoningTrigger,
 } from "@/components/ai-elements/reasoning";
 import { Check, Copy, Pencil, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
-import { useRef, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { Button } from "@/components/ui/button";
 import {
@@ -63,8 +63,12 @@ export function ChatMessageRow({
 }: ChatMessageRowProps) {
   const assistantInProgress =
     message.role === "assistant" && message.isComplete === false;
-  const sawStreamingRef = useRef(message.isComplete === false);
-  if (message.isComplete === false) sawStreamingRef.current = true;
+  const [sawStreaming, setSawStreaming] = useState(
+    () => message.isComplete === false
+  );
+  useEffect(() => {
+    if (message.isComplete === false) setSawStreaming(true);
+  }, [message.isComplete]);
   const answerStreaming = assistantInProgress && message.content.trim().length > 0;
   const isRegenerating =
     assistantInProgress &&
@@ -162,14 +166,14 @@ export function ChatMessageRow({
 
   const assistantFinished =
     message.isComplete !== false && message.content.trim().length > 0;
-  const animateActions = assistantFinished && sawStreamingRef.current;
+  const animateActions = assistantFinished && sawStreaming;
   const actionBlurClass = animateActions ? "chat-action-blur-in" : undefined;
   const actionBlurStyle = (index: number): CSSProperties | undefined =>
     animateActions
-      ? {
+      ? ({
           animationDelay: `${index * CHAT_ACTION_APPEAR.staggerMs}ms`,
-          ["--chat-action-blur-duration"]: `${CHAT_ACTION_APPEAR.durationMs}ms`,
-        }
+          "--chat-action-blur-duration": `${CHAT_ACTION_APPEAR.durationMs}ms`,
+        } as CSSProperties)
       : undefined;
 
   return (
