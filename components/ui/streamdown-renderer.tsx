@@ -64,7 +64,7 @@ function PlainTextFallback({
   return (
     <p
       className={cn(
-        "text-sm leading-relaxed whitespace-pre-wrap break-words",
+        "text-sm leading-relaxed whitespace-pre-wrap break-words md:text-[15px]",
         className
       )}
     >
@@ -112,70 +112,27 @@ function isSafeExternalHref(href: string | undefined): boolean {
   }
 }
 
+/** Behavioral overrides only — typography comes from `.typeset` / `.typeset-chat`. */
 const COMPONENTS: Components = {
-  h1: ({ children }) => (
-    <p className="mt-2 font-semibold text-foreground first:mt-0">{children}</p>
-  ),
-  h2: ({ children }) => (
-    <p className="mt-2 font-semibold text-foreground first:mt-0">{children}</p>
-  ),
-  h3: ({ children }) => (
-    <p className="mt-2 font-semibold text-foreground first:mt-0">{children}</p>
-  ),
-  h4: ({ children }) => (
-    <p className="mt-2 font-semibold text-foreground first:mt-0">{children}</p>
-  ),
-  h5: ({ children }) => (
-    <p className="mt-2 font-semibold text-foreground first:mt-0">{children}</p>
-  ),
-  h6: ({ children }) => (
-    <p className="mt-2 font-semibold text-foreground first:mt-0">{children}</p>
-  ),
-  p: ({ children }) => <p className="mt-1 first:mt-0">{children}</p>,
-  ul: ({ children }) => (
-    <ul className="mt-1 flex list-disc flex-col gap-0.5 pl-5 first:mt-0">
-      {children}
-    </ul>
-  ),
-  ol: ({ children }) => (
-    <ol className="mt-1 flex list-decimal flex-col gap-0.5 pl-5 first:mt-0">
-      {children}
-    </ol>
-  ),
-  li: ({ children }) => <li className="pl-1">{children}</li>,
+  h1: ({ children }) => <h1>{children}</h1>,
+  h2: ({ children }) => <h2>{children}</h2>,
+  h3: ({ children }) => <h3>{children}</h3>,
+  h4: ({ children }) => <h4>{children}</h4>,
+  h5: ({ children }) => <h5>{children}</h5>,
+  h6: ({ children }) => <h6>{children}</h6>,
   a: ({ children, href }) => {
     if (!isSafeExternalHref(href)) {
-      return <span className="text-primary">{children}</span>;
+      return <span>{children}</span>;
     }
     return (
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-primary underline underline-offset-2"
-      >
+      <a href={href} target="_blank" rel="noopener noreferrer">
         {children}
       </a>
     );
   },
   img: () => null,
-  strong: ({ children }) => (
-    <strong className="font-semibold text-foreground">{children}</strong>
-  ),
-  em: ({ children }) => <em className="italic">{children}</em>,
-  code: ({ children }) => (
-    <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
-      {children}
-    </code>
-  ),
-  blockquote: ({ children }) => (
-    <blockquote className="mt-1 border-l-2 border-border pl-3 text-muted-foreground first:mt-0">
-      {children}
-    </blockquote>
-  ),
-  hr: () => <hr className="my-2 border-border" />,
   table: ({ children }) => (
-    <div className="mt-2 overflow-hidden rounded-lg border border-border first:mt-0">
+    <div className="not-typeset mt-2 overflow-hidden rounded-lg border border-border first:mt-0">
       <Table>{children}</Table>
     </div>
   ),
@@ -203,7 +160,7 @@ export function StreamdownRenderer({
 
   return (
     <StreamdownErrorBoundary content={trimmed} className={className}>
-      <div className={cn("text-sm leading-relaxed break-words", className)}>
+      <div className={cn("typeset typeset-chat break-words", className)}>
         <Streamdown
           mode={isStreaming ? "streaming" : "static"}
           isAnimating={shouldAnimate}
