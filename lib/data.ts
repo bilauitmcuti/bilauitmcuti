@@ -32,14 +32,13 @@ export interface Activity {
 }
 
 import { getSnapshot as getCalendarSnapshot } from "./calendar-store";
+import { FALLBACK_DEFAULT_SESSION_MAP } from "./calendar-api";
 
 export type SessionId = string;
 
-const STATIC_DEFAULT_SESSION_FALLBACK: SessionId = "B-20263";
-
-/** When API meta has not loaded yet (SSR / first paint). */
+/** When API meta has not loaded yet (SSR / first paint). Group B homepage default. */
 export function getDefaultSessionFallback(): SessionId {
-  return STATIC_DEFAULT_SESSION_FALLBACK;
+  return FALLBACK_DEFAULT_SESSION_MAP.B;
 }
 
 export function getSessionOptions(): Array<{ id: string; label: string; group: "A" | "B" }> {
@@ -161,13 +160,25 @@ export function getGroupFromSession(sessionId: SessionId): ProgramGroup {
   return getSessionGroupById().get(sessionId) ?? (sessionId.startsWith("A-") ? "A" : "B");
 }
 
-/** Get default session for a group (first session in options for that group). */
+/** Get default session for a group from API meta map (synced via store). */
 export function getDefaultSessionForGroup(group: ProgramGroup): SessionId {
-  const opt = getCalendarSnapshot().sessionOptions.find((s) => s.group === group);
+  const snap = getCalendarSnapshot();
+  const fromMap = snap.defaultSession?.[group];
+  if (
+    fromMap &&
+    snap.sessionOptions.some((s) => s.id === fromMap && s.group === group)
+  ) {
+    return fromMap;
+  }
+  if (fromMap && fromMap.startsWith(`${group}-`)) return fromMap;
+
+  const opt = snap.sessionOptions.find((s) => s.group === group);
   if (opt) return opt.id;
   const opts = getSessionOptionsForGroup(group);
   if (opts.length > 0) return opts[0]!.id;
-  return "B-20263";
+  return group === "A"
+    ? FALLBACK_DEFAULT_SESSION_MAP.A
+    : FALLBACK_DEFAULT_SESSION_MAP.B;
 }
 
 /** Min/max dates from loaded API activities for a session (authoritative span). */
@@ -336,7 +347,11 @@ export function pickSessionIdForDateFromApiOptions(
   sessionOptions: SessionOptionLike[]
 ): SessionId {
   const opts = sessionOptions.filter((s) => s.group === group);
-  if (opts.length === 0) return "B-20263";
+  if (opts.length === 0) {
+    return group === "A"
+      ? FALLBACK_DEFAULT_SESSION_MAP.A
+      : FALLBACK_DEFAULT_SESSION_MAP.B;
+  }
   const normalizedDate = normalizeDateString(dateStr);
 
   for (const s of opts) {

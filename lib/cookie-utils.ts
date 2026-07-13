@@ -3,13 +3,31 @@ import {
   DEFAULT_FILTER_STATES,
   getDefaultSessionFallback,
 } from './data';
+import type { DefaultSessionMap } from './calendar-api';
 import { isProgramValue, type ProgramValue } from './route-utils';
 
-/** Prefer API defaultSession when store is hydrated; else static fallback (SSR-safe). */
+/** Prefer API defaultSession.B when store is hydrated; else static fallback (SSR-safe). */
 function getDefaultSessionForCookie(): string {
-  const d = getSnapshot().defaultSession;
+  const d = getSnapshot().defaultSession?.B;
   if (d) return d;
   return getDefaultSessionFallback();
+}
+
+function resolveDefaultSessionId(
+  defaultSessionWhenMissing?: string | DefaultSessionMap
+): string {
+  if (typeof defaultSessionWhenMissing === 'string' && defaultSessionWhenMissing) {
+    return defaultSessionWhenMissing;
+  }
+  if (
+    defaultSessionWhenMissing &&
+    typeof defaultSessionWhenMissing === 'object' &&
+    typeof defaultSessionWhenMissing.B === 'string' &&
+    defaultSessionWhenMissing.B
+  ) {
+    return defaultSessionWhenMissing.B;
+  }
+  return getDefaultSessionForCookie();
 }
 
 export interface FilterStates {
@@ -49,14 +67,14 @@ function getCalendarFiltersCookieRaw(): string | null {
 
 /**
  * Parse filter states from cookie value (decoded cookie value, not full cookie string).
- * @param defaultSessionWhenMissing — e.g. API `defaultSession` when parsing on the server before the client store exists.
+ * @param defaultSessionWhenMissing — API `defaultSession` map or Group B id when parsing before the client store exists.
  */
 export function parseFiltersFromCookie(
   cookieValue: string | null | undefined,
-  defaultSessionWhenMissing?: string
+  defaultSessionWhenMissing?: string | DefaultSessionMap
 ): FilterStates {
   const resolveDefaultSession = (): string =>
-    defaultSessionWhenMissing ?? getDefaultSessionForCookie();
+    resolveDefaultSessionId(defaultSessionWhenMissing);
 
   if (!cookieValue) {
     return { ...DEFAULT_FILTER_STATES };

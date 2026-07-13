@@ -56,7 +56,7 @@ API free-text fields (`activity`, `name`, `label`, `statuses`, `matchedActivitie
 
 Session IDs like `A-20251` or `B-20263` are not derivable from a semester name alone. Session IDs are listed in the `/api/v1/meta` response.
 
-1. **`/api/v1/meta`** — exposes `sessionOptions` and `defaultSession` (optional `?group=A|B` or `?all=true`).
+1. **`/api/v1/meta`** — exposes `sessionOptions` and `defaultSession` (optional `?group=A|B` or `?all=true`). With `all=true`, `defaultSession` is `{ "A": "<id>", "B": "<id>" }`; with `?group=`, it is a single session id string.
 2. **`/api/v1/public-holiday/meta`** — exposes `yearOptions` and `stateOptions` slugs for holiday filters.
 3. **Data endpoints** — `/calendar`, `/today`, `/lecture-weeks`, `/public-holiday` accept the resolved IDs/slugs from steps 1–2:
    - Full activity list for a session → `/api/v1/calendar?session=<id>&group=<A|B>`

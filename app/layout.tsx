@@ -109,8 +109,11 @@ export const viewport: Viewport = {
   userScalable: false,
   viewportFit: 'cover',
   interactiveWidget: 'resizes-content',
-  // Single themeColor - updated dynamically by theme-toggle when user changes theme (PWA status bar sync)
-  themeColor: '#ffffff',
+  // Safari uses these media queries for chrome/status bar before JS runs
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#1a1a1a' },
+  ],
 }
 
 export default function RootLayout({
@@ -121,7 +124,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={cn(geistSans.variable, geistMono.variable, "font-sans")} suppressHydrationWarning>
       <head>
-        <meta name="theme-color" content="#ffffff" />
+        <meta name="color-scheme" content="light dark" />
+        <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+        <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)" />
         <meta name="application-name" content="Bila UiTM Cuti" />
         <meta property="og:site_name" content="Bila UiTM Cuti" />
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
@@ -164,28 +169,39 @@ export default function RootLayout({
             __html: `
               (function() {
                 const isDev = ${process.env.NODE_ENV === 'development'};
-                // Sync theme from localStorage before React hydration to prevent flash
+                // Sync theme from localStorage / system preference before React hydration to prevent flash
                 try {
-                  let theme = 'light';
+                  let theme = 'system';
                   try {
-                    theme = localStorage.getItem('theme') || 'light';
+                    theme = localStorage.getItem('theme') || 'system';
                   } catch (storageError) {
-                    if (isDev) console.warn('localStorage access failed, using default theme:', storageError);
+                    if (isDev) console.warn('localStorage access failed, using system theme:', storageError);
                   }
-                  
-                  // Validate theme value - only accept 'light' or 'dark'
-                  const validTheme = (theme === 'dark' || theme === 'light') ? theme : 'light';
-                  
+
+                  function resolveTheme(stored) {
+                    if (stored === 'dark' || stored === 'light') return stored;
+                    try {
+                      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                    } catch (mediaError) {
+                      if (isDev) console.warn('matchMedia failed, falling back to light:', mediaError);
+                      return 'light';
+                    }
+                  }
+
+                  // Accept light/dark/system; anything else resolves via system preference
+                  const resolvedTheme = resolveTheme(theme);
+
                   // Apply theme class - always remove both classes first to ensure clean state
                   document.documentElement.classList.remove('dark', 'light');
-                  document.documentElement.classList.add(validTheme);
-                  
-                  // Update theme-color meta tag
+                  document.documentElement.classList.add(resolvedTheme);
+                  document.documentElement.style.colorScheme = resolvedTheme;
+
+                  // Update theme-color meta tags from resolved (not "system") theme
                   try {
-                    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
-                    if (metaThemeColor) {
-                      metaThemeColor.setAttribute('content', validTheme === 'dark' ? '#1a1a1a' : '#ffffff');
-                    }
+                    const color = resolvedTheme === 'dark' ? '#1a1a1a' : '#ffffff';
+                    document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
+                      meta.setAttribute('content', color);
+                    });
                   } catch (metaError) {
                     if (isDev) console.warn('Failed to update theme-color meta tag:', metaError);
                   }
@@ -279,8 +295,8 @@ export default function RootLayout({
         <VersionBanner />
         <ThemeProvider
           attribute="class"
-          defaultTheme="light"
-          enableSystem={false}
+          defaultTheme="system"
+          enableSystem={true}
           storageKey="theme"
           disableTransitionOnChange={true}
         >

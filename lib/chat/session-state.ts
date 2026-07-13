@@ -1,4 +1,4 @@
-import { getSessionForCurrentDate } from "@/lib/data";
+import { getDefaultSessionForGroup } from "@/lib/data";
 import type { SessionId } from "@/lib/data";
 import {
   getFiltersFromCookie,
@@ -25,7 +25,7 @@ export function resolveSessionsForProgram(
   program: ProgramValue,
   sessionCandidates: SessionId[],
   sessionsByProgram: ProgramSessionMap,
-  dateStr: string
+  _dateStr: string
 ): SessionId[] {
   const group = getGroupFromProgram(program);
   const sessionMemoryKey = getSessionMemoryKey(program);
@@ -35,7 +35,7 @@ export function resolveSessionsForProgram(
   const fromProgramMemory = normalizeSessionsForGroup(sessionsByProgram[sessionMemoryKey] ?? [], group);
   if (fromProgramMemory.length > 0) return fromProgramMemory;
 
-  return [getSessionForCurrentDate(group, dateStr)];
+  return [getDefaultSessionForGroup(group)];
 }
 
 export function normalizeEntriesFromSessionMap(
@@ -80,9 +80,7 @@ export function mergeSessionMapsFromHomepage(
 
 export function getInitialChatSessions(program: string): SessionId[] {
   const group: "A" | "B" = program === "Foundation/Professional" ? "A" : "B";
-  const dateStr =
-    typeof window !== "undefined" ? new Date().toISOString().slice(0, 10) : "2026-03-15";
-  return [getSessionForCurrentDate(group, dateStr)];
+  return [getDefaultSessionForGroup(group)];
 }
 
 export function areProgramSessionMapsEqual(

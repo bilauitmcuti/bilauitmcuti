@@ -1,18 +1,30 @@
 import type { Activity } from "./data";
-import type { ProgramOptionRow, SessionOptionRow } from "./calendar-api";
+import type {
+  DefaultSessionMap,
+  ProgramOptionRow,
+  SessionOptionRow,
+} from "./calendar-api";
+import { FALLBACK_DEFAULT_SESSION_MAP } from "./calendar-api";
 
 export interface CalendarSnapshot {
   version: number;
   sessionOptions: SessionOptionRow[];
   programOptions: ProgramOptionRow[];
-  defaultSession: string;
+  defaultSession: DefaultSessionMap;
   sessions: Record<string, { activities: Activity[] }>;
   /** Merged union of all loaded sessions (legacy; prefer lectureWeekBySession + selected ids). */
   lectureWeekByDate: Record<string, number>;
   lectureWeekBySession: Record<string, Record<string, number>>;
 }
 
-const FALLBACK_DEFAULT_SESSION = "B-20263";
+function coalesceDefaultSession(
+  value: DefaultSessionMap | null | undefined
+): DefaultSessionMap {
+  return {
+    A: value?.A || FALLBACK_DEFAULT_SESSION_MAP.A,
+    B: value?.B || FALLBACK_DEFAULT_SESSION_MAP.B,
+  };
+}
 
 /** Stable empty record for useSyncExternalStore getServerSnapshot (must not allocate per call). */
 export const EMPTY_LECTURE_WEEK_BY_DATE: Record<string, number> = {};
@@ -30,7 +42,7 @@ const emptySnapshot: CalendarSnapshot = {
   version: 0,
   sessionOptions: [],
   programOptions: [],
-  defaultSession: FALLBACK_DEFAULT_SESSION,
+  defaultSession: { ...FALLBACK_DEFAULT_SESSION_MAP },
   sessions: {},
   lectureWeekByDate: EMPTY_LECTURE_WEEK_BY_DATE,
   lectureWeekBySession: EMPTY_LECTURE_WEEK_BY_SESSION,
@@ -54,14 +66,14 @@ export function getSnapshot(): CalendarSnapshot {
 }
 
 export function setMeta(meta: {
-  defaultSession: string;
+  defaultSession: DefaultSessionMap;
   sessionOptions: SessionOptionRow[];
   programOptions: ProgramOptionRow[];
 }): void {
   snapshot = {
     ...snapshot,
     version: snapshot.version + 1,
-    defaultSession: meta.defaultSession || FALLBACK_DEFAULT_SESSION,
+    defaultSession: coalesceDefaultSession(meta.defaultSession),
     sessionOptions: meta.sessionOptions,
     programOptions: meta.programOptions,
   };
@@ -129,7 +141,7 @@ export function assignCalendarStoreSnapshot(next: CalendarSnapshot): void {
     version: next.version,
     sessionOptions: [...next.sessionOptions],
     programOptions: [...next.programOptions],
-    defaultSession: next.defaultSession || FALLBACK_DEFAULT_SESSION,
+    defaultSession: coalesceDefaultSession(next.defaultSession),
     sessions: { ...next.sessions },
     lectureWeekByDate: { ...next.lectureWeekByDate },
     lectureWeekBySession: { ...(next.lectureWeekBySession ?? EMPTY_LECTURE_WEEK_BY_SESSION) },

@@ -13,8 +13,38 @@ export interface ProgramOptionRow {
   group: "A" | "B";
 }
 
+/** Per-group default session ids from `/api/v1/meta` (`all=true`). */
+export interface DefaultSessionMap {
+  A: string;
+  B: string;
+}
+
+export const FALLBACK_DEFAULT_SESSION_MAP: DefaultSessionMap = {
+  A: "A-20264",
+  B: "B-20263",
+};
+
+/**
+ * Normalize API `defaultSession`: map when `all=true`, string when `?group=A|B`.
+ */
+export function normalizeDefaultSession(raw: unknown): DefaultSessionMap {
+  const fallback = FALLBACK_DEFAULT_SESSION_MAP;
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    const o = raw as Record<string, unknown>;
+    return {
+      A: typeof o.A === "string" && o.A ? o.A : fallback.A,
+      B: typeof o.B === "string" && o.B ? o.B : fallback.B,
+    };
+  }
+  if (typeof raw === "string" && raw) {
+    if (raw.startsWith("A-")) return { A: raw, B: fallback.B };
+    if (raw.startsWith("B-")) return { A: fallback.A, B: raw };
+  }
+  return { A: fallback.A, B: fallback.B };
+}
+
 export interface MetaResponse {
-  defaultSession: string;
+  defaultSession: DefaultSessionMap;
   sessionOptions: SessionOptionRow[];
   programOptions: ProgramOptionRow[];
 }
@@ -130,10 +160,8 @@ function asMetaPayload(data: unknown): MetaResponse {
   const programOptions = Array.isArray(o.programOptions)
     ? (o.programOptions as ProgramOptionRow[])
     : [];
-  const defaultSession =
-    typeof o.defaultSession === "string" ? o.defaultSession : "B-20263";
   return applyGroupASessionsToMeta({
-    defaultSession,
+    defaultSession: normalizeDefaultSession(o.defaultSession),
     sessionOptions,
     programOptions,
   });

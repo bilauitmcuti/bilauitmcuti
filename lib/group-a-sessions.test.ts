@@ -16,7 +16,7 @@ describe("group-a-sessions", () => {
 
   it("filters API meta to configured Group A sessions", () => {
     const meta = applyGroupASessionsToMeta({
-      defaultSession: "A-20251",
+      defaultSession: { A: "A-20251", B: "B-20263" },
       sessionOptions: [
         { id: "A-20251", label: "Dec 2025 - May 2026", group: "A" },
         { id: "A-20264", label: "Jun - Oct 2026", group: "A" },
@@ -26,6 +26,9 @@ describe("group-a-sessions", () => {
       programOptions: [],
     });
     expect(meta.sessionOptions.map((s) => s.id)).toEqual(["A-20264", "A-20272", "B-20263"]);
-    expect(meta.defaultSession).toBe(GROUP_A_DEFAULT_SESSION_ID);
+    expect(meta.defaultSession).toEqual({
+      A: GROUP_A_DEFAULT_SESSION_ID,
+      B: "B-20263",
+    });
   });
 });

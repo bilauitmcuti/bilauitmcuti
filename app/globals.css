@@ -1,8 +1,27 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import "shadcn/tailwind.css";
+@import "./typeset.css";
 
 @source "../node_modules/streamdown/dist/*.js";
+
+/* Chat assistant markdown: text-sm mobile, 15px from md+. Override Typeset's
+   mobile 1.125 size bump so body matches BubbleContent. */
+.typeset-chat {
+  --typeset-font-body: var(--font-geist-sans);
+  --typeset-font-heading: var(--font-geist-sans);
+  --typeset-font-mono: var(--font-geist-mono);
+  --typeset-size: 0.875rem;
+  --typeset-leading: 1.6;
+  --typeset-flow: 1.25em;
+  font-size: var(--typeset-size);
+}
+
+@media (min-width: 768px) {
+  .typeset-chat {
+    --typeset-size: 15px;
+  }
+}
 
 @custom-variant dark (&:is(.dark *));
 @custom-variant standalone (@media (display-mode: standalone));
@@ -525,6 +544,22 @@ html[data-keyboard-theme="1"] .toggle-switch-thumb {
   transition: none !important;
 }
 
+/* Match Streamdown blurIn for chat reply action buttons after stream ends */
+@keyframes chat-blur-in {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+.chat-action-blur-in {
+  animation: chat-blur-in var(--chat-action-blur-duration, 150ms) ease-out both;
+}
+
 /* Reduced motion: keep opacity/color comprehension, drop transform movement */
 @media (prefers-reduced-motion: reduce) {
   .toggle-switch-thumb,
@@ -532,5 +567,9 @@ html[data-keyboard-theme="1"] .toggle-switch-thumb {
   .nav-icon-btn:active {
     transition: none !important;
     transform: none !important;
+  }
+
+  .chat-action-blur-in {
+    animation: none !important;
   }
 }

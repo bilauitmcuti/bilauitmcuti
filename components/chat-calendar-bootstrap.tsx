@@ -2,11 +2,11 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { fetchMetaCached, type MetaResponse } from "@/lib/calendar-api";
+import { fetchMetaCached, FALLBACK_DEFAULT_SESSION_MAP, type MetaResponse } from "@/lib/calendar-api";
 import { getSnapshot, setMeta } from "@/lib/calendar-store";
 
 const FALLBACK_META: MetaResponse = {
-  defaultSession: "B-20263",
+  defaultSession: { ...FALLBACK_DEFAULT_SESSION_MAP },
   sessionOptions: [],
   programOptions: [],
 };

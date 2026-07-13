@@ -24,7 +24,7 @@ import {
   subscribe,
 } from '@/lib/calendar-store';
 import type { CalendarSnapshot } from '@/lib/calendar-store';
-import { DEFAULT_FILTER_STATES, getGroupFromSession, getSessionForCurrentDate } from '@/lib/data';
+import { DEFAULT_FILTER_STATES, getGroupFromSession, getDefaultSessionForGroup } from '@/lib/data';
 import type { SessionId } from '@/lib/data';
 import { setFiltersToCookie, type FilterStates } from '@/lib/cookie-utils';
 import type { ViewMode } from '@/app/page';
@@ -275,8 +275,7 @@ export function SharedCalendarLayout({
         : null;
     const inGroup = candidates?.filter((id) => getGroupFromSession(id) === initGroup) ?? [];
     if (inGroup.length > 0) return inGroup;
-    const dateStr = initialCurrentDate ?? (typeof window !== 'undefined' ? new Date().toISOString().slice(0, 10) : '2026-03-15');
-    return [getSessionForCurrentDate(initGroup, dateStr)];
+    return [getDefaultSessionForGroup(initGroup)];
   };
 
   // State management for settings
@@ -299,14 +298,13 @@ export function SharedCalendarLayout({
 
   // Keep selectedSessions synchronized with selectedProgram using per-program memory.
   useEffect(() => {
-    const dateStr = initialCurrentDate ?? new Date().toISOString().slice(0, 10);
     setSelectedSessions((prev) => {
       const targetGroup = getGroupFromProgram(selectedProgram);
       const sessionMemoryKey = getSessionMemoryKey(selectedProgram);
       const fromProgram = normalizeSessionsForGroup(sessionsByProgram[sessionMemoryKey] ?? [], targetGroup);
       if (fromProgram.length > 0) return areSessionListsEqual(prev, fromProgram) ? prev : fromProgram;
 
-      const fallback = [getSessionForCurrentDate(targetGroup, dateStr)];
+      const fallback = [getDefaultSessionForGroup(targetGroup)];
       return areSessionListsEqual(prev, fallback) ? prev : fallback;
     });
   }, [selectedProgram, sessionsByProgram, initialCurrentDate]);
@@ -400,12 +398,11 @@ export function SharedCalendarLayout({
           ? inGroup
           : fromProgram.length > 0
             ? fromProgram
-            : [getSessionForCurrentDate(targetGroup, initialCurrentDate ?? new Date().toISOString().slice(0, 10))];
+            : [getDefaultSessionForGroup(targetGroup)];
 
       persistProgramSessions(program, resolvedSessions, { navigate: true });
     },
     [
-      initialCurrentDate,
       sessionsByProgram,
       persistProgramSessions,
     ]

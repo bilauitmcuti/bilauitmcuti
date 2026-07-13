@@ -50,7 +50,7 @@ Sessions & programs (meta). Returns session and program options used by calendar
 | `apiVersion` | string | API version, e.g. `"1"`. |
 | `baseUrl` | string | `https://api.bilauitmcuti.com` |
 | `all` | boolean | Present when `all=true` was requested. |
-| `defaultSession` | string | Default session id, e.g. `"A-20251"`. |
+| `defaultSession` | object \| string | When `all=true`: `{ "A": "<sessionId>", "B": "<sessionId>" }`. When `group=A\|B`: a single session id string for that group (e.g. `"B-20264"`). |
 | `sessionOptions` | object[] | `{ id, label, group }[]`, e.g. `{ "id": "A-20251", "label": "Sesi 1 2025", "group": "A" }` |
 | `programOptions` | object[] | `{ label, value, group }[]`, e.g. `{ "label": "Diploma", "value": "Diploma", "group": "B" }` |
 
@@ -83,7 +83,7 @@ Calendar activity rows for one session, or aggregated across a group.
 |---|---|---|
 | `apiVersion` / `baseUrl` | string | As above. |
 | `all` | boolean | Present in full-dataset mode. |
-| `defaultSession` | string | Present in full-dataset mode. |
+| `defaultSession` | object \| string | Present in full-dataset mode as `{ A, B }` map; may be a string when scoped by `group`. |
 | `sessionOptions` / `programOptions` | array | Present in full-dataset mode. |
 | `sessions` | array\|object | Session→activities map, shape depends on mode: `{ "A-20251": { "activities": [] } }` |
 | `allSessions` | boolean | Present in grouped multi-session mode. |

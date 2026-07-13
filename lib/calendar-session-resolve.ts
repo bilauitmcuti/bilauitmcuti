@@ -1,4 +1,5 @@
 import type { MetaResponse } from "@/lib/calendar-api";
+import { FALLBACK_DEFAULT_SESSION_MAP } from "@/lib/calendar-api";
 import type { ProgramGroup, SessionId } from "@/lib/data";
 import { pickSessionIdForDateFromApiOptions } from "@/lib/data";
 import { getGroupFromProgram } from "@/lib/session-memory";
@@ -29,9 +30,17 @@ function defaultSessionForGroup(
   group: ProgramGroup,
   dateStr: string
 ): SessionId {
+  const fromMap = meta.defaultSession[group];
+  const known = knownSessionIdsForGroup(meta, group);
+  if (fromMap && known.has(fromMap)) return fromMap;
+
   if (meta.sessionOptions.length === 0) {
-    return "B-20263";
+    if (fromMap && fromMap.startsWith(`${group}-`)) return fromMap;
+    return group === "A"
+      ? FALLBACK_DEFAULT_SESSION_MAP.A
+      : FALLBACK_DEFAULT_SESSION_MAP.B;
   }
+
   return pickSessionIdForDateFromApiOptions(group, dateStr, meta.sessionOptions);
 }
 

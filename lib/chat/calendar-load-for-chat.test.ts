@@ -52,7 +52,7 @@ function createFetchMock() {
 }
 
 const TEST_META = {
-  defaultSession: "B-20263",
+  defaultSession: { A: "A-20261", B: "B-20263" },
   sessionOptions: [
     { id: "A-20261", label: "Group A S1", group: "A" as const },
     { id: "B-20263", label: "Group B S1", group: "B" as const },
