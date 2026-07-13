@@ -28,7 +28,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
 }
 
 export function ThemeShortcut() {
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
 
   useEffect(() => {
     if (!isDesktopWindowsOrMac()) return;
@@ -41,7 +41,7 @@ export function ThemeShortcut() {
 
       // Instant snap for keyboard-initiated theme (100+/day frequency)
       document.documentElement.dataset.keyboardTheme = '1';
-      setTheme(theme === 'dark' ? 'light' : 'dark');
+      setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
       window.setTimeout(() => {
         delete document.documentElement.dataset.keyboardTheme;
       }, 0);
@@ -49,7 +49,7 @@ export function ThemeShortcut() {
 
     window.addEventListener('keydown', handleShortcut);
     return () => window.removeEventListener('keydown', handleShortcut);
-  }, [setTheme, theme]);
+  }, [setTheme, resolvedTheme]);
 
   return null;
 }

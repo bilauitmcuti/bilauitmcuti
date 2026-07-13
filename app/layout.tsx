@@ -164,27 +164,37 @@ export default function RootLayout({
             __html: `
               (function() {
                 const isDev = ${process.env.NODE_ENV === 'development'};
-                // Sync theme from localStorage before React hydration to prevent flash
+                // Sync theme from localStorage / system preference before React hydration to prevent flash
                 try {
-                  let theme = 'light';
+                  let theme = 'system';
                   try {
-                    theme = localStorage.getItem('theme') || 'light';
+                    theme = localStorage.getItem('theme') || 'system';
                   } catch (storageError) {
-                    if (isDev) console.warn('localStorage access failed, using default theme:', storageError);
+                    if (isDev) console.warn('localStorage access failed, using system theme:', storageError);
                   }
-                  
-                  // Validate theme value - only accept 'light' or 'dark'
-                  const validTheme = (theme === 'dark' || theme === 'light') ? theme : 'light';
-                  
+
+                  function resolveTheme(stored) {
+                    if (stored === 'dark' || stored === 'light') return stored;
+                    try {
+                      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                    } catch (mediaError) {
+                      if (isDev) console.warn('matchMedia failed, falling back to light:', mediaError);
+                      return 'light';
+                    }
+                  }
+
+                  // Accept light/dark/system; anything else resolves via system preference
+                  const resolvedTheme = resolveTheme(theme);
+
                   // Apply theme class - always remove both classes first to ensure clean state
                   document.documentElement.classList.remove('dark', 'light');
-                  document.documentElement.classList.add(validTheme);
-                  
-                  // Update theme-color meta tag
+                  document.documentElement.classList.add(resolvedTheme);
+
+                  // Update theme-color meta tag from resolved (not "system") theme
                   try {
                     const metaThemeColor = document.querySelector('meta[name="theme-color"]');
                     if (metaThemeColor) {
-                      metaThemeColor.setAttribute('content', validTheme === 'dark' ? '#1a1a1a' : '#ffffff');
+                      metaThemeColor.setAttribute('content', resolvedTheme === 'dark' ? '#1a1a1a' : '#ffffff');
                     }
                   } catch (metaError) {
                     if (isDev) console.warn('Failed to update theme-color meta tag:', metaError);
@@ -279,8 +289,8 @@ export default function RootLayout({
         <VersionBanner />
         <ThemeProvider
           attribute="class"
-          defaultTheme="light"
-          enableSystem={false}
+          defaultTheme="system"
+          enableSystem={true}
           storageKey="theme"
           disableTransitionOnChange={true}
         >
