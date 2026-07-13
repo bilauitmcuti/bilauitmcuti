@@ -8,6 +8,7 @@ import {
 } from "@/lib/calendar-upstream";
 import {
   CalendarApiError,
+  normalizeDefaultSession,
   parseCalendarSessionResponse,
   type CalendarSessionResult,
   type FetchCalendarSessionParams,
@@ -120,10 +121,8 @@ function asMetaPayload(data: unknown): MetaResponse {
   const programOptions = Array.isArray(o.programOptions)
     ? (o.programOptions as ProgramOptionRow[])
     : [];
-  const defaultSession =
-    typeof o.defaultSession === "string" ? o.defaultSession : "B-20263";
   return applyGroupASessionsToMeta({
-    defaultSession,
+    defaultSession: normalizeDefaultSession(o.defaultSession),
     sessionOptions,
     programOptions,
   });

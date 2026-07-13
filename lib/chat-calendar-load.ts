@@ -3,6 +3,7 @@ import {
   fetchCalendarSession,
 } from "./calendar-api-server";
 import type { MetaResponse } from "./calendar-api";
+import { FALLBACK_DEFAULT_SESSION_MAP } from "./calendar-api";
 import {
   getSnapshot,
   mergeSessions,
@@ -12,7 +13,7 @@ import {
 import { getDefaultSessionForGroup, type Activity, type SessionId } from "./data";
 
 const FALLBACK_META: MetaResponse = {
-  defaultSession: "B-20263",
+  defaultSession: { ...FALLBACK_DEFAULT_SESSION_MAP },
   sessionOptions: [],
   programOptions: [],
 };

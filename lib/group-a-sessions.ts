@@ -19,9 +19,9 @@ export function applyGroupASessionsToMeta(meta: MetaResponse): MetaResponse {
     (s) => s.group !== "A" || isGroupASessionId(s.id)
   );
 
-  let defaultSession = meta.defaultSession;
-  if (defaultSession.startsWith("A-") && !isGroupASessionId(defaultSession)) {
-    defaultSession = GROUP_A_DEFAULT_SESSION_ID;
+  const defaultSession = { ...meta.defaultSession };
+  if (!isGroupASessionId(defaultSession.A)) {
+    defaultSession.A = GROUP_A_DEFAULT_SESSION_ID;
   }
 
   return { ...meta, sessionOptions, defaultSession };
