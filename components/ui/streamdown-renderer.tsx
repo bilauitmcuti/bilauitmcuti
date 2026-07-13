@@ -30,6 +30,12 @@ export const CHAT_STREAM_ANIMATION = {
   sep: "word",
 } as const;
 
+/** Faster blurIn for Copy / thumbs after the answer stream completes. */
+export const CHAT_ACTION_APPEAR = {
+  durationMs: 150,
+  staggerMs: 30,
+} as const;
+
 function subscribeReducedMotion(onStoreChange: () => void) {
   const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
   mq.addEventListener("change", onStoreChange);

@@ -109,8 +109,11 @@ export const viewport: Viewport = {
   userScalable: false,
   viewportFit: 'cover',
   interactiveWidget: 'resizes-content',
-  // Single themeColor - updated dynamically by theme-toggle when user changes theme (PWA status bar sync)
-  themeColor: '#ffffff',
+  // Safari uses these media queries for chrome/status bar before JS runs
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#1a1a1a' },
+  ],
 }
 
 export default function RootLayout({
@@ -121,7 +124,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={cn(geistSans.variable, geistMono.variable, "font-sans")} suppressHydrationWarning>
       <head>
-        <meta name="theme-color" content="#ffffff" />
+        <meta name="color-scheme" content="light dark" />
+        <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+        <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)" />
         <meta name="application-name" content="Bila UiTM Cuti" />
         <meta property="og:site_name" content="Bila UiTM Cuti" />
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
@@ -189,13 +194,14 @@ export default function RootLayout({
                   // Apply theme class - always remove both classes first to ensure clean state
                   document.documentElement.classList.remove('dark', 'light');
                   document.documentElement.classList.add(resolvedTheme);
+                  document.documentElement.style.colorScheme = resolvedTheme;
 
-                  // Update theme-color meta tag from resolved (not "system") theme
+                  // Update theme-color meta tags from resolved (not "system") theme
                   try {
-                    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
-                    if (metaThemeColor) {
-                      metaThemeColor.setAttribute('content', resolvedTheme === 'dark' ? '#1a1a1a' : '#ffffff');
-                    }
+                    const color = resolvedTheme === 'dark' ? '#1a1a1a' : '#ffffff';
+                    document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
+                      meta.setAttribute('content', color);
+                    });
                   } catch (metaError) {
                     if (isDev) console.warn('Failed to update theme-color meta tag:', metaError);
                   }

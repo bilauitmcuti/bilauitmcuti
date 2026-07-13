@@ -6,6 +6,7 @@ import {
   ReasoningTrigger,
 } from "@/components/ai-elements/reasoning";
 import { Check, Copy, Pencil, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
+import { useRef, type CSSProperties } from "react";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,7 +15,10 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { StreamdownRenderer } from "@/components/ui/streamdown-renderer";
+import {
+  CHAT_ACTION_APPEAR,
+  StreamdownRenderer,
+} from "@/components/ui/streamdown-renderer";
 import {
   Message,
   MessageContent,
@@ -59,6 +63,8 @@ export function ChatMessageRow({
 }: ChatMessageRowProps) {
   const assistantInProgress =
     message.role === "assistant" && message.isComplete === false;
+  const sawStreamingRef = useRef(message.isComplete === false);
+  if (message.isComplete === false) sawStreamingRef.current = true;
   const answerStreaming = assistantInProgress && message.content.trim().length > 0;
   const isRegenerating =
     assistantInProgress &&
@@ -156,6 +162,15 @@ export function ChatMessageRow({
 
   const assistantFinished =
     message.isComplete !== false && message.content.trim().length > 0;
+  const animateActions = assistantFinished && sawStreamingRef.current;
+  const actionBlurClass = animateActions ? "chat-action-blur-in" : undefined;
+  const actionBlurStyle = (index: number): CSSProperties | undefined =>
+    animateActions
+      ? {
+          animationDelay: `${index * CHAT_ACTION_APPEAR.staggerMs}ms`,
+          ["--chat-action-blur-duration"]: `${CHAT_ACTION_APPEAR.durationMs}ms`,
+        }
+      : undefined;
 
   return (
     <MessageScrollerItem messageId={message.id} scrollAnchor={scrollAnchor}>
@@ -210,6 +225,8 @@ export function ChatMessageRow({
                 size="icon"
                 onClick={() => onCopy(message.id, message.content)}
                 aria-label="Copy answer"
+                className={actionBlurClass}
+                style={actionBlurStyle(0)}
               >
                 {copiedId === message.id ? (
                   <Check className="text-primary" />
@@ -224,9 +241,11 @@ export function ChatMessageRow({
                 onClick={() => onReaction(message.id, "up")}
                 aria-label="Thumbs up"
                 className={cn(
+                  actionBlurClass,
                   "active:scale-[0.97] transition-transform duration-[160ms] ease-out motion-reduce:transition-none",
                   reaction === "up" ? "text-foreground" : "text-muted-foreground"
                 )}
+                style={actionBlurStyle(1)}
               >
                 <ThumbsUp className={reaction === "up" ? "fill-current" : undefined} />
               </Button>
@@ -237,9 +256,11 @@ export function ChatMessageRow({
                 onClick={() => onReaction(message.id, "down")}
                 aria-label="Thumbs down"
                 className={cn(
+                  actionBlurClass,
                   "active:scale-[0.97] transition-transform duration-[160ms] ease-out motion-reduce:transition-none",
                   reaction === "down" ? "text-foreground" : "text-muted-foreground"
                 )}
+                style={actionBlurStyle(2)}
               >
                 <ThumbsDown className={reaction === "down" ? "fill-current" : undefined} />
               </Button>
