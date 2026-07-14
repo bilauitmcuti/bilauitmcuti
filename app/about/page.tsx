@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
+import { BrandName } from '@/components/brand-name';
 import {
   Card,
   CardContent,
@@ -82,7 +83,7 @@ export default function AboutPage() {
             <CardHeader className="space-y-1 px-3 pb-4 sm:px-6">
               <div>
                 <CardTitle render={<h1 />} className="text-2xl font-semibold">
-                  About Bila UiTM Cuti
+                  About <BrandName />
                 </CardTitle>
                 <CardDescription className="mt-1 text-sm text-foreground">
                   A student-focused web app for checking UiTM academic calendar timelines — registration, lectures,
@@ -150,7 +151,7 @@ export default function AboutPage() {
                 <Badge variant="outline">Educational use</Badge>
               </div>
               <AboutBody>
-                By using Bila UiTM Cuti, you agree that all information is provided on a best-effort basis for
+                By using <BrandName />, you agree that all information is provided on a best-effort basis for
                 educational and informational use only. We do not guarantee completeness, accuracy, or uninterrupted
                 availability at all times.
               </AboutBody>

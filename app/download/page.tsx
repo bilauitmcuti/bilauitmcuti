@@ -7,6 +7,7 @@ import { ChevronLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { PwaInstallOverlay } from '@/components/download/pwa-install-overlay';
+import { BrandName } from '@/components/brand-name';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -151,7 +152,7 @@ function PwaTabContent({
         <CardHeader className="space-y-1 px-3 pb-4 sm:px-6">
           <div>
             <CardTitle render={<h2 />} className="text-2xl font-semibold">
-              Install Bila UiTM Cuti
+              Install <BrandName />
             </CardTitle>
             <CardDescription className="mt-1 text-sm text-foreground">{caption}</CardDescription>
           </div>
@@ -173,7 +174,7 @@ function PwaTabContent({
           <CardHeader className="space-y-1 px-3 pb-4 sm:px-6">
             <CardTitle className="text-xl font-semibold">Already installed</CardTitle>
             <CardDescription className="mt-1 text-sm text-foreground">
-              Bila UiTM Cuti is already installed on this device.
+              <BrandName /> is already installed on this device.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -231,7 +232,7 @@ function BookmarkTabContent({ platform }: { platform: PwaInstallPlatform | null 
         <CardHeader className="space-y-1 px-3 pb-4 sm:px-6">
           <div>
             <CardTitle render={<h2 />} className="text-2xl font-semibold">
-              Bookmark Bila UiTM Cuti
+              Bookmark <BrandName />
             </CardTitle>
             <CardDescription className="mt-1 text-sm text-foreground">
               Save this site in your browser bookmarks or favorites so you can return to the calendar and
@@ -345,7 +346,7 @@ function DownloadPageContent() {
         className="flex-1 overflow-y-auto px-4 pt-24 pb-6 md:px-0"
       >
         <div className="mx-auto w-full max-w-[600px]">
-          <h1 className="sr-only">Download Bila UiTM Cuti</h1>
+          <h1 className="sr-only">Download <BrandName /></h1>
 
           <Tabs defaultValue={initialTab} className="flex flex-col gap-4">
             <TabsList className="grid h-10 w-full grid-cols-2">
@@ -368,7 +369,7 @@ function DownloadPageContent() {
 
           <Card className="mt-4 gap-0 rounded-[10px] shadow-none">
             <CardHeader className="space-y-1 px-3 pb-4 sm:px-6">
-              <CardTitle className="text-xl font-semibold">About Bila UiTM Cuti</CardTitle>
+              <CardTitle className="text-xl font-semibold">About <BrandName /></CardTitle>
               <CardDescription className="mt-1 text-sm text-foreground">
                 Learn what this project covers, how the calendar works, and where to send feedback.
               </CardDescription>

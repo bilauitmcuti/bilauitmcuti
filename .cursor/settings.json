@@ -4,6 +4,9 @@
   "plugins": {
     "cloudflare": {
       "enabled": true
+    },
+    "figma": {
+      "enabled": true
     }
   }
 }
