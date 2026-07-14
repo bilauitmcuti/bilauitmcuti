@@ -16,6 +16,7 @@ import {
   calendarTitleH1Class,
   calendarTitleH1Style,
 } from "@/lib/calendar-title-styles";
+import { BrandName } from "@/components/brand-name";
 
 interface CalendarHeaderProps {
   selectedSessions?: SessionId[];
@@ -147,7 +148,7 @@ export function CalendarHeader({
           suppressHydrationWarning
           style={calendarTitleH1Style}
         >
-          Bila UiTM Cuti?
+          <BrandName questionMark />
         </h1>
       </div>
 

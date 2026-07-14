@@ -7,19 +7,10 @@ import { EngagementPromptRoot } from '@/components/engagement-prompt'
 import { TooltipProviderRoot } from '@/components/tooltip-provider-root'
 import { ZarazPageView } from '@/components/zaraz-page-view'
 import './globals.css'
-import { Geist, Geist_Mono } from "next/font/google"
+import { GeistSans } from "geist/font/sans"
+import { GeistMono } from "geist/font/mono"
 import { cn } from "@/lib/utils"
 import { buildSiteNavigationSchemaElements, HOMEPAGE_SEO_DESCRIPTION } from '@/lib/page-seo'
-
-const geistSans = Geist({
-  subsets: ["latin"],
-  variable: "--font-geist-sans",
-})
-
-const geistMono = Geist_Mono({
-  subsets: ["latin"],
-  variable: "--font-geist-mono",
-})
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://bilauitmcuti.com'),
@@ -122,7 +113,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={cn(geistSans.variable, geistMono.variable, "font-sans")} suppressHydrationWarning>
+    <html lang="en" className={cn(GeistSans.variable, GeistMono.variable, "font-sans")} suppressHydrationWarning>
       <head>
         <meta name="color-scheme" content="light dark" />
         <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
@@ -291,7 +282,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${geistSans.className} antialiased`} suppressHydrationWarning>
+      <body className={`${GeistSans.className} antialiased`} suppressHydrationWarning>
         <VersionBanner />
         <ThemeProvider
           attribute="class"

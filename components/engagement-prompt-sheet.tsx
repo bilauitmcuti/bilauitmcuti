@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ResponsiveOverlayShell } from "@/components/ui/responsive-overlay-shell";
+import { BrandName } from "@/components/brand-name";
 import {
   drawerOutlineButtonClassName,
   drawerPrimaryButtonClassName,
@@ -375,7 +376,11 @@ export function EngagementPromptSheet({
       open={open}
       onOpenChange={onOpenChange}
       isMobile={isMobileSheet}
-      title="Enjoying Bila UiTM Cuti?"
+      title={
+        <>
+          Enjoying <BrandName questionMark />
+        </>
+      }
     >
       <EngagementPromptBody
         rating={rating}

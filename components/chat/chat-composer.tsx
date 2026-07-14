@@ -173,7 +173,7 @@ export function ChatComposer({
             <div className="relative w-full">
               <div
                 aria-hidden
-                className="pointer-events-none absolute inset-x-0 top-0 z-0 whitespace-pre-wrap break-words px-3 pt-3 pb-1 text-sm leading-relaxed"
+                className="pointer-events-none absolute inset-x-0 top-0 z-0 whitespace-pre-wrap break-words px-3 pt-3 pb-1 text-sm leading-relaxed md:text-[0.9375em]"
               >
                 {mentionHighlightParts.map((part, index) =>
                   part.isMention ? (
@@ -205,7 +205,7 @@ export function ChatComposer({
                 placeholder={placeholder}
                 disabled={isLoading}
                 rows={1}
-                className="chat-input relative z-10 min-h-[44px] max-h-[130px] resize-none border-0 bg-transparent px-3 pt-3 pb-1 text-sm leading-relaxed shadow-none focus-visible:ring-0"
+                className="chat-input relative z-10 min-h-[44px] max-h-[130px] resize-none border-0 bg-transparent px-3 pt-3 pb-1 text-sm leading-relaxed shadow-none focus-visible:ring-0 md:text-[0.9375em]"
               />
             </div>
             <ResponsiveOverlayShell
