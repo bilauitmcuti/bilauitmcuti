@@ -211,7 +211,7 @@ const defaultGetThinkingMessage = (
 };
 
 const thinkingRowClassName =
-  "flex w-full items-center gap-2 text-muted-foreground text-sm";
+  "flex w-full items-center gap-2 text-muted-foreground text-sm md:text-[0.9375rem]";
 
 export const ReasoningTrigger = memo(
   ({
@@ -345,7 +345,7 @@ export const ReasoningContent = memo(
     return (
       <CollapsibleContent
         className={cn(
-          "mt-4 text-sm",
+          "mt-4 text-sm md:text-[0.9375rem]",
           "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 text-muted-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in motion-reduce:animate-none",
           className
         )}

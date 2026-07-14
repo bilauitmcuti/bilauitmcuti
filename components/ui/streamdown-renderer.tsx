@@ -70,7 +70,7 @@ function PlainTextFallback({
   return (
     <p
       className={cn(
-        "text-sm leading-relaxed whitespace-pre-wrap break-words md:text-[15px]",
+        "text-sm leading-relaxed whitespace-pre-wrap break-words md:text-[0.9375rem]",
         className
       )}
     >
