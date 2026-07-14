@@ -5,13 +5,13 @@
 
 @source "../node_modules/streamdown/dist/*.js";
 
-/* Chat assistant markdown: 0.875em mobile, 0.9375em from md+. Override Typeset's
-   mobile 1.125 size bump so body matches BubbleContent. */
+/* Chat assistant markdown: text-sm (0.875rem) mobile, 0.9375rem from md+. Override
+   Typeset's mobile 1.125 size bump so body matches BubbleContent. */
 .typeset-chat {
   --typeset-font-body: var(--font-geist-sans);
   --typeset-font-heading: var(--font-geist-sans);
   --typeset-font-mono: var(--font-geist-mono);
-  --typeset-size: 0.875em;
+  --typeset-size: 0.875rem;
   --typeset-leading: 1.6;
   --typeset-flow: 1em;
   font-size: var(--typeset-size);
@@ -19,7 +19,7 @@
 
 @media (min-width: 768px) {
   .typeset-chat {
-    --typeset-size: 0.9375em;
+    --typeset-size: 0.9375rem;
   }
 }
 
@@ -518,7 +518,7 @@ a:hover,
     display: none;
   }
 
-  /* Note: chat-input uses text-sm mobile, 0.9375em from md+ */
+  /* Note: chat-input uses text-sm mobile, 0.9375rem from md+ */
   /* iOS Safari may auto-zoom on focus since font-size < 16px */
 
   /* Mobile: session submenus (Group A/B) — cap width + nudge left when wider than available space */
