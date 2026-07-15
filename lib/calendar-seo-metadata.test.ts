@@ -7,13 +7,13 @@ import {
 describe("resolveCalendarSeoFromPathname", () => {
   it("returns program title for grid program routes", () => {
     const seo = resolveCalendarSeoFromPathname("/bachelor");
-    expect(seo.title).toBe("Bachelor - Bila UiTM Cuti");
+    expect(seo.title).toBe("Bachelor");
     expect(seo.canonical).toBe("https://bilauitmcuti.com/bachelor");
   });
 
   it("returns program title for list program routes", () => {
     const seo = resolveCalendarSeoFromPathname("/diploma/list");
-    expect(seo.title).toBe("Diploma - Bila UiTM Cuti");
+    expect(seo.title).toBe("Diploma");
     expect(seo.canonical).toBe("https://bilauitmcuti.com/diploma/list");
   });
 

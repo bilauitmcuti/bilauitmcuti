@@ -13,7 +13,7 @@ export const HOMEPAGE_SEO_DESCRIPTION =
 export const HOMEPAGE_LIST_SEO_DESCRIPTION =
   'Paparan senarai kalendar akademik UiTM untuk semua program. Semak tarikh pendaftaran, kuliah, peperiksaan, dan cuti mengikut sesi.';
 
-export const CHAT_SEO_TITLE = 'Chat - Bila UiTM Cuti';
+export const CHAT_SEO_TITLE = 'Chat';
 export const CHAT_SEO_DESCRIPTION =
   'Tanya soalan kalendar akademik UiTM dengan pembantu AI. Semak tarikh cuti, pendaftaran, kuliah, dan peperiksaan.';
 
