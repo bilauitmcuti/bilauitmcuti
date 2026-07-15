@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Download - Bila UiTM Cuti',
+  title: 'Download',
   description:
     'Install Bila UiTM Cuti as a Progressive Web App or save it as a browser bookmark for quick access to the UiTM academic calendar.',
   robots: { index: false, follow: true },
@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     siteName: 'Bila UiTM Cuti',
-    title: 'Download - Bila UiTM Cuti',
+    title: 'Download',
     description:
       'Install as a PWA or bookmark bilauitmcuti.com for faster access to the UiTM academic calendar.',
     type: 'website',
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Download - Bila UiTM Cuti',
+    title: 'Download',
     description:
       'Install as a PWA or bookmark bilauitmcuti.com for faster access to the UiTM academic calendar.',
     images: ['https://bilauitmcuti.com/all-cover.png'],
