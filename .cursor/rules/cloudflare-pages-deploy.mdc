@@ -36,6 +36,7 @@ If the Pages build lists missing routes, run `node scripts/add-edge-runtime.mjs`
 - Set `package.json` `"build"` to `next-on-pages` (causes recursive builds). Use `"build": "next build"` and `build:pages` for CF.
 - Reintroduce OpenNext (`build:cf`, `.open-next/`, `opennextjs-cloudflare`) without an explicit migration.
 - Set `assetPrefix` (e.g. `/calendar-static`) in `next.config.mjs` — next-on-pages only serves `/_next/static`; a prefix without a rewrite yields `text/plain` 404s blocked by `nosniff`.
+- Add a zone Workers route for `bilauitmcuti.com/_next/*` — it steals Pages CSS/JS from this app (unstyled production; preview still OK). Keep other apps on `app.bilauitmcuti.com`. Full playbook: `AGENTS.md` → **Production CSS / JS broken**.
 
 ## Local verify
 
