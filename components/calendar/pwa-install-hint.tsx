@@ -21,7 +21,7 @@ export function PwaInstallButton({ isInstalled }: PwaInstallButtonProps) {
       onClick={() => router.push('/download')}
       className={drawerPrimaryButtonClassName}
     >
-      Download as PWA
+      Download
     </Button>
   );
 }

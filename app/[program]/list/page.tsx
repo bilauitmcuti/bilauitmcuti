@@ -13,6 +13,12 @@ import type { Metadata } from 'next';
 
 export const dynamic = 'force-dynamic';
 
+interface ProgramListMetadataProps {
+  params: Promise<{
+    program: string;
+  }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
 
 interface ProgramListPageProps {
   params: Promise<{
@@ -21,10 +27,12 @@ interface ProgramListPageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-// Generate metadata for program list pages
-export async function generateMetadata({ params, searchParams }: ProgramListPageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+  searchParams,
+}: ProgramListMetadataProps): Promise<Metadata> {
   const { program } = await params;
-  
+
   if (!isValidProgramRoute(program)) {
     return {};
   }
@@ -71,9 +79,13 @@ function ProgramListJsonLd({ program }: { program: string }) {
   );
 }
 
-export default async function ProgramListPage({ params }: ProgramListPageProps) {
+export default async function ProgramListPage({
+  params,
+  searchParams,
+}: ProgramListPageProps) {
   const { program } = await params;
-  
+  await searchParams;
+
   if (!isValidProgramRoute(program)) {
     notFound();
   }
@@ -85,4 +97,3 @@ export default async function ProgramListPage({ params }: ProgramListPageProps) 
     </>
   );
 }
-

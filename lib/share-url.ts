@@ -1,4 +1,5 @@
 import { resolveCalendarSeoFromPathname } from "@/lib/calendar-seo-metadata";
+import { hasFilterQueryParams } from "@/lib/filter-query";
 import { hasSessionQueryParams } from "@/lib/session-query";
 
 const SITE_ORIGIN = "https://bilauitmcuti.com";
@@ -19,14 +20,14 @@ function buildAbsoluteFromPathname(pathname: string): string {
   return `${origin}${pathname}`;
 }
 
-/** Path-only URL for sharing and canonical (no session query). */
+/** Path-only URL for sharing and canonical (no session/filter query). */
 export function getPageShareUrl(): string {
   if (typeof window === "undefined") return SITE_ORIGIN;
   return buildAbsoluteFromPathname(getPathnameOnly());
 }
 
 /**
- * og:url for client sync: matches the address bar when it has session query keys;
+ * og:url for client sync: matches the address bar when it has session or filter query keys;
  * otherwise path-only (same as share URL).
  */
 export function getPageOpenGraphUrl(): string {
@@ -36,7 +37,7 @@ export function getPageOpenGraphUrl(): string {
   const search = window.location.search;
   if (!search) return base;
   const params = new URLSearchParams(search);
-  if (!hasSessionQueryParams(params)) return base;
+  if (!hasSessionQueryParams(params) && !hasFilterQueryParams(params)) return base;
   return `${base}${search}`;
 }
 
@@ -110,7 +111,7 @@ export function syncPageDocumentSeo(pathname?: string): void {
   }
 }
 
-/** Canonical and share stay clean; og:url includes session query only when present in the URL. */
+/** Canonical and share stay clean; og:url includes session/filter query when present in the URL. */
 export function syncPageShareUrl(): void {
   if (typeof document === "undefined") return;
 
@@ -136,7 +137,7 @@ export function syncPageShareUrl(): void {
   syncPageDocumentSeo();
 }
 
-/** Replace address bar with a clean path (no session query). */
+/** Replace address bar with a clean path (no session/filter query). */
 export function replaceCalendarHistoryUrl(path: string): void {
   if (typeof window === "undefined") return;
   window.history.replaceState(null, "", path);

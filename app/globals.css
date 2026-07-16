@@ -17,6 +17,22 @@
   font-size: var(--typeset-size);
 }
 
+.typeset-article {
+  --typeset-font-body: var(--font-geist-sans);
+  --typeset-font-heading: var(--font-geist-sans);
+  --typeset-font-mono: var(--font-geist-mono);
+  --typeset-size: 0.875rem;
+  --typeset-leading: 1.6;
+  --typeset-flow: 1em;
+  font-size: var(--typeset-size);
+}
+
+@media (min-width: 768px) {
+  .typeset-article {
+    --typeset-size: 15px;
+  }
+}
+
 @media (min-width: 768px) {
   .typeset-chat {
     --typeset-size: 0.9375rem;

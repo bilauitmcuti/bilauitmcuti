@@ -51,17 +51,30 @@ export function buildSessionQueryString(sessionIds: SessionId[]): string {
   return sessionIds.filter(isSessionIdQueryKey).join("&");
 }
 
-/** Pathname with optional session query, e.g. `/diploma?B-20263`. */
-export function buildCalendarUrlPath(pathname: string, sessionIds: SessionId[]): string {
-  const qs = buildSessionQueryString(sessionIds);
+/** Pathname with optional session (+ filter) query, e.g. `/diploma?B-20263&lecture`. */
+export function buildCalendarUrlPath(
+  pathname: string,
+  sessionIds: SessionId[],
+  filterKeys: string[] = []
+): string {
+  const sessionQs = buildSessionQueryString(sessionIds);
+  const filterQs = filterKeys
+    .filter((key) => typeof key === "string" && key.length > 0)
+    .filter((key, i, arr) => arr.indexOf(key) === i)
+    .join("&");
+  const qs = [sessionQs, filterQs].filter(Boolean).join("&");
   const path = pathname || "/";
   if (!qs) return path;
   return `${path}?${qs}`;
 }
 
-/** Absolute share/og URL for a calendar route + session query. */
-export function buildCalendarAbsoluteUrl(pathname: string, sessionIds: SessionId[]): string {
-  const pathWithQuery = buildCalendarUrlPath(pathname, sessionIds);
+/** Absolute share/og URL for a calendar route + session (+ optional filter) query. */
+export function buildCalendarAbsoluteUrl(
+  pathname: string,
+  sessionIds: SessionId[],
+  filterKeys: string[] = []
+): string {
+  const pathWithQuery = buildCalendarUrlPath(pathname, sessionIds, filterKeys);
   if (pathWithQuery === "/") return SITE_ORIGIN;
   return `${SITE_ORIGIN}${pathWithQuery}`;
 }
