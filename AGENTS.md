@@ -81,7 +81,43 @@ All dynamic routes must export `export const runtime = 'edge'`. Restore with `no
 
 **Do not add `account_id` to `wrangler.jsonc`.** Pages rejects it at deploy (`Configuration file for Pages projects does not support "account_id"`). The Pages project already belongs to one Cloudflare account. Local Workers AI (`pnpm dev`, `ai.remote: true`) needs `npx wrangler login` when OAuth is stale (`Authentication error [code: 10000]`) — re-login fixes that; hardcoding `account_id` does not and must not be committed.
 
-**Do not set `assetPrefix` (e.g. `/calendar-static`) in [`next.config.mjs`](next.config.mjs).** next-on-pages emits hashed chunks under `/_next/static/...` only. A custom prefix with no rewrite makes production request missing URLs that return `text/plain` 404s; with `X-Content-Type-Options: nosniff` the browser refuses to execute them (dead clicks / “Something went wrong”). Serve assets from `/_next/static` only; [`public/_headers`](public/_headers) already caches that path for 1 year.
+## Production CSS / JS broken (recurring — custom domain only)
+
+**Symptom:** `bilauitmcuti.com` looks unstyled (SEO `sr-only` blocks and program links visible as a bullet list; calendar days stack vertically) and/or console shows MIME errors like `Refused to execute script... MIME type ('text/plain')` / stylesheets refused. **Preview (`*.pages.dev`) is fine.** Hard refresh may show SSR content but clicks still fail if JS is blocked.
+
+This keeps coming back when zone config steals or caches bad `/_next/static` responses. Treat it as an **edge/config** issue first, not a React layout bug.
+
+### Root causes (check in this order)
+
+1. **Zone Workers route on `/_next/*` (most common)**  
+   A route such as `bilauitmcuti.com/_next/*` → another Worker (e.g. `find-my-internship`) intercepts Next chunks meant for this Pages app. The Worker returns HTML/`text/plain` instead of real CSS/JS. With `X-Content-Type-Options: nosniff` ([`lib/security-headers.mjs`](lib/security-headers.mjs) / [`public/_headers`](public/_headers)), the browser refuses the assets → CSS broken + dead JS.  
+   **Fix:** Workers → zone `bilauitmcuti.com` → **Triggers / Routes** — **delete** any `bilauitmcuti.com/_next/*` (or `/_next/static/*`) route. Keep internship on `app.bilauitmcuti.com/*` and path routes (`/internship*`, `/post*`, …) only — **never** apex `/_next/*`.
+
+2. **Stale edge cache of 404 / wrong body (Cache Rules)**  
+   Zone rules below cache `/_next/static/` for **1 year** and `.js`/other extensions for **7 days**. If a chunk is requested before the new deployment is live on the custom domain, Cloudflare can cache a **404 `text/plain`** (or wrong Worker body) as if it were the asset. Preview never hits these zone rules the same way.  
+   **Fix:** Caching → **Purge Cache** for `bilauitmcuti.com` (everything, or at least `/_next/static/*`). After purge, confirm chunks return **200** + `Content-Type: text/css` / `application/javascript`.
+
+3. **Do not “fix” with `assetPrefix: '/calendar-static'`**  
+   That only hid the Workers-route conflict and broke when HTML pointed at `/calendar-static/_next/...` without a matching rewrite. Serve assets from **`/_next/static` only** — no `assetPrefix`, no `/calendar-static` in [`next.config.mjs`](next.config.mjs) or [`public/_headers`](public/_headers).
+
+4. **Service worker**  
+   [`public/sw.js`](public/sw.js) must **not** intercept `/_next/static/` (bypass so the edge MIME type wins). After a bad cache episode, users may need one hard refresh or to unregister the SW.
+
+### Quick diagnose
+
+```text
+# HTML should reference /_next/static/... (not /calendar-static/...)
+curl -sI "https://bilauitmcuti.com/_next/static/chunks/<hash>.css"
+# Expect: 200, content-type: text/css
+
+curl -sI "https://bilauitmcuti.com/_next/static/chunks/<hash>.js"
+# Expect: 200, content-type: application/javascript (or equivalent)
+
+# Compare the same URLs on the current production deploy host (*.bilauitmcuti.pages.dev).
+# If pages.dev is OK and apex is not → Workers route or zone cache on bilauitmcuti.com.
+```
+
+Dashboard: **Workers → Routes** (no apex `/_next/*`) and **Caching → Cache Rules** (rules below only; no `/calendar-static`).
 
 ## Cloudflare AI Gateway (chat)
 
@@ -124,6 +160,8 @@ Turnstile + [`middleware.ts`](middleware.ts) bot blocking remain in place for ch
 
 Docs: [Cache Rules settings](https://developers.cloudflare.com/cache/how-to/cache-rules/settings/). Existing [`public/_headers`](public/_headers) sets `/_next/static/*` to 1 year immutable; zone rules reinforce and extend caching. Do **not** add rules or `_headers` entries for `/calendar-static/` — that prefix is not used.
 
+**Warning:** Long TTL on `/_next/static/` means a bad response (404 `text/plain`, or a body from a mistaken Workers route) can stick on **production only** and look like “CSS/JS randomly broken after deploy.” See **Production CSS / JS broken** above — purge before debugging app code.
+
 Create in **Caching → Cache Rules** (order matters — most specific first):
 
 | # | Name | Expression | Action |
@@ -133,7 +171,7 @@ Create in **Caching → Cache Rules** (order matters — most specific first):
 | 3 | `cache_public_assets` | `(http.request.uri.path.extension in {"ico" "png" "webp" "json" "js" "woff" "woff2"})` | Eligible for cache, edge TTL **7 days** |
 | 4 | `cache_sw_short` | `(http.request.uri.path eq "/sw.js")` | Eligible for cache, edge TTL **5 minutes** |
 
-After a deploy that changes static asset URLs or MIME behavior, **Purge Cache** for `bilauitmcuti.com` (or at least `/_next/static/*`) so the custom domain does not keep stale edge responses that preview (`*.pages.dev`) never saw.
+After a deploy that changes static asset hashes, or after removing a bad Workers route, **Purge Cache** for `bilauitmcuti.com` (or at least `/_next/static/*`) so the custom domain does not keep stale edge responses that preview (`*.pages.dev`) never saw.
 
 ## Cloudflare Zaraz + Google Analytics 4
 
@@ -174,3 +212,4 @@ With **Events** automatic action enabled on the GA4 tool, these appear in GA4 wi
 - In-app rate limiting ([`lib/rate-limit.ts`](lib/rate-limit.ts)) applies to contact, engagement, and feedback routes only; chat uses AI Gateway rate/spend limits at the edge.
 - `@cloudflare/next-on-pages` is deprecated in favor of OpenNext; this project intentionally uses next-on-pages for Cloudflare Pages Git deploys.
 - Middleware deprecation warning: Next.js 16 recommends "proxy" over "middleware" — non-blocking.
+- Custom-domain static assets share the zone with other Workers (`find-my-internship` on `app.bilauitmcuti.com` and selected apex paths). Re-adding `bilauitmcuti.com/_next/*` as a Workers route will break this site’s CSS/JS again — see **Production CSS / JS broken**.
