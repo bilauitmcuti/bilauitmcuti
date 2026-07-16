@@ -81,6 +81,8 @@ All dynamic routes must export `export const runtime = 'edge'`. Restore with `no
 
 **Do not add `account_id` to `wrangler.jsonc`.** Pages rejects it at deploy (`Configuration file for Pages projects does not support "account_id"`). The Pages project already belongs to one Cloudflare account. Local Workers AI (`pnpm dev`, `ai.remote: true`) needs `npx wrangler login` when OAuth is stale (`Authentication error [code: 10000]`) — re-login fixes that; hardcoding `account_id` does not and must not be committed.
 
+**Do not set `assetPrefix` (e.g. `/calendar-static`) in [`next.config.mjs`](next.config.mjs).** next-on-pages emits hashed chunks under `/_next/static/...` only. A custom prefix with no rewrite makes production request missing URLs that return `text/plain` 404s; with `X-Content-Type-Options: nosniff` the browser refuses to execute them (dead clicks / “Something went wrong”). Serve assets from `/_next/static` only; [`public/_headers`](public/_headers) already caches that path for 1 year.
+
 ## Cloudflare AI Gateway (chat)
 
 Chat routes all Workers AI calls through **AI Gateway** via the third argument to `env.AI.run()` ([Workers AI binding integration](https://developers.cloudflare.com/ai-gateway/integrations/aig-workers-ai-binding/)). Implementation: [`lib/ai-gateway.ts`](lib/ai-gateway.ts), wired in [`lib/ai.ts`](lib/ai.ts).
@@ -120,7 +122,7 @@ Turnstile + [`middleware.ts`](middleware.ts) bot blocking remain in place for ch
 
 ## Cloudflare Cache Rules (zone)
 
-Docs: [Cache Rules settings](https://developers.cloudflare.com/cache/how-to/cache-rules/settings/). Existing [`public/_headers`](public/_headers) sets `/_next/static/*` to 1 year immutable; zone rules reinforce and extend caching.
+Docs: [Cache Rules settings](https://developers.cloudflare.com/cache/how-to/cache-rules/settings/). Existing [`public/_headers`](public/_headers) sets `/_next/static/*` to 1 year immutable; zone rules reinforce and extend caching. Do **not** add rules or `_headers` entries for `/calendar-static/` — that prefix is not used.
 
 Create in **Caching → Cache Rules** (order matters — most specific first):
 
@@ -130,6 +132,8 @@ Create in **Caching → Cache Rules** (order matters — most specific first):
 | 2 | `cache_next_static` | `(http.request.uri.path starts_with "/_next/static/")` | Eligible for cache, edge TTL **override 1 year** |
 | 3 | `cache_public_assets` | `(http.request.uri.path.extension in {"ico" "png" "webp" "json" "js" "woff" "woff2"})` | Eligible for cache, edge TTL **7 days** |
 | 4 | `cache_sw_short` | `(http.request.uri.path eq "/sw.js")` | Eligible for cache, edge TTL **5 minutes** |
+
+After a deploy that changes static asset URLs or MIME behavior, **Purge Cache** for `bilauitmcuti.com` (or at least `/_next/static/*`) so the custom domain does not keep stale edge responses that preview (`*.pages.dev`) never saw.
 
 ## Cloudflare Zaraz + Google Analytics 4
 
