@@ -9,6 +9,12 @@ import { buildCalendarPageMetadata } from '@/lib/calendar-seo-metadata';
 import { PageSeoBlock } from '@/components/page-seo-block';
 import type { Metadata } from 'next';
 
+interface ProgramMetadataProps {
+  params: Promise<{
+    program: string;
+  }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
 
 interface ProgramPageProps {
   params: Promise<{
@@ -17,10 +23,12 @@ interface ProgramPageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-// Generate metadata for program pages
-export async function generateMetadata({ params, searchParams }: ProgramPageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+  searchParams,
+}: ProgramMetadataProps): Promise<Metadata> {
   const { program } = await params;
-  
+
   if (!isValidProgramRoute(program)) {
     return {};
   }
@@ -34,9 +42,10 @@ export async function generateMetadata({ params, searchParams }: ProgramPageProp
   });
 }
 
-export default async function ProgramPage({ params }: ProgramPageProps) {
+export default async function ProgramPage({ params, searchParams }: ProgramPageProps) {
   const { program } = await params;
-  
+  await searchParams;
+
   if (!isValidProgramRoute(program)) {
     notFound();
   }
@@ -61,4 +70,3 @@ export default async function ProgramPage({ params }: ProgramPageProps) {
     </>
   );
 }
-

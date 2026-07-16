@@ -3,6 +3,7 @@ import {
   buildCalendarAbsoluteUrl,
   parseSessionIdsFromSearchParams,
 } from "@/lib/session-query";
+import { parseFilterKeysFromSearchParams } from "@/lib/filter-query";
 import {
   getProgramCanonicalUrl,
   getProgramListCanonicalUrl,
@@ -123,13 +124,14 @@ export function buildCalendarPageMetadata(options: CalendarSeoOptions): Metadata
   const { pathname, viewMode, programSlug } = options;
   const params = toURLSearchParams(options.searchParams);
   const sessionIds = parseSessionIdsFromSearchParams(params);
+  const filterKeys = parseFilterKeysFromSearchParams(params);
   const isList = viewMode === "list";
   const seo = resolveCalendarSeoContent(viewMode, programSlug);
   const { title, description, canonical, coverImage } = seo;
 
   const ogUrl =
-    sessionIds.length > 0
-      ? buildCalendarAbsoluteUrl(pathname, sessionIds)
+    sessionIds.length > 0 || filterKeys.length > 0
+      ? buildCalendarAbsoluteUrl(pathname, sessionIds, filterKeys)
       : canonical;
 
   const metadata: Metadata = {

@@ -525,8 +525,33 @@ export interface ActivityFilterOptions {
   showBreak?: boolean;
 }
 
+function isShortSemesterActivity(activity: Activity): boolean {
+  return (
+    activity.type === "lecture" &&
+    (activity.name.includes("Short Semester") || activity.name.includes("Semester Pendek"))
+  );
+}
+
+function isIntersessionActivity(activity: Activity): boolean {
+  return (
+    activity.type === "lecture" &&
+    (activity.name.includes("Intersession Classes") || activity.name.includes("Intersesi"))
+  );
+}
+
+function isOthersExamActivity(activity: Activity): boolean {
+  return (
+    activity.type === "examination" &&
+    (activity.name.includes("Khas") ||
+      activity.name.includes("English Exit Test") ||
+      activity.name.includes("EET Lisan") ||
+      activity.name.includes("EET Speaking"))
+  );
+}
+
 /**
  * Single source of truth for activity visibility based on filter toggles and program.
+ * Short-sem / intersession / other-exam use their own toggles (not gated by lecture/exam).
  */
 export function shouldIncludeActivity(
   activity: Activity,
@@ -543,24 +568,24 @@ export function shouldIncludeActivity(
     showBreak = true,
   } = filters;
 
-  if (activity.type === 'registration' && !showRegistration) return false;
-  if (activity.type === 'lecture' && !showLecture) return false;
-  if (activity.type === 'examination' && !showExamination) return false;
-  if (activity.type === 'break' && !showBreak) return false;
+  if (activity.type === "registration" && !showRegistration) return false;
+  if (activity.type === "break" && !showBreak) return false;
 
-  if (
-    activity.type === 'lecture' &&
-    (activity.name.includes('Short Semester') || activity.name.includes('Semester Pendek')) &&
-    !showSemesterPendek
-  ) return false;
-  if (
-    activity.type === 'lecture' &&
-    (activity.name.includes('Intersession Classes') || activity.name.includes('Intersesi')) &&
-    !showKuliahIntersesi
-  ) return false;
-  if (activity.type === 'examination' && (activity.name.includes('Khas') || activity.name.includes('English Exit Test') || activity.name.includes('EET Lisan') || activity.name.includes('EET Speaking')) && !showOthersExams) return false;
+  if (isShortSemesterActivity(activity)) {
+    if (!showSemesterPendek) return false;
+  } else if (isIntersessionActivity(activity)) {
+    if (!showKuliahIntersesi) return false;
+  } else if (activity.type === "lecture" && !showLecture) {
+    return false;
+  }
 
-  if (selectedProgram === 'All') return true;
+  if (isOthersExamActivity(activity)) {
+    if (!showOthersExams) return false;
+  } else if (activity.type === "examination" && !showExamination) {
+    return false;
+  }
+
+  if (selectedProgram === "All") return true;
   if (activity.programTypes?.length) {
     return activity.programTypes.includes(selectedProgram);
   }

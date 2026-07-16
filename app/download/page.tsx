@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useCallback, useRef, type ReactNode } from 'react';
+import { Suspense, useState, useCallback, useRef, useEffect, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
@@ -269,12 +269,175 @@ function BookmarkTabContent({ platform }: { platform: PwaInstallPlatform | null 
   );
 }
 
+const filterQueryKeyRows: { key: string; label: string }[] = [
+  { key: 'registration', label: 'Registration' },
+  { key: 'lecture', label: 'Lecture' },
+  { key: 'short-sem', label: 'Short Semester' },
+  { key: 'intersession', label: 'Intersession Classes' },
+  { key: 'exam', label: 'Examination' },
+  { key: 'other-exam', label: 'Others Exams' },
+  { key: 'break', label: 'Break' },
+  { key: 'states', label: 'Kedah, Kelantan & Terengganu holidays' },
+];
+
+const queryExamples: { url: string; meaning: string }[] = [
+  {
+    url: '/diploma?B-20263',
+    meaning:
+      'Applies session B-20263 on Diploma, then the address bar cleans to /diploma.',
+  },
+  {
+    url: '/diploma?B-20263&lecture&exam',
+    meaning:
+      'Same session, with only Lecture and Examination on; then redirects to the clean Diploma path.',
+  },
+  {
+    url: '/?B-20263&B-20264&break&states',
+    meaning:
+      'Applies two sessions plus Break and Kedah/Kelantan/Terengganu holidays, then cleans the URL.',
+  },
+];
+
+function QueryCode({ children }: { children: string }) {
+  return (
+    <code className="rounded border bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
+      {children}
+    </code>
+  );
+}
+
+function QueryTabContent() {
+  return (
+    <>
+      <Card className="gap-0 rounded-[10px] shadow-none">
+        <CardHeader className="space-y-1 px-3 pb-4 sm:px-6">
+          <div>
+            <CardTitle render={<h2 />} className="text-2xl font-semibold">
+              Shareable calendar links
+            </CardTitle>
+            <CardDescription className="mt-1 text-sm text-foreground">
+              Build a link with session and filter codes so anyone who opens it gets those choices
+              applied automatically.
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className="px-3 sm:px-6">
+          <p className="mb-3 text-sm font-semibold">How it works</p>
+          <ul className="list-inside list-disc text-sm text-foreground">
+            <li className="mt-2 first:mt-0">
+              While you browse, the address bar stays clean (path only). Session and filter codes are
+              not kept visible there after you change settings.
+            </li>
+            <li className="mt-2">
+              To share a view, build a full link yourself: page path + <QueryCode>?</QueryCode>, then
+              session and filter codes joined with <QueryCode>&amp;</QueryCode>.
+            </li>
+            <li className="mt-2">
+              When someone opens that link, the calendar applies the codes, then redirects to the clean
+              page path. If filter codes are included, only those event types are shown; Countdown stays
+              as saved on that device.
+            </li>
+          </ul>
+        </CardContent>
+      </Card>
+
+      <Card className="mt-4 gap-0 rounded-[10px] shadow-none">
+        <CardHeader className="space-y-1 px-3 pb-4 sm:px-6">
+          <CardTitle className="text-xl font-semibold">What&apos;s in the share link</CardTitle>
+          <CardDescription className="mt-1 text-sm text-foreground">
+            Session codes come from the session picker; filter codes match the Settings toggles.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-5 px-3 pt-0 sm:px-6">
+          <div className="flex flex-col gap-2">
+            <p className="text-sm font-semibold text-foreground">Session</p>
+            <p className="text-sm leading-relaxed text-foreground">
+              Add the session code from the picker, e.g. <QueryCode>A-20264</QueryCode> or{' '}
+              <QueryCode>B-20263</QueryCode>. Include more than one to open several sessions at once.
+            </p>
+            <p className="text-sm leading-relaxed text-foreground">
+              Example: <QueryCode>/diploma?B-20263</QueryCode>
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <p className="text-sm font-semibold text-foreground">Settings filters</p>
+            <p className="text-sm leading-relaxed text-foreground">
+              Each code turns on the matching Settings toggle. Codes not in the link stay off.
+            </p>
+            <ul className="flex flex-col gap-2 text-sm text-foreground">
+              {filterQueryKeyRows.map((row) => (
+                <li key={row.key} className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <QueryCode>{row.key}</QueryCode>
+                  <span className="text-muted-foreground">→</span>
+                  <span>{row.label}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <p className="text-sm font-semibold text-foreground">Examples</p>
+            {queryExamples.map((example) => (
+              <div key={example.url} className="flex flex-col gap-1">
+                <QueryCode>{example.url}</QueryCode>
+                <p className="text-sm leading-relaxed text-foreground">{example.meaning}</p>
+              </div>
+            ))}
+          </div>
+
+          <p className="text-sm leading-relaxed text-foreground">
+            Build a link with the session and filter codes above (for example{' '}
+            <QueryCode>/diploma?B-20263&amp;lecture&amp;exam</QueryCode>), then share that full link.
+            When someone opens it, the calendar applies those choices and the address bar cleans itself
+            to the normal page path. The same idea works for <QueryCode>/diploma</QueryCode>,{' '}
+            <QueryCode>/diploma/list</QueryCode>, and other calendar pages — only the part after{' '}
+            <QueryCode>?</QueryCode> sets what is selected and visible before the clean redirect.
+          </p>
+        </CardContent>
+      </Card>
+    </>
+  );
+}
+
 export default function DownloadPage() {
   return (
     <Suspense fallback={null}>
       <DownloadPageContent />
     </Suspense>
   );
+}
+
+type DownloadTab = 'pwa' | 'bookmark' | 'share-link';
+
+const DOWNLOAD_TABS = new Set<string>(['pwa', 'bookmark', 'share-link']);
+
+function parseDownloadTabValue(value: string): DownloadTab | null {
+  if (DOWNLOAD_TABS.has(value)) return value as DownloadTab;
+  return null;
+}
+
+function parseDownloadTab(searchParams: URLSearchParams): DownloadTab {
+  if (searchParams.has('share-link')) return 'share-link';
+  if (searchParams.has('bookmark')) return 'bookmark';
+  if (searchParams.has('pwa')) return 'pwa';
+
+  const legacy = searchParams.get('tab');
+  if (legacy === 'bookmark') return 'bookmark';
+  if (legacy === 'query' || legacy === 'share-link') return 'share-link';
+  return 'pwa';
+}
+
+function hasDownloadTabParam(searchParams: URLSearchParams): boolean {
+  return (
+    searchParams.has('pwa') ||
+    searchParams.has('bookmark') ||
+    searchParams.has('share-link')
+  );
+}
+
+function downloadTabHref(tab: DownloadTab): string {
+  return `/download?${tab}`;
 }
 
 function DownloadPageContent() {
@@ -288,7 +451,21 @@ function DownloadPageContent() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const lastScrollTop = useRef(0);
 
-  const initialTab = searchParams.get('tab') === 'bookmark' ? 'bookmark' : 'pwa';
+  const activeTab = parseDownloadTab(searchParams);
+
+  useEffect(() => {
+    if (hasDownloadTabParam(searchParams)) return;
+    router.replace(downloadTabHref(activeTab), { scroll: false });
+  }, [activeTab, router, searchParams]);
+
+  const handleTabChange = useCallback(
+    (value: string | number | null) => {
+      const tab = typeof value === 'string' ? parseDownloadTabValue(value) : null;
+      if (!tab) return;
+      router.replace(downloadTabHref(tab), { scroll: false });
+    },
+    [router]
+  );
 
   const handleInstallClick = useCallback(async () => {
     // iOS has no beforeinstallprompt — show Share / Safari instructions drawer.
@@ -348,10 +525,15 @@ function DownloadPageContent() {
         <div className="mx-auto w-full max-w-[600px]">
           <h1 className="sr-only">Download <BrandName /></h1>
 
-          <Tabs defaultValue={initialTab} className="flex flex-col gap-4">
-            <TabsList className="grid h-10 w-full grid-cols-2">
-              <TabsTrigger value="pwa">Download PWA</TabsTrigger>
+          <Tabs
+            value={activeTab}
+            onValueChange={handleTabChange}
+            className="flex flex-col gap-4"
+          >
+            <TabsList className="grid h-10 w-full grid-cols-3">
+              <TabsTrigger value="pwa">PWA</TabsTrigger>
               <TabsTrigger value="bookmark">Bookmark</TabsTrigger>
+              <TabsTrigger value="share-link">Share link</TabsTrigger>
             </TabsList>
 
             <TabsContent value="pwa" className="mt-0">
@@ -364,6 +546,10 @@ function DownloadPageContent() {
 
             <TabsContent value="bookmark" className="mt-0">
               <BookmarkTabContent platform={platform} />
+            </TabsContent>
+
+            <TabsContent value="share-link" className="mt-0">
+              <QueryTabContent />
             </TabsContent>
           </Tabs>
 
@@ -385,7 +571,7 @@ function DownloadPageContent() {
               </Button>
 
               <div className="flex flex-col gap-2">
-                <p className="text-sm font-semibold text-foreground">Become Our Sponsors</p>
+                <h3 className="text-xl font-semibold text-foreground">Become Our Sponsors</h3>
                 <p className="text-sm text-foreground">
                   Support the project and help keep the calendar free for everyone.
                 </p>

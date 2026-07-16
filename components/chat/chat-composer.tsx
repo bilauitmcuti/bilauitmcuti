@@ -256,11 +256,11 @@ export function ChatComposer({
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="h-8 min-w-0 max-w-[180px] sm:max-w-[260px] md:max-w-[300px] overflow-hidden text-xs text-primary border-none bg-transparent shadow-none px-2 gap-1 rounded-lg font-medium hover:bg-transparent hover:text-primary dark:hover:bg-transparent dark:hover:text-primary aria-expanded:bg-transparent aria-expanded:text-primary"
+                      className="h-8 min-w-0 max-w-[180px] sm:max-w-[260px] md:max-w-[300px] overflow-hidden text-primary border-none bg-transparent shadow-none px-2 gap-1 rounded-lg font-medium hover:bg-transparent hover:text-primary dark:hover:bg-transparent dark:hover:text-primary aria-expanded:bg-transparent aria-expanded:text-primary"
                     />
                   }
                 >
-                    <span className="block min-w-0 flex-1 truncate text-left text-primary">
+                    <span className="block min-w-0 flex-1 truncate text-left text-sm text-primary md:text-[0.9375rem]">
                       {currentProgramLabel}
                     </span>
                     {dropdownOpen ? (

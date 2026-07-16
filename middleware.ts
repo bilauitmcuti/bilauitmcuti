@@ -5,12 +5,18 @@ import {
   parseFiltersFromCookie,
 } from "@/lib/cookie-utils";
 import {
+  applyFilterKeysToFilters,
+  hasFilterQueryParams,
+  parseFilterKeysFromSearchParams,
+} from "@/lib/filter-query";
+import {
   applySessionIdsToFilters,
   hasSessionQueryParams,
   isCalendarPath,
   parseSessionIdsFromSearchParams,
   resolveCleanCalendarPath,
   resolveProgramForSessionQuery,
+  resolveProgramFromCalendarPath,
 } from "@/lib/session-query";
 import { isSocialPreviewCrawler } from "@/lib/social-preview-crawler";
 import { applySecurityHeaders } from "@/lib/security-headers";
@@ -84,25 +90,40 @@ function isLikelyRealBrowser(request: NextRequest, pathname: string): boolean {
   return request.method === "POST" && hasPageOrigin(request);
 }
 
-function handleSessionQueryRedirect(request: NextRequest): NextResponse | null {
+function handleCalendarQueryRedirect(request: NextRequest): NextResponse | null {
   const pathname = request.nextUrl.pathname;
   if (!isCalendarPath(pathname)) return null;
 
   const searchParams = request.nextUrl.searchParams;
-  if (!hasSessionQueryParams(searchParams)) return null;
+  const hasSessions = hasSessionQueryParams(searchParams);
+  const hasFilters = hasFilterQueryParams(searchParams);
+  if (!hasSessions && !hasFilters) return null;
 
-  const sessionIds = parseSessionIdsFromSearchParams(searchParams);
   const existingCookie = request.cookies.get(CALENDAR_FILTERS_COOKIE)?.value;
   const existing = parseFiltersFromCookie(existingCookie);
-  const program = resolveProgramForSessionQuery(
-    pathname,
-    sessionIds,
-    existing.selectedProgram
-  );
-  const merged = applySessionIdsToFilters(existing, sessionIds, program);
+
+  let merged = existing;
+  let program = resolveProgramFromCalendarPath(pathname);
+
+  if (hasSessions) {
+    const sessionIds = parseSessionIdsFromSearchParams(searchParams);
+    program = resolveProgramForSessionQuery(
+      pathname,
+      sessionIds,
+      existing.selectedProgram
+    );
+    merged = applySessionIdsToFilters(merged, sessionIds, program);
+  }
+
+  if (hasFilters) {
+    const filterKeys = parseFilterKeysFromSearchParams(searchParams);
+    merged = applyFilterKeysToFilters(merged, filterKeys);
+  }
 
   const ua = request.headers.get("user-agent") ?? "";
-  const preserveQueryForPreview = isSocialPreviewCrawler(ua);
+  // Keep session + filter query for OG crawlers (same as session-only previews).
+  const preserveQueryForPreview =
+    (hasSessions || hasFilters) && isSocialPreviewCrawler(ua);
 
   const response = preserveQueryForPreview
     ? NextResponse.next()
@@ -123,8 +144,8 @@ export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isChatApiPath = pathname === "/chat/api" || pathname.startsWith("/chat/api/");
 
-  const sessionRedirect = handleSessionQueryRedirect(request);
-  if (sessionRedirect) return sessionRedirect;
+  const calendarRedirect = handleCalendarQueryRedirect(request);
+  if (calendarRedirect) return calendarRedirect;
 
   // Allow /chat/api POST from our page (Referer/Origin) to reduce mobile false-positives
   if (isLikelyRealBrowser(request, pathname)) {

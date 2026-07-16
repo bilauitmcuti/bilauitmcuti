@@ -21,6 +21,15 @@ describe("session query URL helpers", () => {
     expect(buildCalendarUrlPath("/diploma", [])).toBe("/diploma");
   });
 
+  it("builds calendar paths with session and filter query keys", () => {
+    expect(buildCalendarUrlPath("/diploma", ["B-20263"], ["lecture", "exam"])).toBe(
+      "/diploma?B-20263&lecture&exam"
+    );
+    expect(buildCalendarUrlPath("/diploma", [], ["short-sem", "states"])).toBe(
+      "/diploma?short-sem&states"
+    );
+  });
+
   it("builds absolute og/share URLs", () => {
     expect(buildCalendarAbsoluteUrl("/diploma", ["B-20263"])).toBe(
       "https://bilauitmcuti.com/diploma?B-20263"

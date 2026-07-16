@@ -415,6 +415,20 @@ export function SharedCalendarLayout({
     [persistProgramSessions]
   );
 
+  const handleFilterQueryConsumed = useCallback((filters: FilterStates) => {
+    setShowKKT(filters.showKKT);
+    setShowRegistration(filters.showRegistration);
+    setShowLecture(filters.showLecture);
+    setShowSemesterPendek(filters.showSemesterPendek);
+    setShowKuliahIntersesi(filters.showKuliahIntersesi);
+    setShowExamination(filters.showExamination);
+    setShowOthersExams(filters.showOthersExams);
+    setShowBreak(filters.showBreak);
+    setSelectedStates(
+      filters.showKKT ? ["Kedah", "Kelantan", "Terengganu"] : []
+    );
+  }, []);
+
   const handleSessionsCorrected = useCallback(
     (program: ProgramValue, sessionIds: SessionId[]) => {
       persistProgramSessions(program, sessionIds, { navigate: false });
@@ -497,7 +511,10 @@ export function SharedCalendarLayout({
   return (
     <CalendarHydrationProvider hydrationVersion={hydrationVersion}>
     <Suspense fallback={null}>
-      <SessionQueryConsumer onSessionQueryConsumed={handleSessionQueryConsumed} />
+      <SessionQueryConsumer
+        onSessionQueryConsumed={handleSessionQueryConsumed}
+        onFilterQueryConsumed={handleFilterQueryConsumed}
+      />
       <ShareUrlSync />
     </Suspense>
     <CalendarDataGate

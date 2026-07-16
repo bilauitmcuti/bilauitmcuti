@@ -15,11 +15,11 @@ import {
 } from '@/lib/page-seo';
 import Link from 'next/link';
 
-interface HomePageProps {
+interface HomeMetadataProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-export async function generateMetadata({ searchParams }: HomePageProps): Promise<Metadata> {
+export async function generateMetadata({ searchParams }: HomeMetadataProps): Promise<Metadata> {
   const sp = await searchParams;
   return buildCalendarPageMetadata({
     pathname: '/',

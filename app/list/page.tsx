@@ -6,11 +6,11 @@ import type { Metadata } from 'next';
 
 export const dynamic = 'force-dynamic';
 
-interface ListPageProps {
+interface ListMetadataProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-export async function generateMetadata({ searchParams }: ListPageProps): Promise<Metadata> {
+export async function generateMetadata({ searchParams }: ListMetadataProps): Promise<Metadata> {
   const sp = await searchParams;
   return buildCalendarPageMetadata({
     pathname: '/list',

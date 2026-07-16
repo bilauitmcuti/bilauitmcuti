@@ -85,6 +85,30 @@ describe("buildCalendarPageMetadata list routes", () => {
     );
   });
 
+  it("includes filter query in og:url for /list?lecture&exam", () => {
+    const metadata = buildCalendarPageMetadata({
+      pathname: "/list",
+      viewMode: "list",
+      searchParams: { lecture: "", exam: "" },
+    });
+    expect(metadata.openGraph?.url).toBe(
+      "https://bilauitmcuti.com/list?lecture&exam"
+    );
+    expect(metadata.alternates?.canonical).toBe("https://bilauitmcuti.com/list");
+  });
+
+  it("includes session and filter query in og:url", () => {
+    const metadata = buildCalendarPageMetadata({
+      pathname: "/diploma",
+      viewMode: "grid",
+      programSlug: "diploma",
+      searchParams: { "B-20263": "", lecture: "", break: "" },
+    });
+    expect(metadata.openGraph?.url).toBe(
+      "https://bilauitmcuti.com/diploma?B-20263&lecture&break"
+    );
+  });
+
   it("uses list cover image for list viewMode", () => {
     const metadata = buildCalendarPageMetadata({
       pathname: "/list",
