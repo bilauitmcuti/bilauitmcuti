@@ -362,7 +362,6 @@ function DownloadPageContent() {
   const isInstalled = usePwaInstalled();
   const platform = usePwaInstallPlatform();
   const { promptInstall } = usePwaInstallPrompt();
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const lastScrollTop = useRef(0);
 
   const activeTab = parseDownloadTab(searchParams);
@@ -398,20 +397,23 @@ function DownloadPageContent() {
     }
   }, [platform, promptInstall]);
 
-  const handleScroll = useCallback(() => {
-    const el = scrollContainerRef.current;
-    if (!el) return;
-    const currentScrollTop = el.scrollTop;
-    if (currentScrollTop <= 10 || currentScrollTop < lastScrollTop.current) {
-      setHeaderVisible(true);
-    } else if (currentScrollTop > lastScrollTop.current) {
-      setHeaderVisible(false);
-    }
-    lastScrollTop.current = currentScrollTop;
+  useEffect(() => {
+    const onScroll = () => {
+      const currentScrollTop = window.scrollY;
+      if (currentScrollTop <= 10 || currentScrollTop < lastScrollTop.current) {
+        setHeaderVisible(true);
+      } else if (currentScrollTop > lastScrollTop.current) {
+        setHeaderVisible(false);
+      }
+      lastScrollTop.current = currentScrollTop;
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   return (
-    <div className="relative flex h-dvh flex-col bg-background text-foreground">
+    <div className="relative min-h-screen bg-background text-foreground">
       <div className="chat-top-fade pointer-events-none absolute top-0 right-0 left-0 z-[9]" />
 
       <div
@@ -431,11 +433,7 @@ function DownloadPageContent() {
         </header>
       </div>
 
-      <div
-        ref={scrollContainerRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-4 pt-24 pb-6 md:px-0"
-      >
+      <div className="px-4 pt-24 pb-[max(1.5rem,env(safe-area-inset-bottom,0px))] md:px-0">
         <div className="mx-auto flex w-full max-w-[600px] flex-col gap-12">
           <Tabs
             value={activeTab}

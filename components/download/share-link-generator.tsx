@@ -137,8 +137,6 @@ export function ShareLinkGenerator() {
   const [sessionActivities, setSessionActivities] = useState<Record<string, Activity[]>>(
     {}
   );
-  const sessionActivitiesRef = useRef(sessionActivities);
-  sessionActivitiesRef.current = sessionActivities;
   const [metaReady, setMetaReady] = useState(false);
 
   const [selectedProgram, setSelectedProgram] = useState<ProgramValue>('All');
@@ -230,12 +228,11 @@ export function ShareLinkGenerator() {
       group === 'B' ? `${sid}|${programQ ?? 'All'}` : sid;
 
     void (async () => {
-      const cached = sessionActivitiesRef.current;
       const merges: Record<string, Activity[]> = {};
       await Promise.all(
         targets.map(async (sid) => {
           const key = cacheKeyFor(sid);
-          if ((cached[key] ?? cached[sid])?.length) return;
+          if ((sessionActivities[key] ?? sessionActivities[sid])?.length) return;
           try {
             const result = await fetchCalendarSession({
               sessionId: sid,
@@ -258,7 +255,7 @@ export function ShareLinkGenerator() {
     return () => {
       cancelled = true;
     };
-  }, [metaReady, selectedProgram, selectedSessions]);
+  }, [metaReady, selectedProgram, selectedSessions, sessionActivities]);
 
   const currentProgramLabel = useMemo(() => {
     const fromApi = programOptions.find((p) => p.value === selectedProgram)?.label;
@@ -345,23 +342,25 @@ export function ShareLinkGenerator() {
   return (
     <div className="flex flex-col gap-4 rounded-xl bg-card p-4 text-sm text-card-foreground shadow-xs ring-1 ring-border">
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-        <DropdownMenu
-          open={programMenuOpen}
-          onOpenChange={(open, details) =>
-            handleProgramDropdownRootOpenChange(open, details, {
-              activeSubmenu,
-              keepDropdownOpenRef,
-              setDropdownOpen: setProgramMenuOpen,
-              setActiveSubmenu,
-            })
-          }
-        >
+        <div className="flex w-fit flex-col gap-1.5">
+          <span className="text-xs font-medium text-muted-foreground">Program</span>
+          <DropdownMenu
+            open={programMenuOpen}
+            onOpenChange={(open, details) =>
+              handleProgramDropdownRootOpenChange(open, details, {
+                activeSubmenu,
+                keepDropdownOpenRef,
+                setDropdownOpen: setProgramMenuOpen,
+                setActiveSubmenu,
+              })
+            }
+          >
           <DropdownMenuTrigger
             render={
               <Button
                 type="button"
                 variant="outline"
-                className="h-9 min-w-[180px] justify-between gap-2 font-medium"
+                className="h-9 w-fit justify-between gap-2 font-medium"
                 disabled={!metaReady && programOptions.length === 0}
               />
             }
@@ -374,7 +373,7 @@ export function ShareLinkGenerator() {
             )}
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="min-w-[260px] overflow-visible bg-popover pt-4 pb-4 pl-3 pr-3 dark:bg-[#2A2A2A]"
+            className="w-[260px] min-w-[260px] overflow-visible bg-popover pt-4 pb-4 pl-3 pr-3 dark:bg-[#2A2A2A]"
             align="start"
           >
             <div className="-mx-1 px-1">
@@ -562,15 +561,18 @@ export function ShareLinkGenerator() {
               ))}
             </div>
           </DropdownMenuContent>
-        </DropdownMenu>
+          </DropdownMenu>
+        </div>
 
-        <DropdownMenu open={filterMenuOpen} onOpenChange={setFilterMenuOpen}>
+        <div className="flex w-fit flex-col gap-1.5">
+          <span className="text-xs font-medium text-muted-foreground">Settings</span>
+          <DropdownMenu open={filterMenuOpen} onOpenChange={setFilterMenuOpen}>
           <DropdownMenuTrigger
             render={
               <Button
                 type="button"
                 variant="outline"
-                className="h-9 min-w-[180px] justify-between gap-2 font-medium"
+                className="h-9 w-fit justify-between gap-2 font-medium"
               />
             }
           >
@@ -582,7 +584,7 @@ export function ShareLinkGenerator() {
             )}
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="min-w-[260px] bg-popover pt-3 pb-3 pl-2 pr-2 dark:bg-[#2A2A2A]"
+            className="w-[260px] min-w-[260px] bg-popover pt-3 pb-3 pl-2 pr-2 dark:bg-[#2A2A2A]"
             align="start"
           >
             {visibleFilterRows.map((row) => {
@@ -614,7 +616,8 @@ export function ShareLinkGenerator() {
               </div>
             ) : null}
           </DropdownMenuContent>
-        </DropdownMenu>
+          </DropdownMenu>
+        </div>
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">

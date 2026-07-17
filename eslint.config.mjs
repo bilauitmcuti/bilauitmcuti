@@ -1,6 +1,6 @@
 import nextConfig from "eslint-config-next";
 
-export default [
+const eslintConfig = [
   {
     ignores: [".open-next/**", ".vercel/**", ".next/**"],
   },
@@ -11,3 +11,5 @@ export default [
     },
   },
 ];
+
+export default eslintConfig;

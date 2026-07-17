@@ -45,7 +45,6 @@ export function FeedbackFormPage({
   const [startedAt, setStartedAt] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingSubmit, setPendingSubmit] = useState(false);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const lastScrollTop = useRef(0);
   const turnstileRef = useRef<TurnstileWidgetHandle>(null);
 
@@ -169,20 +168,23 @@ export function FeedbackFormPage({
     setStartedAt(Date.now());
   }
 
-  const handleScroll = useCallback(() => {
-    const el = scrollContainerRef.current;
-    if (!el) return;
-    const currentScrollTop = el.scrollTop;
-    if (currentScrollTop <= 10 || currentScrollTop < lastScrollTop.current) {
-      setHeaderVisible(true);
-    } else if (currentScrollTop > lastScrollTop.current) {
-      setHeaderVisible(false);
-    }
-    lastScrollTop.current = currentScrollTop;
+  useEffect(() => {
+    const onScroll = () => {
+      const currentScrollTop = window.scrollY;
+      if (currentScrollTop <= 10 || currentScrollTop < lastScrollTop.current) {
+        setHeaderVisible(true);
+      } else if (currentScrollTop > lastScrollTop.current) {
+        setHeaderVisible(false);
+      }
+      lastScrollTop.current = currentScrollTop;
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   return (
-    <div className="relative flex h-dvh flex-col bg-background text-foreground">
+    <div className="relative min-h-screen bg-background text-foreground">
       <Toaster position="top-center" />
       <div className="chat-top-fade absolute left-0 right-0 top-0 z-[9] pointer-events-none" />
 
@@ -202,11 +204,7 @@ export function FeedbackFormPage({
         </header>
       </div>
 
-      <div
-        ref={scrollContainerRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-4 pb-6 pt-24 md:px-0"
-      >
+      <div className="px-4 pb-[max(1.5rem,env(safe-area-inset-bottom,0px))] pt-24 md:px-0">
         <div className="mx-auto w-full max-w-[600px]">
           <Card className="gap-0 rounded-[10px] shadow-none">
             <CardHeader className="space-y-1 pb-4 px-3 sm:px-6">

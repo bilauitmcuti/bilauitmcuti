@@ -129,6 +129,7 @@ export default function ChatPage() {
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const currentGroup = getGroupFromProgram(selectedProgram);
   const suggestionGroup = useMemo((): "A" | "B" => {
+    void calendarDataVersion;
     const opt = getProgramOptions().find((p) => p.value === selectedProgram);
     return opt?.group ?? getGroupFromProgram(selectedProgram);
   }, [selectedProgram, calendarDataVersion]);
@@ -312,6 +313,7 @@ export default function ChatPage() {
     return `${labels.length} Selected`;
   }, [currentGroup, selectedSessions, calendarDataVersion]);
   const allMentionTexts = useMemo(() => {
+    void calendarDataVersion;
     const groupA = getSessionOptionsForGroup("A").map((session) => formatSessionLabelWithId(session));
     const groupB = getSessionOptionsForGroup("B").map((session) => formatSessionLabelWithId(session));
     return [...groupA, ...groupB].sort((left, right) => right.length - left.length);
@@ -323,6 +325,7 @@ export default function ChatPage() {
     return new RegExp(`(${escaped.join("|")})`, "g");
   }, [allMentionTexts]);
   const mentionItems = useMemo<MentionItem[]>(() => {
+    void calendarDataVersion;
     const sessions = getSessionOptionsForGroup(currentGroup);
     const normalizedQuery = mentionQuery.trim().toLowerCase();
     const mapped = sessions.map((session) => ({
@@ -824,7 +827,6 @@ export default function ChatPage() {
     }
   }, [
     isLoading,
-    isTurnstileSessionVerified,
     messages,
     recordEngagementAction,
     requiresTurnstile,
