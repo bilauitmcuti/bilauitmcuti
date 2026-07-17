@@ -7,6 +7,7 @@ import { ChevronLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { PwaInstallOverlay } from '@/components/download/pwa-install-overlay';
+import { ShareLinkGenerator } from '@/components/download/share-link-generator';
 import { BrandName } from '@/components/brand-name';
 import { Button } from '@/components/ui/button';
 import {
@@ -218,103 +219,48 @@ function BookmarkTabContent({ platform }: { platform: PwaInstallPlatform | null 
   );
 }
 
-const filterQueryKeyRows: { key: string; label: string }[] = [
-  { key: 'registration', label: 'Registration' },
-  { key: 'lecture', label: 'Lecture' },
-  { key: 'short-sem', label: 'Short Semester' },
-  { key: 'intersession', label: 'Intersession Classes' },
-  { key: 'exam', label: 'Examination' },
-  { key: 'other-exam', label: 'Others Exams' },
-  { key: 'break', label: 'Break' },
-  { key: 'states', label: 'Kedah, Kelantan & Terengganu holidays' },
-];
-
 const queryExamples: { url: string; meaning: string }[] = [
   {
-    url: '/diploma?B-20263',
-    meaning: 'Applies session B-20263 on Diploma, then the address bar cleans to /diploma.',
+    url: '/diploma?B-20264',
+    meaning: 'Applies session B-20264 on Diploma, then the address bar cleans to /diploma.',
   },
   {
-    url: '/diploma?B-20263&lecture&exam',
+    url: '/diploma?B-20264&lecture&exam',
     meaning:
       'Same session, with only Lecture and Examination on; then redirects to the clean Diploma path.',
   },
   {
-    url: '/?B-20263&B-20264&break&states',
+    url: '/?B-20264&B-20262&break&states',
     meaning:
       'Applies two sessions plus Break and Kedah/Kelantan/Terengganu holidays, then cleans the URL.',
   },
 ];
-
-function QueryCode({ children }: { children: string }) {
-  return <code>{children}</code>;
-}
 
 function QueryTabContent() {
   return (
     <article className="typeset typeset-article">
       <h1>Shareable calendar links</h1>
       <p>
-        Build a link with session and filter codes so anyone who opens it gets those choices applied
-        automatically.
+        Pick a program, sessions, and Settings filters to build a link. Anyone who opens it gets those
+        choices applied, then the address bar cleans to the normal page path.
       </p>
 
-      <h2>How it works</h2>
-      <ul>
-        <li>
-          While you browse, the address bar stays clean (path only). Session and filter codes are not
-          kept visible there after you change settings.
-        </li>
-        <li>
-          To share a view, build a full link yourself: page path + <QueryCode>?</QueryCode>, then
-          session and filter codes joined with <QueryCode>&amp;</QueryCode>.
-        </li>
-        <li>
-          When someone opens that link, the calendar applies the codes, then redirects to the clean page
-          path. If filter codes are included, only those event types are shown; Countdown stays as saved
-          on that device.
-        </li>
-      </ul>
+      <div className="not-typeset mt-[var(--typeset-flow)]">
+        <ShareLinkGenerator />
+      </div>
 
-      <h2>What&apos;s in the share link</h2>
-      <p>Session codes come from the session picker; filter codes match the Settings toggles.</p>
-
-      <h3>Session</h3>
+      <h2>Examples</h2>
       <p>
-        Add the session code from the picker, e.g. <QueryCode>A-20264</QueryCode> or{' '}
-        <QueryCode>B-20263</QueryCode>. Include more than one to open several sessions at once.
+        Same format as the generator — path plus session and filter codes after <code>?</code>.
       </p>
-      <p>
-        Example: <QueryCode>/diploma?B-20263</QueryCode>
-      </p>
-
-      <h3>Settings filters</h3>
-      <p>Each code turns on the matching Settings toggle. Codes not in the link stay off.</p>
-      <ul>
-        {filterQueryKeyRows.map((row) => (
-          <li key={row.key}>
-            <QueryCode>{row.key}</QueryCode> → {row.label}
-          </li>
+      <div className="not-typeset mt-[var(--typeset-flow)] flex flex-col gap-3">
+        {queryExamples.map((example) => (
+          <div key={example.url} className="flex flex-col gap-1">
+            <code className="text-xs break-all sm:text-sm">{example.url}</code>
+            <p className="text-xs text-muted-foreground sm:text-sm">{example.meaning}</p>
+          </div>
         ))}
-      </ul>
-
-      <h3>Examples</h3>
-      {queryExamples.map((example) => (
-        <p key={example.url}>
-          <QueryCode>{example.url}</QueryCode>
-          <br />
-          {example.meaning}
-        </p>
-      ))}
-
-      <p>
-        Build a link with the session and filter codes above (for example{' '}
-        <QueryCode>/diploma?B-20263&amp;lecture&amp;exam</QueryCode>), then share that full link. When
-        someone opens it, the calendar applies those choices and the address bar cleans itself to the
-        normal page path. The same idea works for <QueryCode>/diploma</QueryCode>,{' '}
-        <QueryCode>/diploma/list</QueryCode>, and other calendar pages — only the part after{' '}
-        <QueryCode>?</QueryCode> sets what is selected and visible before the clean redirect.
-      </p>
+      </div>
     </article>
   );
 }
@@ -416,7 +362,6 @@ function DownloadPageContent() {
   const isInstalled = usePwaInstalled();
   const platform = usePwaInstallPlatform();
   const { promptInstall } = usePwaInstallPrompt();
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const lastScrollTop = useRef(0);
 
   const activeTab = parseDownloadTab(searchParams);
@@ -452,20 +397,23 @@ function DownloadPageContent() {
     }
   }, [platform, promptInstall]);
 
-  const handleScroll = useCallback(() => {
-    const el = scrollContainerRef.current;
-    if (!el) return;
-    const currentScrollTop = el.scrollTop;
-    if (currentScrollTop <= 10 || currentScrollTop < lastScrollTop.current) {
-      setHeaderVisible(true);
-    } else if (currentScrollTop > lastScrollTop.current) {
-      setHeaderVisible(false);
-    }
-    lastScrollTop.current = currentScrollTop;
+  useEffect(() => {
+    const onScroll = () => {
+      const currentScrollTop = window.scrollY;
+      if (currentScrollTop <= 10 || currentScrollTop < lastScrollTop.current) {
+        setHeaderVisible(true);
+      } else if (currentScrollTop > lastScrollTop.current) {
+        setHeaderVisible(false);
+      }
+      lastScrollTop.current = currentScrollTop;
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   return (
-    <div className="relative flex h-dvh flex-col bg-background text-foreground">
+    <div className="relative min-h-screen bg-background text-foreground">
       <div className="chat-top-fade pointer-events-none absolute top-0 right-0 left-0 z-[9]" />
 
       <div
@@ -485,11 +433,7 @@ function DownloadPageContent() {
         </header>
       </div>
 
-      <div
-        ref={scrollContainerRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-4 pt-24 pb-6 md:px-0"
-      >
+      <div className="px-4 pt-24 pb-[max(1.5rem,env(safe-area-inset-bottom,0px))] md:px-0">
         <div className="mx-auto flex w-full max-w-[600px] flex-col gap-12">
           <Tabs
             value={activeTab}
