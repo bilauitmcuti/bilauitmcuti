@@ -15,7 +15,7 @@ export function SessionSubmenuItemLabel({ session }: SessionSubmenuItemLabelProp
   return (
     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
       <span className="text-balance font-medium text-sm">{parts.body}</span>
-      <span className="session-submenu-session-id text-xs tabular-nums text-muted-foreground group-focus/dropdown-menu-item:!text-muted-foreground group-data-[highlighted]/dropdown-menu-item:!text-muted-foreground">
+      <span className="session-submenu-session-id text-xs tabular-nums text-muted-foreground group-focus/dropdown-menu-item:!text-muted-foreground group-data-[highlighted]/dropdown-menu-item:!text-muted-foreground md:group-focus/dropdown-menu-item:!text-primary md:group-data-[highlighted]/dropdown-menu-item:!text-primary">
         {parts.id}
       </span>
     </span>

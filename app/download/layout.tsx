@@ -16,14 +16,21 @@ export const metadata: Metadata = {
     type: 'website',
     url: 'https://bilauitmcuti.com/download',
     locale: 'ms_MY',
-    images: [{ url: 'https://bilauitmcuti.com/all-cover.png', width: 1200, height: 630, alt: 'Bila UiTM Cuti' }],
+    images: [
+      {
+        url: 'https://bilauitmcuti.com/download-cover.png',
+        width: 1200,
+        height: 630,
+        alt: 'Plan It. Save It. Share It. — Bila UiTM Cuti',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Download',
     description:
       'Install as a PWA or bookmark bilauitmcuti.com for faster access to the UiTM academic calendar.',
-    images: ['https://bilauitmcuti.com/all-cover.png'],
+    images: ['https://bilauitmcuti.com/download-cover.png'],
   },
 };
 

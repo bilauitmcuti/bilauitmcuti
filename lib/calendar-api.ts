@@ -21,7 +21,7 @@ export interface DefaultSessionMap {
 
 export const FALLBACK_DEFAULT_SESSION_MAP: DefaultSessionMap = {
   A: "A-20264",
-  B: "B-20263",
+  B: "B-20264",
 };
 
 /**
