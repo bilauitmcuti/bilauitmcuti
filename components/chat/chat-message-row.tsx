@@ -28,7 +28,7 @@ import {
   MessageScrollerItem,
 } from "@/components/ui/message-scroller";
 import { cn } from "@/lib/utils";
-import { formatTime24, type ChatMessageItem } from "@/components/chat/chat-utils";
+import { formatTime24, type ChatMessageItem, type ChatStreamingDraft } from "@/components/chat/chat-utils";
 import { useLiveDurationSec } from "@/components/chat/use-live-duration-sec";
 import { useReasoningVisibility } from "@/components/chat/use-reasoning-visibility";
 import { CHAT_STREAM_PHASE } from "@/lib/chat/stream-phase";
@@ -40,6 +40,7 @@ import {
 
 interface ChatMessageRowProps {
   message: ChatMessageItem;
+  streamingDraft?: ChatStreamingDraft | null;
   scrollAnchor: boolean;
   isLastUserMessage: boolean;
   copiedId: string | null;
@@ -52,6 +53,7 @@ interface ChatMessageRowProps {
 
 export function ChatMessageRow({
   message,
+  streamingDraft = null,
   scrollAnchor,
   isLastUserMessage,
   copiedId,
@@ -61,6 +63,13 @@ export function ChatMessageRow({
   onEdit,
   onDelete,
 }: ChatMessageRowProps) {
+  const displayContent =
+    streamingDraft?.id === message.id ? streamingDraft.content : message.content;
+  const displayReasoning =
+    streamingDraft?.id === message.id
+      ? (streamingDraft.reasoning ?? message.reasoning)
+      : message.reasoning;
+
   const assistantInProgress =
     message.role === "assistant" && message.isComplete === false;
   const [sawStreaming, setSawStreaming] = useState(
@@ -69,13 +78,13 @@ export function ChatMessageRow({
   useEffect(() => {
     if (message.isComplete === false) setSawStreaming(true);
   }, [message.isComplete]);
-  const answerStreaming = assistantInProgress && message.content.trim().length > 0;
+  const answerStreaming = assistantInProgress && displayContent.trim().length > 0;
   const isRegenerating =
     assistantInProgress &&
     !answerStreaming &&
     message.streamPhase === CHAT_STREAM_PHASE.RETRY;
   const progressLabel = message.statusMessage?.trim();
-  const reasoningText = message.reasoning?.trim() ?? "";
+  const reasoningText = displayReasoning?.trim() ?? "";
   const hasReasoningContent = reasoningText.length > 0;
   const isThinkingPhase =
     assistantInProgress && !answerStreaming && !isRegenerating;
@@ -165,7 +174,7 @@ export function ChatMessageRow({
   }
 
   const assistantFinished =
-    message.isComplete !== false && message.content.trim().length > 0;
+    message.isComplete !== false && displayContent.trim().length > 0;
   const animateActions = assistantFinished && sawStreaming;
   const actionBlurClass = animateActions ? "chat-action-blur-in" : undefined;
   const actionBlurStyle = (index: number): CSSProperties | undefined =>
@@ -211,11 +220,11 @@ export function ChatMessageRow({
               ) : null}
             </Reasoning>
           ) : null}
-          {message.content.trim() ? (
+          {displayContent.trim() ? (
             <Bubble variant="ghost">
               <BubbleContent className="px-1 py-1">
                 <StreamdownRenderer
-                  content={message.content}
+                  content={displayContent}
                   isComplete={message.isComplete !== false}
                 />
               </BubbleContent>
@@ -227,7 +236,7 @@ export function ChatMessageRow({
                 type="button"
                 variant="ghost"
                 size="icon"
-                onClick={() => onCopy(message.id, message.content)}
+                onClick={() => onCopy(message.id, displayContent)}
                 aria-label="Copy answer"
                 className={actionBlurClass}
                 style={actionBlurStyle(0)}

@@ -15,10 +15,11 @@ import {
 } from "@/components/ui/message-scroller";
 import { ChatMessageRow } from "@/components/chat/chat-message-row";
 import { ChatScrollSync } from "@/components/chat/chat-scroll-sync";
-import type { ChatMessageItem } from "@/components/chat/chat-utils";
+import type { ChatMessageItem, ChatStreamingDraft } from "@/components/chat/chat-utils";
 
 interface ChatTranscriptProps {
   messages: ChatMessageItem[];
+  streamingDraft?: ChatStreamingDraft | null;
   isLoading: boolean;
   showLoadingMarker: boolean;
   streamStatusPhrase: string;
@@ -39,6 +40,7 @@ interface ChatTranscriptProps {
 
 export function ChatTranscript({
   messages,
+  streamingDraft = null,
   isLoading,
   showLoadingMarker,
   streamStatusPhrase,
@@ -58,7 +60,7 @@ export function ChatTranscript({
 }: ChatTranscriptProps) {
   return (
     <MessageScrollerProvider autoScroll defaultScrollPosition="end">
-      <ChatScrollSync messages={messages} />
+      <ChatScrollSync messages={messages} streamingDraft={streamingDraft} />
       <MessageScroller className="flex-1 min-h-0">
         <MessageScrollerViewport onScroll={onViewportScroll}>
           <MessageScrollerContent
@@ -82,6 +84,7 @@ export function ChatTranscript({
               <ChatMessageRow
                 key={msg.id}
                 message={msg}
+                streamingDraft={streamingDraft?.id === msg.id ? streamingDraft : null}
                 scrollAnchor={false}
                 isLastUserMessage={msg.id === lastUserMsgId}
                 copiedId={copiedId}

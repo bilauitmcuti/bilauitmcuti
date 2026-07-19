@@ -72,6 +72,13 @@ export interface ChatMessageItem {
   statusMessage?: string;
 }
 
+/** Live token/reasoning draft kept outside `messages` to avoid full-list re-renders. */
+export interface ChatStreamingDraft {
+  id: string;
+  content: string;
+  reasoning?: string;
+}
+
 export interface MentionMatch {
   start: number;
   end: number;

@@ -1047,31 +1047,17 @@ export async function POST(request: NextRequest) {
           })
       );
 
-      // Ensure pre-answer LLM finished (or timed out) before post-answer refine.
-      await applyLlmStatusIfReady();
-
+      // Template-only refine — never await LLM before SSE `done`.
       const { needsLlmRefine } = validateReasoningStatus(
         turnReasoningStatus,
         streamedReply,
         sanitizedMessage
       );
       if (reasoningUiSupported && needsLlmRefine) {
-        const refined = reasoningLlmEnabled
-          ? await generateReasoningStatusLlm({
-              ...reasoningInputBase,
-              phase: "post_answer",
-              phaseHint: "retry",
-              finalAnswer: streamedReply,
-              requestHost,
-              correlationId,
-            })
-          : null;
-        turnReasoningStatus =
-          refined ??
-          buildReasoningStatusTemplate({
-            ...reasoningInputBase,
-            phaseHint: "retry",
-          });
+        turnReasoningStatus = buildReasoningStatusTemplate({
+          ...reasoningInputBase,
+          phaseHint: "retry",
+        });
         streamHooks.emitReasoningParagraph(turnReasoningStatus.progress_summary);
       }
 
