@@ -29,11 +29,11 @@ const REASONING_LLM_MAX_TOKENS = 220;
 const REASONING_LLM_TEMPERATURE = 0.15;
 const REASONING_LLM_TIMEOUT_MS = 3500;
 
-/** Set CHAT_REASONING_LLM=0 or false to disable LLM reasoning (template-only). */
+/** Set CHAT_REASONING_LLM=1 or true to enable LLM reasoning status (off by default). */
 export function isChatReasoningLlmEnabled(): boolean {
   const raw = process.env.CHAT_REASONING_LLM?.trim().toLowerCase();
-  if (raw === "0" || raw === "false" || raw === "off") return false;
-  return true;
+  if (raw === "1" || raw === "true" || raw === "on") return true;
+  return false;
 }
 
 export function buildReasoningLlmPrompt(input: GenerateReasoningLlmInput): {

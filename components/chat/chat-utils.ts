@@ -95,11 +95,6 @@ export function prepareHistory(messages: ChatMessageItem[]): { role: "user" | "a
     }));
 }
 
-export function formatTime24(timestamp: number): string {
-  const d = new Date(timestamp);
-  return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
-}
-
 export function getActiveMentionMatch(value: string, caretIndex: number): MentionMatch | null {
   if (caretIndex < 0) return null;
   const prefix = value.slice(0, caretIndex);

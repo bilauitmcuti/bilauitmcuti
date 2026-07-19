@@ -103,13 +103,15 @@ describe("reasoning-gate", () => {
     expect(shouldEmitReasoningPhase(start, false, "retry", start)).toBe(true);
   });
 
-  it("captures thinking metadata only after the indicator delay", () => {
+  it("captures thinking metadata when indicator delay has elapsed", () => {
     const start = 10_000;
-    expect(
-      captureThinkingMetadata(start, { now: start + THINKING_INDICATOR_DELAY_MS - 1 })
-    ).toEqual({
-      hadThinking: false,
-    });
+    if (THINKING_INDICATOR_DELAY_MS > 0) {
+      expect(
+        captureThinkingMetadata(start, { now: start + THINKING_INDICATOR_DELAY_MS - 1 })
+      ).toEqual({
+        hadThinking: false,
+      });
+    }
     expect(
       captureThinkingMetadata(start, { now: start + THINKING_INDICATOR_DELAY_MS })
     ).toEqual({

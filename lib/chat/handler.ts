@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getAiBinding,
   getMaxOutputTokensForHost,
-  modelChainSupportsReasoningUi,
   resolveProductionChatModelChain,
   resolveWorkersAiModelTier,
   shouldStreamTokensToClient,
@@ -46,22 +45,11 @@ import {
 import { runDeterministicPrefetch } from "@/lib/chat/agent/deterministic-prefetch";
 import {
   buildRetryStatusLine,
-  replaceReasoningParagraph,
-  validateReasoningStatus,
-  type ReasoningPhase,
-  type ReasoningStatus,
-  type ReasoningStatusInput,
 } from "@/lib/chat/reasoning-status";
-import { buildReasoningStatusTemplate } from "@/lib/chat/reasoning-templates";
-import {
-  generateReasoningStatusLlm,
-  isChatReasoningLlmEnabled,
-} from "@/lib/chat/reasoning-llm";
 import { CHAT_STREAM_PHASE } from "@/lib/chat/stream-phase";
 import {
   buildReasoningComplexityInput,
   isComplexReasoningTurn,
-  shouldEmitReasoningPhase,
 } from "@/lib/chat/reasoning-gate";
 import {
   agentModeForModelChain,
@@ -393,7 +381,6 @@ export async function POST(request: NextRequest) {
 
     const useAgentPath = isChatAgentEnabled();
     const modelChain = resolveProductionChatModelChain(requestHost);
-    const reasoningUiSupported = modelChainSupportsReasoningUi(modelChain);
     const agentMode = useAgentPath ? agentModeForModelChain(modelChain) : "compact";
     const isAgentToolsPath = useAgentPath && agentMode === "tools";
 
@@ -428,62 +415,7 @@ export async function POST(request: NextRequest) {
     });
     const useAgentTools = executionMode === "agent";
 
-    /** Reset for every user message — structured status is turn-scoped. */
-    const reasoningInputBase: Omit<ReasoningStatusInput, "phaseHint" | "toolName" | "retryReason"> =
-      {
-        message: sanitizedMessage,
-        topics: topicRoute.topics,
-        contextIntent,
-        programLabel,
-        sessionCount: effectiveSessions.length,
-        hasMatchedActivity,
-        activityMatches,
-        needsList,
-      };
-
-    let turnReasoningStatus: ReasoningStatus = buildReasoningStatusTemplate({
-      ...reasoningInputBase,
-      phaseHint: "pre_answer",
-    });
-
-    const reasoningLlmEnabled = reasoningUiSupported && isChatReasoningLlmEnabled();
-
-    /** Pre-answer LLM runs in parallel with the main answer; null when disabled. */
-    const preReasoningPromise: Promise<ReasoningStatus | null> | null = reasoningLlmEnabled
-      ? generateReasoningStatusLlm({
-          ...reasoningInputBase,
-          phase: "pre_answer",
-          phaseHint: "pre_answer",
-          requestHost,
-          correlationId,
-        })
-      : null;
-
-    let templateEmitted = false;
-    let llmSummaryApplied = false;
-
-    const emitCurrentSummary = (phase: ReasoningPhase = "start") => {
-      if (!streamHooks || !reasoningUiSupported) return;
-      if (!shouldEmitReasoningPhase(turnStartMs, isComplexTurn, phase)) return;
-      streamHooks.emitReasoningParagraph(turnReasoningStatus.progress_summary);
-      templateEmitted = true;
-    };
-
-    const applyLlmStatusIfReady = async () => {
-      if (!preReasoningPromise || llmSummaryApplied) return;
-      const llmStatus = await preReasoningPromise;
-      if (!llmStatus) return;
-      if (llmStatus.progress_summary === turnReasoningStatus.progress_summary) {
-        llmSummaryApplied = true;
-        return;
-      }
-      turnReasoningStatus = llmStatus;
-      llmSummaryApplied = true;
-      if (streamHooks && reasoningUiSupported) {
-        streamHooks.emitReasoningParagraph(llmStatus.progress_summary);
-      }
-    };
-
+    /** Status-only retry UX — no reasoning paragraphs or extra LLM calls. */
     const emitStreamRetry = (retryReason: "dates" | "incomplete") => {
       if (!streamHooks) return;
       const statusMessage = buildRetryStatusLine({
@@ -494,12 +426,6 @@ export async function POST(request: NextRequest) {
         retryReason,
       });
       streamHooks.onRetry(retryReason, statusMessage);
-      turnReasoningStatus = buildReasoningStatusTemplate({
-        ...reasoningInputBase,
-        phaseHint: "retry",
-        retryReason,
-      });
-      emitCurrentSummary("retry");
     };
 
     const cacheKey = [
@@ -686,16 +612,8 @@ export async function POST(request: NextRequest) {
     });
 
     let prefetchDirective = "";
-    if (streamHooks && isComplexTurn) {
-      emitCurrentSummary("start");
-      void applyLlmStatusIfReady();
-    }
     if (useAgentPath && !useAgentTools) {
       const prefetch = await runDeterministicPrefetch(agentTurnContext, () => {});
-      if (streamHooks && !isMinimalTurn && !templateEmitted) {
-        emitCurrentSummary("progress");
-        void applyLlmStatusIfReady();
-      }
       if (prefetch.outputBlock) {
         prefetchDirective = `\n\n=== PREFETCHED TOOL DATA (authoritative) ===\n${prefetch.outputBlock}`;
       }
@@ -1019,47 +937,18 @@ export async function POST(request: NextRequest) {
     };
 
     if (streamHooks) {
-      let progressReasoningEmitted = !useAgentTools;
-      if (!useAgentTools && reasoningUiSupported && !templateEmitted) {
-        emitCurrentSummary("start");
-        void applyLlmStatusIfReady();
-      }
       const streamedReply = await runWithServerDeadline(
         useAgentTools ? CHAT_AGENT_DEADLINE_MS : CHAT_SERVER_DEADLINE_MS,
         () =>
           runLlm((token) => {
-            if (token.trim()) {
-              void applyLlmStatusIfReady();
-            }
             streamHooks.onToken(token);
           }, {
-            onToolCall: () => {
-              if (!progressReasoningEmitted) {
-                progressReasoningEmitted = true;
-                if (!templateEmitted) emitCurrentSummary("progress");
-                void applyLlmStatusIfReady();
-              }
-            },
             onRetry: (reason) => {
               const retryReason = reason === "dates" ? "dates" : "incomplete";
               emitStreamRetry(retryReason);
             },
           })
       );
-
-      // Template-only refine — never await LLM before SSE `done`.
-      const { needsLlmRefine } = validateReasoningStatus(
-        turnReasoningStatus,
-        streamedReply,
-        sanitizedMessage
-      );
-      if (reasoningUiSupported && needsLlmRefine) {
-        turnReasoningStatus = buildReasoningStatusTemplate({
-          ...reasoningInputBase,
-          phaseHint: "retry",
-        });
-        streamHooks.emitReasoningParagraph(turnReasoningStatus.progress_summary);
-      }
 
       setCachedReply(cacheKey, streamedReply);
       return streamedReply;
@@ -1084,26 +973,18 @@ export async function POST(request: NextRequest) {
           const encoder = new TextEncoder();
           const enqueue = (text: string) => controller.enqueue(encoder.encode(text));
           try {
-            let reasoningBuffer = "";
-            const emitReasoningParagraph = (paragraph: string) => {
-              const next = replaceReasoningParagraph(reasoningBuffer, paragraph);
-              if (next === reasoningBuffer) return;
-              reasoningBuffer = next;
-              enqueue(encodeSseEvent("reasoning", { text: next, replace: true }));
-            };
             const emitStatus = (phase: string, statusMessage: string) => {
               enqueue(encodeSseEvent("status", { phase, message: statusMessage }));
             };
             const streamHooks: StreamHooks = {
               enqueue,
-              emitReasoningParagraph,
+              emitReasoningParagraph: () => {},
               emitStatus,
               onToken: (token) => enqueue(encodeSseEvent("token", { token })),
               onReasoningToken: () => {},
               onToolCall: () => {},
               onSynthesis: () => {},
               onRetry: (reason, statusMessage) => {
-                reasoningBuffer = "";
                 enqueue(
                   encodeSseEvent("reset", {
                     reason,
