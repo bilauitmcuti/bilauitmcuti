@@ -25,7 +25,7 @@ export interface StreamdownRendererProps {
 /** Word-by-word blur while the assistant reply streams in. */
 export const CHAT_STREAM_ANIMATION = {
   animation: "blurIn",
-  duration: 250,
+  duration: 80,
   easing: "ease-out",
   sep: "word",
 } as const;

@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import {
+  isEngagementPromptEnabled,
   markEngagementCompleted,
   markEngagementShown,
   recordEngagementAction as recordEngagementActionLib,
@@ -55,6 +56,8 @@ export function EngagementPromptProvider({ children }: { children: ReactNode }) 
   }, []);
 
   const tryOpenPrompt = useCallback(() => {
+    if (!isEngagementPromptEnabled()) return;
+
     const attemptOpen = () => {
       if (isBlockingOverlayOpen()) {
         pendingOpenTimerRef.current = setTimeout(attemptOpen, 500);
@@ -67,11 +70,13 @@ export function EngagementPromptProvider({ children }: { children: ReactNode }) 
     };
 
     clearPendingOpen();
-    pendingOpenTimerRef.current = setTimeout(attemptOpen, 300);
+    // Slight delay so the prompt does not stack on top of the action that triggered it.
+    pendingOpenTimerRef.current = setTimeout(attemptOpen, 800);
   }, [clearPendingOpen]);
 
   const recordEngagementAction = useCallback(
     (type: EngagementActionType) => {
+      if (!isEngagementPromptEnabled()) return;
       const result = recordEngagementActionLib(type);
       if (result.shouldOpen) {
         tryOpenPrompt();
@@ -149,6 +154,8 @@ function EngagementPromptHost() {
   const { open, setOpen, closeAfterShare, closeAfterFeedback, completeRating } =
     useEngagementPrompt();
   const isMobileSheet = usePhoneViewport();
+
+  if (!isEngagementPromptEnabled()) return null;
 
   return (
     <EngagementPromptSheet

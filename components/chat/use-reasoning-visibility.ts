@@ -5,7 +5,9 @@ import {
 } from "@/lib/chat/reasoning-gate";
 
 export function useReasoningVisibility(active: boolean, startedAt?: number) {
-  const [showThinking, setShowThinking] = useState(false);
+  const [showThinking, setShowThinking] = useState(
+    () => active && THINKING_INDICATOR_DELAY_MS <= 0
+  );
   const [showReasoningSlot, setShowReasoningSlot] = useState(false);
 
   useEffect(() => {
@@ -19,11 +21,20 @@ export function useReasoningVisibility(active: boolean, startedAt?: number) {
     const thinkingDelay = Math.max(0, THINKING_INDICATOR_DELAY_MS - (Date.now() - start));
     const reasoningDelay = Math.max(0, REASONING_PARAGRAPH_DELAY_MS - (Date.now() - start));
 
-    const thinkingTimer = window.setTimeout(() => setShowThinking(true), thinkingDelay);
+    if (thinkingDelay === 0) {
+      setShowThinking(true);
+    } else {
+      setShowThinking(false);
+    }
+
+    const thinkingTimer =
+      thinkingDelay === 0
+        ? undefined
+        : window.setTimeout(() => setShowThinking(true), thinkingDelay);
     const reasoningTimer = window.setTimeout(() => setShowReasoningSlot(true), reasoningDelay);
 
     return () => {
-      window.clearTimeout(thinkingTimer);
+      if (thinkingTimer !== undefined) window.clearTimeout(thinkingTimer);
       window.clearTimeout(reasoningTimer);
     };
   }, [active, startedAt]);

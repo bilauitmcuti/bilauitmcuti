@@ -72,6 +72,13 @@ export interface ChatMessageItem {
   statusMessage?: string;
 }
 
+/** Live token/reasoning draft kept outside `messages` to avoid full-list re-renders. */
+export interface ChatStreamingDraft {
+  id: string;
+  content: string;
+  reasoning?: string;
+}
+
 export interface MentionMatch {
   start: number;
   end: number;
@@ -86,11 +93,6 @@ export function prepareHistory(messages: ChatMessageItem[]): { role: "user" | "a
       role: msg.role,
       content: msg.content.slice(0, MAX_HISTORY_CONTENT_LENGTH),
     }));
-}
-
-export function formatTime24(timestamp: number): string {
-  const d = new Date(timestamp);
-  return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
 export function getActiveMentionMatch(value: string, caretIndex: number): MentionMatch | null {

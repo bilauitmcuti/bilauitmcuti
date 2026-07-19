@@ -93,7 +93,9 @@ describe("reasoning-gate", () => {
     const start = 5_000;
     expect(shouldEmitReasoningPhase(start, true, "start", start)).toBe(true);
     expect(shouldEmitReasoningPhase(start, false, "start", start)).toBe(false);
-    expect(shouldEmitReasoningPhase(start, false, "final", start + 2_000)).toBe(false);
+    expect(
+      shouldEmitReasoningPhase(start, false, "final", start + REASONING_PARAGRAPH_DELAY_MS - 1)
+    ).toBe(false);
     expect(shouldEmitReasoningPhase(start, false, "final", start + REASONING_PARAGRAPH_DELAY_MS)).toBe(
       true
     );
@@ -101,17 +103,20 @@ describe("reasoning-gate", () => {
     expect(shouldEmitReasoningPhase(start, false, "retry", start)).toBe(true);
   });
 
-  it("captures thinking metadata only after the indicator delay", () => {
+  it("captures thinking metadata when indicator delay has elapsed", () => {
     const start = 10_000;
-    expect(captureThinkingMetadata(start, { now: start + 300 })).toEqual({
-      hadThinking: false,
-    });
-    expect(captureThinkingMetadata(start, { now: start + 1_500 })).toEqual({
-      hadThinking: false,
-    });
-    expect(captureThinkingMetadata(start, { now: start + 2_100 })).toEqual({
+    if (THINKING_INDICATOR_DELAY_MS > 0) {
+      expect(
+        captureThinkingMetadata(start, { now: start + THINKING_INDICATOR_DELAY_MS - 1 })
+      ).toEqual({
+        hadThinking: false,
+      });
+    }
+    expect(
+      captureThinkingMetadata(start, { now: start + THINKING_INDICATOR_DELAY_MS })
+    ).toEqual({
       hadThinking: true,
-      thinkingDurationSec: 2,
+      thinkingDurationSec: computeThinkingDurationSec(THINKING_INDICATOR_DELAY_MS),
     });
     expect(
       captureThinkingMetadata(start, {

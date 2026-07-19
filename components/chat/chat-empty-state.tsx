@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/empty";
 
 interface ChatEmptyStateProps {
-  greeting: string;
   showTurnstileChallenge: boolean;
   turnstileSiteKey: string;
   turnstileNonce: number;
@@ -21,7 +20,6 @@ interface ChatEmptyStateProps {
 }
 
 export function ChatEmptyState({
-  greeting,
   showTurnstileChallenge,
   turnstileSiteKey,
   turnstileNonce,
@@ -32,11 +30,8 @@ export function ChatEmptyState({
     <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center overflow-hidden px-4 pb-6 lg:flex-none lg:pb-0">
       <Empty className="mx-auto max-w-[600px] flex-none border-none p-0">
         <EmptyHeader>
-          <EmptyTitle
-            className="text-2xl sm:text-3xl font-semibold tracking-tight text-balance"
-            suppressHydrationWarning
-          >
-            {greeting}
+          <EmptyTitle className="text-2xl sm:text-3xl font-semibold tracking-tight text-balance">
+            Ask AI, get instant answers
           </EmptyTitle>
           <EmptyDescription className="max-w-sm text-balance lg:hidden">
             Ask about academic calendars or public holidays. Select your programme, or type @ to mention a calendar.

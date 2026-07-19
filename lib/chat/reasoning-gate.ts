@@ -1,10 +1,10 @@
 import type { ChatTopic } from "@/lib/chat/topic-router";
 
 /** Show the thinking shimmer only after this brief delay (ms). */
-export const THINKING_INDICATOR_DELAY_MS = 2000;
+export const THINKING_INDICATOR_DELAY_MS = 0;
 
-/** Emit / show reasoning paragraphs only after this delay (ms). */
-export const REASONING_PARAGRAPH_DELAY_MS = 2500;
+/** Emit / show reasoning paragraphs only after this delay (ms). Unused when thinking-only. */
+export const REASONING_PARAGRAPH_DELAY_MS = 700;
 
 /** Show "Thought for X …" only when duration exceeds this many whole seconds. */
 export const THINKING_LABEL_MIN_DURATION_SEC = 4;

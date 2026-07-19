@@ -121,6 +121,8 @@ describe("reasoning-llm", () => {
   });
 
   it("returns null on timeout or AI failure", async () => {
+    const prev = process.env.CHAT_REASONING_LLM;
+    process.env.CHAT_REASONING_LLM = "1";
     const askAi = vi.fn(async () => {
       await new Promise((r) => setTimeout(r, 50));
       return "{}";
@@ -131,9 +133,12 @@ describe("reasoning-llm", () => {
       timeoutMs: 1,
     });
     expect(result).toBeNull();
+    process.env.CHAT_REASONING_LLM = prev;
   });
 
   it("returns sanitized status when askAi succeeds", async () => {
+    const prev = process.env.CHAT_REASONING_LLM;
+    process.env.CHAT_REASONING_LLM = "1";
     const askAi = vi.fn(async () =>
       JSON.stringify({
         intent: "semester_start",
@@ -151,10 +156,28 @@ describe("reasoning-llm", () => {
     expect(result?.intent).toBe("semester_start");
     expect(result?.progress_summary).toMatch(/semester|lecture/i);
     expect(askAi).toHaveBeenCalledOnce();
+    process.env.CHAT_REASONING_LLM = prev;
   });
 
-  it("respects CHAT_REASONING_LLM disable flag", () => {
+  it("returns null when reasoning LLM is disabled by default", async () => {
     const prev = process.env.CHAT_REASONING_LLM;
+    delete process.env.CHAT_REASONING_LLM;
+    const askAi = vi.fn(async () => "{}");
+    const result = await generateReasoningStatusLlm({
+      ...baseInput,
+      askAi,
+    });
+    expect(result).toBeNull();
+    expect(askAi).not.toHaveBeenCalled();
+    process.env.CHAT_REASONING_LLM = prev;
+  });
+
+  it("respects CHAT_REASONING_LLM enable flag (off by default)", () => {
+    const prev = process.env.CHAT_REASONING_LLM;
+    delete process.env.CHAT_REASONING_LLM;
+    expect(isChatReasoningLlmEnabled()).toBe(false);
+    process.env.CHAT_REASONING_LLM = "1";
+    expect(isChatReasoningLlmEnabled()).toBe(true);
     process.env.CHAT_REASONING_LLM = "0";
     expect(isChatReasoningLlmEnabled()).toBe(false);
     process.env.CHAT_REASONING_LLM = prev;

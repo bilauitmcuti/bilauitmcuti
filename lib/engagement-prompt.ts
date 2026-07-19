@@ -9,6 +9,9 @@ export const ENGAGEMENT_STORAGE_KEYS = {
 /** Max star-rating submissions (engagement drawer/dialog) before stars are disabled. */
 export const MAX_ENGAGEMENT_RATING_ATTEMPTS = 1;
 
+/** Production apex only — preview (*.pages.dev) and localhost stay quiet. */
+const PRODUCTION_SITE_HOST = "bilauitmcuti.com";
+
 export type EngagementActionType =
   | "grid_cell_open"
   | "grid_drawer_nav"
@@ -20,8 +23,12 @@ export type EngagementActionType =
   | "chat_send"
   | "chat_mention_open";
 
-const MIN_THRESHOLD = 5;
-const MAX_THRESHOLD = 12;
+/** Higher bar so the prompt does not interrupt early browsing. */
+const MIN_THRESHOLD = 20;
+const MAX_THRESHOLD = 40;
+
+/** After the prompt is shown (or dismissed), wait before offering it again. */
+const SHOW_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 
 function safeGetItem(key: string): string | null {
   if (typeof window === "undefined") return null;
@@ -54,6 +61,19 @@ function randomThreshold(): number {
   return MIN_THRESHOLD + Math.floor(Math.random() * (MAX_THRESHOLD - MIN_THRESHOLD + 1));
 }
 
+function normalizeHost(host: string): string {
+  return host.replace(/^www\./, "").split(":")[0].toLowerCase();
+}
+
+/** Rating/share prompt only on production custom domain. */
+export function isEngagementPromptEnabled(host?: string | null): boolean {
+  const resolved =
+    host ??
+    (typeof window !== "undefined" ? window.location.hostname : null);
+  if (!resolved?.trim()) return false;
+  return normalizeHost(resolved) === PRODUCTION_SITE_HOST;
+}
+
 export function isEngagementCompleted(): boolean {
   return safeGetItem(ENGAGEMENT_STORAGE_KEYS.completed) === "1";
 }
@@ -62,7 +82,7 @@ function ensureThreshold(): number {
   const stored = safeGetItem(ENGAGEMENT_STORAGE_KEYS.threshold);
   if (stored) {
     const parsed = parseInt(stored, 10);
-    if (!Number.isNaN(parsed) && parsed > 0) return parsed;
+    if (!Number.isNaN(parsed) && parsed >= MIN_THRESHOLD) return parsed;
   }
   const next = randomThreshold();
   safeSetItem(ENGAGEMENT_STORAGE_KEYS.threshold, String(next));
@@ -75,6 +95,14 @@ function getActionCount(): number {
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
+function isWithinShowCooldown(): boolean {
+  const stored = safeGetItem(ENGAGEMENT_STORAGE_KEYS.lastShownAt);
+  if (!stored) return false;
+  const ts = parseInt(stored, 10);
+  if (Number.isNaN(ts) || ts <= 0) return false;
+  return Date.now() - ts < SHOW_COOLDOWN_MS;
+}
+
 export interface RecordEngagementResult {
   shouldOpen: boolean;
   count: number;
@@ -84,6 +112,10 @@ export interface RecordEngagementResult {
 export function recordEngagementAction(
   _type?: EngagementActionType
 ): RecordEngagementResult {
+  if (!isEngagementPromptEnabled()) {
+    return { shouldOpen: false, count: 0, threshold: MIN_THRESHOLD };
+  }
+
   if (isEngagementCompleted()) {
     const threshold = ensureThreshold();
     return { shouldOpen: false, count: getActionCount(), threshold };
@@ -94,7 +126,7 @@ export function recordEngagementAction(
   safeSetItem(ENGAGEMENT_STORAGE_KEYS.actionCount, String(nextCount));
 
   return {
-    shouldOpen: nextCount >= threshold,
+    shouldOpen: nextCount >= threshold && !isWithinShowCooldown(),
     count: nextCount,
     threshold,
   };

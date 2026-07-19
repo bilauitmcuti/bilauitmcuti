@@ -103,8 +103,8 @@ export function createMarkdownStreamPainter(
   reset: () => void;
   flush: () => void;
 } {
-  const maxChunkChars = options?.maxChunkChars ?? 16;
-  const firstFlushChars = options?.firstFlushChars ?? 4;
+  const maxChunkChars = options?.maxChunkChars ?? 8;
+  const firstFlushChars = options?.firstFlushChars ?? 2;
   let buf = "";
   let hasFlushed = false;
 

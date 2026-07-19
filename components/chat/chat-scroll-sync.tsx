@@ -2,13 +2,14 @@
 
 import { useEffect, useRef } from "react";
 import { useMessageScroller } from "@/components/ui/message-scroller";
-import type { ChatMessageItem } from "@/components/chat/chat-utils";
+import type { ChatMessageItem, ChatStreamingDraft } from "@/components/chat/chat-utils";
 
 interface ChatScrollSyncProps {
   messages: ChatMessageItem[];
+  streamingDraft?: ChatStreamingDraft | null;
 }
 
-export function ChatScrollSync({ messages }: ChatScrollSyncProps) {
+export function ChatScrollSync({ messages, streamingDraft = null }: ChatScrollSyncProps) {
   const { scrollToEnd } = useMessageScroller();
   const lastMessageIdRef = useRef<string | null>(null);
   const lastContentLengthRef = useRef(0);
@@ -22,7 +23,8 @@ export function ChatScrollSync({ messages }: ChatScrollSyncProps) {
 
     const last = messages[messages.length - 1];
     const lastId = last.id;
-    const contentLength = last.content.length;
+    const contentLength =
+      streamingDraft?.id === lastId ? streamingDraft.content.length : last.content.length;
 
     if (lastId !== lastMessageIdRef.current) {
       lastMessageIdRef.current = lastId;
@@ -42,7 +44,7 @@ export function ChatScrollSync({ messages }: ChatScrollSyncProps) {
       lastContentLengthRef.current = contentLength;
       scrollToEnd({ behavior: "smooth" });
     }
-  }, [messages, scrollToEnd]);
+  }, [messages, streamingDraft, scrollToEnd]);
 
   return null;
 }

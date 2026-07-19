@@ -27,7 +27,6 @@ import type { TurnstileWidgetHandle } from "@/components/turnstile-widget";
 import { ChatTranscript } from "@/components/chat/chat-transcript";
 import { ChatEmptyState } from "@/components/chat/chat-empty-state";
 import { ChatComposer } from "@/components/chat/chat-composer";
-import { useChatGreeting } from "@/hooks/use-chat-greeting";
 import { getRandomSuggestions } from "@/components/chat/suggestion-data";
 import { useDesktopViewport } from "@/lib/use-mobile-viewport";
 import {
@@ -43,11 +42,11 @@ import {
   getChatErrorMessage,
   consumeChatStream,
   createRafMarkdownStreamPainter,
-  createRafReasoningStreamPainter,
   MAX_CHAT_MESSAGE_LENGTH,
   parseChatResponse,
   prepareHistory,
   type ChatMessageItem,
+  type ChatStreamingDraft,
   type MentionMatch,
 } from "@/components/chat/chat-utils";
 import { captureThinkingMetadata } from "@/lib/chat/reasoning-gate";
@@ -92,11 +91,11 @@ export default function ChatPage() {
 
   const router = useRouter();
   const { recordEngagementAction } = useEngagementPrompt();
-  const chatGreeting = useChatGreeting();
   const isDesktopViewport = useDesktopViewport();
   const programOptions = getProgramOptions();
   const calendarDataVersion = getSnapshot().version;
   const [messages, setMessages] = useState<Message[]>([]);
+  const [streamingDraft, setStreamingDraft] = useState<ChatStreamingDraft | null>(null);
   const [input, setInput] = useState("");
   const [turnstileToken, setTurnstileToken] = useState("");
   const [turnstileNonce, setTurnstileNonce] = useState(0);
@@ -450,6 +449,7 @@ export default function ChatPage() {
     };
 
     setMessages([...messages, userMessage, assistantPlaceholder]);
+    setStreamingDraft({ id: assistantId, content: "" });
     setInput("");
     setIsLoading(true);
     startLoadingState();
@@ -459,6 +459,7 @@ export default function ChatPage() {
     try {
       if (typeof navigator !== "undefined" && !navigator.onLine) {
         const offlineNow = Date.now();
+        setStreamingDraft(null);
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
@@ -528,58 +529,32 @@ export default function ChatPage() {
             timeoutId = setTimeout(() => controller.abort(), FETCH_STREAM_TIMEOUT_MS);
 
             let answerStarted = false;
+            let liveDraft: ChatStreamingDraft = {
+              id: assistantId,
+              content: "",
+            };
+            const syncDraft = (next: ChatStreamingDraft) => {
+              liveDraft = next;
+              setStreamingDraft(next);
+            };
             const streamPainter = createRafMarkdownStreamPainter(
               (chunk) => {
-                setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === assistantId
-                      ? { ...m, content: m.content + chunk }
-                      : m
-                  )
-                );
+                syncDraft({
+                  ...liveDraft,
+                  content: liveDraft.content + chunk,
+                });
               },
-              { maxChunkChars: 16, firstFlushChars: 4 }
+              { maxChunkChars: 8, firstFlushChars: 2 }
             );
-            let lastReasoningReplaceAt = 0;
-            const reasoningPainter = createRafReasoningStreamPainter((chunk) => {
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantId
-                    ? { ...m, reasoning: `${m.reasoning ?? ""}${chunk}` }
-                    : m
-                )
-              );
-            });
             await consumeChatStream(
               res,
               {
-                onReasoning: (payload) => {
-                  if (payload.replace && payload.text) {
-                    const now = Date.now();
-                    if (now - lastReasoningReplaceAt < 120) {
-                      reasoningPainter.reset();
-                    }
-                    lastReasoningReplaceAt = now;
-                    setMessages((prev) =>
-                      prev.map((m) =>
-                        m.id === assistantId
-                          ? {
-                              ...m,
-                              reasoning: payload.text!,
-                              hadThinking: true,
-                            }
-                          : m
-                      )
-                    );
-                    return;
-                  }
-                  if (!payload.token) return;
-                  reasoningPainter.push(payload.token);
+                onReasoning: () => {
+                  /* Thinking-only UX — ignore server reasoning paragraphs. */
                 },
                 onToken: (token) => {
                   if (!answerStarted && token.trim()) {
                     answerStarted = true;
-                    reasoningPainter.flush();
                     setMessages((prev) =>
                       prev.map((m) =>
                         m.id === assistantId
@@ -610,14 +585,15 @@ export default function ChatPage() {
                 },
                 onReset: (payload) => {
                   streamPainter.reset();
-                  reasoningPainter.reset();
                   answerStarted = false;
+                  syncDraft({ id: assistantId, content: "" });
                   setMessages((prev) =>
                     prev.map((m) =>
                       m.id === assistantId
                         ? {
                             ...m,
                             content: "",
+                            reasoning: undefined,
                             streamPhase: payload.phase ?? CHAT_STREAM_PHASE.RETRY,
                             statusMessage: payload.message,
                           }
@@ -627,12 +603,12 @@ export default function ChatPage() {
                 },
                 onDone: (payload) => {
                   streamPainter.flush();
-                  reasoningPainter.flush();
                   content = payload.reply;
                   chatRequestSucceeded = true;
                   const doneAt = Date.now();
                   const replyText = payload.reply ?? "";
 
+                  setStreamingDraft(null);
                   setMessages((prev) => {
                     const hasMsg = prev.some((m) => m.id === assistantId);
                     if (!hasMsg) {
@@ -651,10 +627,11 @@ export default function ChatPage() {
                     }
                     return prev.map((m) => {
                       if (m.id !== assistantId) return m;
-                      const completed = withThinkingMetadata(
+                      return withThinkingMetadata(
                         {
                           ...m,
                           content: replyText,
+                          reasoning: undefined,
                           correlationId: payload.correlationId,
                           userPrompt: trimmed,
                           isComplete: true,
@@ -664,7 +641,6 @@ export default function ChatPage() {
                         },
                         doneAt
                       );
-                      return completed;
                     });
                   });
                   setIsTurnstileSessionVerified(true);
@@ -673,7 +649,6 @@ export default function ChatPage() {
                 },
                 onError: (payload) => {
                   streamPainter.flush();
-                  reasoningPainter.flush();
                   content = resolveChatErrorMessage(payload.status, payload.error);
                   lastErrorStatus = payload.status;
                   if (payload.status === 503 && maxAttempts === 3) {
@@ -692,6 +667,7 @@ export default function ChatPage() {
               isRetryableStatus(lastErrorStatus) &&
               attempt < maxAttempts - 1
             ) {
+              setStreamingDraft({ id: assistantId, content: "" });
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === assistantId
@@ -733,6 +709,7 @@ export default function ChatPage() {
             content = replyText;
             chatRequestSucceeded = true;
             const doneAt = Date.now();
+            setStreamingDraft(null);
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId
@@ -780,6 +757,7 @@ export default function ChatPage() {
       if (!chatRequestSucceeded) {
         const assistantNow = Date.now();
         const errorContent = content || "Something went wrong. Please try again.";
+        setStreamingDraft(null);
         setMessages((prev) => {
           const hasPlaceholder = prev.some((m) => m.id === assistantId);
           if (hasPlaceholder) {
@@ -821,6 +799,7 @@ export default function ChatPage() {
         content: "Something went wrong. Please try again.",
         timestamp: errorNow,
       };
+      setStreamingDraft(null);
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
@@ -1006,6 +985,7 @@ export default function ChatPage() {
     if (msgIndex === -1) return;
     const msg = messages[msgIndex];
     setInput(msg.content);
+    setStreamingDraft(null);
     setMessages(messages.slice(0, msgIndex));
     setTimeout(() => {
       textareaRef.current?.focus();
@@ -1046,7 +1026,6 @@ export default function ChatPage() {
       >
         {isEmptyChat ? (
           <ChatEmptyState
-            greeting={chatGreeting}
             showTurnstileChallenge={showTurnstileChallenge}
             turnstileSiteKey={turnstileSiteKey ?? ""}
             turnstileNonce={turnstileNonce}
@@ -1056,6 +1035,7 @@ export default function ChatPage() {
         ) : (
           <ChatTranscript
             messages={messages}
+            streamingDraft={streamingDraft}
             isLoading={isLoading}
             showLoadingMarker={showLoadingMarker}
             streamStatusPhrase={streamStatusPhrase}
