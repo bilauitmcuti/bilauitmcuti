@@ -542,11 +542,9 @@ export function ShareLinkGenerator() {
                 <DropdownMenuItem
                   key={option.value}
                   className={cn(
-                    'relative cursor-pointer pr-8 text-sm font-medium data-[highlighted]:bg-transparent',
+                    'relative cursor-pointer pr-8 text-sm font-medium',
                     index === 0 ? 'mt-2' : '',
-                    option.value === selectedProgram
-                      ? 'text-primary data-[highlighted]:text-primary'
-                      : 'text-foreground data-[highlighted]:text-foreground'
+                    option.value === selectedProgram ? 'text-primary' : ''
                   )}
                   onClick={() => handleProgramSelect(option.value as ProgramValue)}
                 >

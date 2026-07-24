@@ -435,11 +435,9 @@ export function ChatComposer({
                         <DropdownMenuItem
                           key={opt.value}
                           className={cn(
-                            "relative cursor-pointer pr-8 font-medium bg-transparent data-[highlighted]:bg-transparent",
+                            "relative cursor-pointer pr-8 font-medium",
                             index === 0 && "mt-2",
-                            opt.value === selectedProgram
-                              ? "text-primary data-[highlighted]:text-primary"
-                              : "text-foreground data-[highlighted]:text-foreground"
+                            opt.value === selectedProgram ? "text-primary" : ""
                           )}
                           onClick={() => {
                             onActiveSubmenuChange(null);
