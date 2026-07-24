@@ -503,7 +503,7 @@ export function CalendarControls({
                   {groupBOptions.map((option, index) => (
                     <DropdownMenuItem
                       key={option.value}
-                      className={`relative cursor-pointer pr-8 font-medium text-sm data-[highlighted]:bg-transparent ${index === 0 ? 'mt-2' : ''} ${option.value === selectedProgram ? 'text-primary data-[highlighted]:text-primary' : 'text-foreground data-[highlighted]:text-foreground'}`}
+                      className={`relative cursor-pointer pr-8 font-medium text-sm ${index === 0 ? 'mt-2' : ''} ${option.value === selectedProgram ? 'text-primary' : ''}`}
                       onClick={() => {
                         setActiveSubmenu(null);
                         setDropdownOpen(false);
