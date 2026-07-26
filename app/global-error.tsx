@@ -26,7 +26,7 @@ export default function GlobalError({
           onClick={reset}
           className="px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-medium"
         >
-          Try again
+          Try Again
         </button>
       </body>
     </html>

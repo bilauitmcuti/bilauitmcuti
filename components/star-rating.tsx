@@ -1,6 +1,7 @@
 "use client";
 
-import { Star } from "lucide-react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { StarIcon } from "@hugeicons/core-free-icons";
 import { cn } from "@/lib/utils";
 
 interface StarRatingProps {
@@ -43,7 +44,8 @@ export function StarRating({
             onClick={() => onRatingChange(value)}
             className="touch-manipulation rounded-md p-1 md:hover:bg-muted outline-none focus:outline-none focus-visible:outline-none disabled:opacity-50"
           >
-            <Star
+            <HugeiconsIcon
+              icon={StarIcon}
               className={cn(
                 "size-7",
                 rating >= value

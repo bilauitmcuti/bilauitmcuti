@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
 import { useCalendarHydrationVersion } from "@/components/calendar-hydration-context";
 import { getSnapshot, subscribe } from "@/lib/calendar-store";
 import {
@@ -1010,9 +1011,9 @@ export default function ChatPage() {
           <button
             onClick={() => router.push(getRoutePath(selectedProgram, "grid"))}
             className="flex items-center justify-center w-9 h-9 rounded-full bg-secondary hover:opacity-80"
-            aria-label="Back to home"
+            aria-label="Back To Home"
           >
-            <ChevronLeft className="w-5 h-5" />
+            <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="w-5 h-5" />
           </button>
         </header>
       </div>

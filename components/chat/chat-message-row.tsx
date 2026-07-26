@@ -4,7 +4,15 @@ import {
   Reasoning,
   ReasoningTrigger,
 } from "@/components/ai-elements/reasoning";
-import { Check, Copy, Pencil, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  Tick02Icon,
+  Copy01Icon,
+  PencilEdit02Icon,
+  ThumbsDownIcon,
+  ThumbsUpIcon,
+  Delete02Icon,
+} from "@hugeicons/core-free-icons";
 import { useEffect, useState, type CSSProperties } from "react";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { Button } from "@/components/ui/button";
@@ -125,16 +133,16 @@ export function ChatMessageRow({
               <ContextMenuContent className="w-fit max-w-[200px]">
                 {isLastUserMessage && (
                   <ContextMenuItem onClick={() => onEdit(message.id)}>
-                    <Pencil data-icon="inline-start" />
+                    <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} data-icon="inline-start" />
                     Edit
                   </ContextMenuItem>
                 )}
                 <ContextMenuItem onClick={() => onCopy(message.id, message.content)}>
-                  <Copy data-icon="inline-start" />
+                  <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} data-icon="inline-start" />
                   Copy
                 </ContextMenuItem>
                 <ContextMenuItem onClick={() => onDelete(message.id)}>
-                  <Trash2 data-icon="inline-start" />
+                  <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} data-icon="inline-start" />
                   Delete
                 </ContextMenuItem>
               </ContextMenuContent>
@@ -205,9 +213,9 @@ export function ChatMessageRow({
                 style={actionBlurStyle(0)}
               >
                 {copiedId === message.id ? (
-                  <Check className="text-primary" />
+                  <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="text-primary" />
                 ) : (
-                  <Copy />
+                  <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} />
                 )}
               </Button>
               <Button
@@ -223,7 +231,11 @@ export function ChatMessageRow({
                 )}
                 style={actionBlurStyle(1)}
               >
-                <ThumbsUp className={reaction === "up" ? "fill-current" : undefined} />
+                <HugeiconsIcon
+                  icon={ThumbsUpIcon}
+                  strokeWidth={2}
+                  className={reaction === "up" ? "fill-current" : undefined}
+                />
               </Button>
               <Button
                 type="button"
@@ -238,7 +250,11 @@ export function ChatMessageRow({
                 )}
                 style={actionBlurStyle(2)}
               >
-                <ThumbsDown className={reaction === "down" ? "fill-current" : undefined} />
+                <HugeiconsIcon
+                  icon={ThumbsDownIcon}
+                  strokeWidth={2}
+                  className={reaction === "down" ? "fill-current" : undefined}
+                />
               </Button>
             </MessageFooter>
           )}

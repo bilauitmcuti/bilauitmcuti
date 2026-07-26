@@ -10,7 +10,15 @@ import {
 } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { List, Settings, Calendar, ChevronDown, ChevronUp, MessageCircle } from 'lucide-react';
+import { HugeiconsIcon } from "@hugeicons/react"
+import {
+  LeftToRightListBulletIcon,
+  Settings01Icon,
+  Calendar04Icon,
+  ArrowDown01Icon,
+  ArrowUp01Icon,
+  Message01Icon,
+} from "@hugeicons/core-free-icons"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,7 +34,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -58,6 +65,11 @@ import { SettingsSwitchRow } from '@/components/ui/settings-switch-row';
 import { PwaInstallButton } from '@/components/calendar/pwa-install-hint';
 import { drawerOutlineButtonClassName } from '@/components/ui/drawer';
 
+const KKT_FLAG_IMAGES = [
+  { src: '/flags/kedah.webp', alt: 'Kedah' },
+  { src: '/flags/kelantan.webp', alt: 'Kelantan' },
+  { src: '/flags/terengganu.webp', alt: 'Terengganu' },
+] as const;
 interface CalendarControlsProps {
   selectedProgram: string;
   selectedSessions: SessionId[];
@@ -273,6 +285,15 @@ export function CalendarControls({
     if (!hasRegionalDateRange && showKKT) onShowKKTChange(false);
   }, [hasRegionalDateRange, showKKT, onShowKKTChange]);
 
+  // Warm the flag cache before Settings opens so AvatarFallback never flashes.
+  useEffect(() => {
+    if (!hasRegionalDateRange) return;
+    for (const { src } of KKT_FLAG_IMAGES) {
+      const img = new Image();
+      img.src = src;
+    }
+  }, [hasRegionalDateRange]);
+
   useEffect(() => {
     if (!isOpen && !dropdownOpen) return;
     overlayOpenScrollYRef.current = window.scrollY;
@@ -350,9 +371,9 @@ export function CalendarControls({
                   {currentProgramLabel}
                 </span>
                 {dropdownOpen ? (
-                  <ChevronUp className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+                  <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} className="size-4 shrink-0" aria-hidden />
                 ) : (
-                  <ChevronDown className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+                  <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} className="size-4 shrink-0" aria-hidden />
                 )}
             </DropdownMenuTrigger>
             <DropdownMenuContent className="min-w-[260px] overflow-visible pt-4 pb-4 pl-3 pr-3 bg-popover dark:bg-[#2A2A2A]" align="start">
@@ -540,7 +561,7 @@ export function CalendarControls({
               title="Grid View"
               suppressHydrationWarning
             >
-              <Calendar className="h-6 w-6" strokeWidth={2} />
+              <HugeiconsIcon icon={Calendar04Icon} strokeWidth={2} className="h-6 w-6" />
             </Button>
             <Button
               variant={viewMode === 'list' ? 'secondary' : 'ghost'}
@@ -550,7 +571,7 @@ export function CalendarControls({
               title="List View"
               suppressHydrationWarning
             >
-              <List className="h-6 w-6" strokeWidth={2} />
+              <HugeiconsIcon icon={LeftToRightListBulletIcon} strokeWidth={2} className="h-6 w-6" />
             </Button>
             <Button
               variant="ghost"
@@ -561,7 +582,7 @@ export function CalendarControls({
               title="Chat"
               suppressHydrationWarning
             >
-              <MessageCircle className="h-6 w-6" strokeWidth={2} />
+              <HugeiconsIcon icon={Message01Icon} strokeWidth={2} className="h-6 w-6" />
             </Button>
             <Popover open={isOpen} onOpenChange={(open) => {
               setIsOpen(open);
@@ -578,7 +599,7 @@ export function CalendarControls({
                   />
                 }
               >
-                <Settings className="h-6 w-6" strokeWidth={2} />
+                <HugeiconsIcon icon={Settings01Icon} strokeWidth={2} className="h-6 w-6" />
               </PopoverTrigger>
               <PopoverContent 
                 className="h-auto w-[260px] sm:w-[300px] gap-3 pt-4 pb-4 pl-3 pr-3 z-50 bg-popover dark:bg-[#2A2A2A] transition-none"
@@ -655,18 +676,18 @@ export function CalendarControls({
                       <>
                         <span className="text-sm font-medium text-foreground">Show</span>
                         <div className="flex gap-1 pointer-events-none select-none">
-                          <Avatar className="h-5 w-5">
-                            <AvatarImage src="/flags/kedah.webp" alt="Kedah" draggable={false} />
-                            <AvatarFallback>KD</AvatarFallback>
-                          </Avatar>
-                          <Avatar className="h-5 w-5">
-                            <AvatarImage src="/flags/kelantan.webp" alt="Kelantan" draggable={false} />
-                            <AvatarFallback>KT</AvatarFallback>
-                          </Avatar>
-                          <Avatar className="h-5 w-5">
-                            <AvatarImage src="/flags/terengganu.webp" alt="Terengganu" draggable={false} />
-                            <AvatarFallback>TG</AvatarFallback>
-                          </Avatar>
+                          {KKT_FLAG_IMAGES.map((flag) => (
+                            <img
+                              key={flag.src}
+                              src={flag.src}
+                              alt={flag.alt}
+                              width={20}
+                              height={20}
+                              draggable={false}
+                              decoding="async"
+                              className="size-5 rounded-full object-cover"
+                            />
+                          ))}
                         </div>
                       </>
                     }

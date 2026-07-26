@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -199,7 +200,7 @@ export function FeedbackFormPage({
             className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary hover:opacity-80"
             aria-label="Back to home"
           >
-            <ChevronLeft className="h-5 w-5" />
+            <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="h-5 w-5" />
           </button>
         </header>
       </div>
