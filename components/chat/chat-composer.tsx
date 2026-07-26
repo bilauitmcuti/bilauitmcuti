@@ -3,7 +3,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { useRef } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { ArrowUp01Icon, ArrowDown01Icon } from "@hugeicons/core-free-icons";
+import { ArrowUp01Icon, ArrowUp02Icon, ArrowDown01Icon } from "@hugeicons/core-free-icons";
 import type { SessionId } from "@/lib/data";
 import { getSessionOptionsForGroup } from "@/lib/data";
 import type { ProgramValue } from "@/lib/route-utils";
@@ -467,7 +467,7 @@ export function ChatComposer({
                 className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-30"
                 aria-label="Send message"
               >
-                <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} />
+                <HugeiconsIcon icon={ArrowUp02Icon} strokeWidth={2} />
               </InputGroupButton>
             </InputGroupAddon>
           </InputGroup>

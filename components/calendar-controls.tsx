@@ -34,7 +34,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -66,6 +65,11 @@ import { SettingsSwitchRow } from '@/components/ui/settings-switch-row';
 import { PwaInstallButton } from '@/components/calendar/pwa-install-hint';
 import { drawerOutlineButtonClassName } from '@/components/ui/drawer';
 
+const KKT_FLAG_IMAGES = [
+  { src: '/flags/kedah.webp', alt: 'Kedah' },
+  { src: '/flags/kelantan.webp', alt: 'Kelantan' },
+  { src: '/flags/terengganu.webp', alt: 'Terengganu' },
+] as const;
 interface CalendarControlsProps {
   selectedProgram: string;
   selectedSessions: SessionId[];
@@ -280,6 +284,15 @@ export function CalendarControls({
   useEffect(() => {
     if (!hasRegionalDateRange && showKKT) onShowKKTChange(false);
   }, [hasRegionalDateRange, showKKT, onShowKKTChange]);
+
+  // Warm the flag cache before Settings opens so AvatarFallback never flashes.
+  useEffect(() => {
+    if (!hasRegionalDateRange) return;
+    for (const { src } of KKT_FLAG_IMAGES) {
+      const img = new Image();
+      img.src = src;
+    }
+  }, [hasRegionalDateRange]);
 
   useEffect(() => {
     if (!isOpen && !dropdownOpen) return;
@@ -663,18 +676,18 @@ export function CalendarControls({
                       <>
                         <span className="text-sm font-medium text-foreground">Show</span>
                         <div className="flex gap-1 pointer-events-none select-none">
-                          <Avatar className="h-5 w-5">
-                            <AvatarImage src="/flags/kedah.webp" alt="Kedah" draggable={false} />
-                            <AvatarFallback>KD</AvatarFallback>
-                          </Avatar>
-                          <Avatar className="h-5 w-5">
-                            <AvatarImage src="/flags/kelantan.webp" alt="Kelantan" draggable={false} />
-                            <AvatarFallback>KT</AvatarFallback>
-                          </Avatar>
-                          <Avatar className="h-5 w-5">
-                            <AvatarImage src="/flags/terengganu.webp" alt="Terengganu" draggable={false} />
-                            <AvatarFallback>TG</AvatarFallback>
-                          </Avatar>
+                          {KKT_FLAG_IMAGES.map((flag) => (
+                            <img
+                              key={flag.src}
+                              src={flag.src}
+                              alt={flag.alt}
+                              width={20}
+                              height={20}
+                              draggable={false}
+                              decoding="async"
+                              className="size-5 rounded-full object-cover"
+                            />
+                          ))}
                         </div>
                       </>
                     }

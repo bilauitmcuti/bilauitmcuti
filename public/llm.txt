@@ -8,11 +8,11 @@ Project type: UiTM academic calendar web app for students.
 Bila UiTM Cuti helps UiTM students check academic dates (registration, lectures, exams, and breaks) by program and session without relying on multiple PDFs.
 
 ## What the app does
-- Shows UiTM academic calendar data in grid and list views.
-- Supports program-specific schedules from Foundation/Professional to PhD.
+- Shows UiTM academic calendar data in grid and list views with activity filters and countdown to the next activity.
+- Supports program-specific schedules: Foundation/Professional, Pre-Diploma, Diploma, Diploma (Part-Time), Bachelor, Bachelor (Part-Time), Master, and PhD.
 - Includes Group A and Group B schedule differences.
-- Handles regional date variations for Kedah, Kelantan, and Terengganu.
-- Provides an AI chat assistant for calendar and UiTM general questions (English or Malay).
+- Handles regional date variations for Kedah, Kelantan, and Terengganu (KKT).
+- Provides an AI chat assistant for academic calendar, lecture weeks, Malaysia public holidays, and general UiTM questions (English or Malay).
 - Installable PWA with offline-friendly service worker and light/dark themes.
 - Links to Find My Internship for discovering internship opportunities from multiple sources across Malaysia.
 
@@ -21,34 +21,35 @@ Bila UiTM Cuti helps UiTM students check academic dates (registration, lectures,
 - UiTM community members looking for a simpler calendar reference.
 
 ## Stack
-- Next.js 16 (App Router)
-- React 19 + TypeScript
-- Tailwind CSS 4 + shadcn/ui + Radix UI
-- Cloudflare Pages (deployment)
-- Cloudflare Workers AI (chat)
+- Next.js 16 (App Router, edge runtime) + React 19 + TypeScript
+- Tailwind CSS 4 + shadcn/ui (Base UI) + Hugeicons + Geist
+- Streamdown (markdown rendering in chat)
+- Cloudflare Pages (`@cloudflare/next-on-pages`)
+- Cloudflare Workers AI (chat inference)
 - Cloudflare AI Gateway (chat rate/spend controls at the edge)
+- Cloudflare Turnstile (bot protection on chat and feedback)
+- Cloudflare Zaraz → Google Analytics 4 (usage analytics; no gtag.js in the client bundle)
 - Service worker (PWA support)
-- Cloudflare Zaraz → Google Analytics 4 (usage analytics)
+- pnpm
 
 ## Data source
-Calendar data comes from an upstream API origin configured by server environment (`CALENDAR_API_BASE`, default `https://api.bilauitmcuti.com`).
-The browser calls same-origin API routes (`/api/v1/meta`, `/api/v1/calendar`); upstream details stay server-side.
+Calendar and related schedule data come from the public Bila UiTM Cuti API (`https://api.bilauitmcuti.com`).
+The browser uses same-origin routes (`/api/v1/meta`, `/api/v1/calendar`); upstream requests stay server-side.
 
 ## AI chat assistant
 - Page: /chat
 - API: POST /chat/api (SSE streaming by default; cache hits return JSON)
 - Feedback: POST /chat/feedback/api with assistant correlationId (thumbs up/down)
-- Models by host: Gemma 4 (`@cf/google/gemma-4-26b-a4b-it`) on bilauitmcuti.com and *.pages.dev; Llama 3.2 3B on localhost
-- Production uses a hybrid agent (tool calling for complex turns; single-stream for simple calendar questions)
-- UI streams tokens and human-readable reasoning/tool-status lines over SSE
-- Built-in model thinking is off for latency; reasoning shown in the UI is app-generated status text
-- Chat abuse/cost control is via Cloudflare AI Gateway and optional WAF rules (no in-app daily chat cap)
+- Topics: academic calendar, lecture weeks, public holidays, and general UiTM info
+- Production uses a hybrid tool-calling agent for complex turns; simple calendar questions use a faster single-stream path
+- UI streams tokens and human-readable tool-status lines over SSE
+- Abuse/cost control is via Cloudflare AI Gateway and optional WAF rules
 - Turnstile protects chat and feedback in production
 
 ## Privacy and security notes
 - No user accounts.
 - No personal profile storage.
-- Analytics via Cloudflare Zaraz and Google Analytics 4 (no gtag.js in the client bundle).
+- Analytics via Cloudflare Zaraz and Google Analytics 4.
 - AI queries are stateless and not tied to user profiles.
 - Security reporting: https://bilauitmcuti.com/feedback and hello@bilauitmcuti.com
 
@@ -58,14 +59,15 @@ The browser calls same-origin API routes (`/api/v1/meta`, `/api/v1/calendar`); u
 - /[program] and /[program]/list : program-specific calendar views (e.g. /diploma, /bachelor)
 - /chat : AI assistant
 - /download : PWA install instructions
-- /feedback : feedback and report form
-- /about : project details
+- /feedback : feedback and report form (/contact redirects here)
+- /about : project details, terms, and disclaimer
 - /sponsor : redirects to https://shahrulestar.com/sponsor
-- /internship : Find My Internship — discover internship opportunities from multiple sources across Malaysia
-- /roadmap : redirects to public Notion roadmap
+- /internship : Find My Internship — discover internship opportunities across Malaysia
+- /roadmap : redirects to the public Notion roadmap
 
 ## Important context for LLMs
-- This is not an official UiTM product.
+- This is not an official UiTM product and is not affiliated with Universiti Teknologi MARA.
 - Use it as a convenience layer for calendar lookup, not as legal/official policy text.
-- If date conflicts happen, official UiTM announcements should be treated as final source of truth.
+- If date conflicts happen, official UiTM announcements should be treated as the final source of truth.
+- Answers from the AI assistant may be incomplete or outdated; always verify critical dates before academic decisions.
 - Maintainer: shahrulestar (https://github.com/shahrulestar). Source is MIT-licensed and public for transparency.
