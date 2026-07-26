@@ -1,13 +1,14 @@
 "use client";
 
-import { useControllableState } from "@radix-ui/react-use-controllable-state";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { useControllableState } from "@/hooks/use-controllable-state";
 import { cn } from "@/lib/utils";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { ArrowDown01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import type { ComponentProps, ReactNode } from "react";
 import {
   createContext,
@@ -239,13 +240,17 @@ export const ReasoningTrigger = memo(
         {resolvedMessage}
         {showChevron && resolvedMessage ? (
           <span className="relative size-4 shrink-0" aria-hidden>
-            <ChevronRight
+            <HugeiconsIcon
+              icon={ArrowRight01Icon}
+              strokeWidth={2}
               className={cn(
                 "absolute inset-0 size-4 transition-opacity duration-[160ms] ease-out",
                 isOpen ? "opacity-0" : "opacity-100"
               )}
             />
-            <ChevronDown
+            <HugeiconsIcon
+              icon={ArrowDown01Icon}
+              strokeWidth={2}
               className={cn(
                 "absolute inset-0 size-4 transition-opacity duration-[160ms] ease-out",
                 isOpen ? "opacity-100" : "opacity-0"

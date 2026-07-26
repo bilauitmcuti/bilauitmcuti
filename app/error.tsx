@@ -2,7 +2,8 @@
 
 import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { AlertCircle } from 'lucide-react';
+import { HugeiconsIcon } from "@hugeicons/react"
+import { AlertCircleIcon } from "@hugeicons/core-free-icons"
 
 export default function Error({
   error,
@@ -19,7 +20,7 @@ export default function Error({
 
   return (
     <div className="min-h-[40vh] flex flex-col items-center justify-center px-4">
-      <AlertCircle className="h-12 w-12 text-destructive mb-4" />
+      <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} className="h-12 w-12 text-destructive mb-4" />
       <h2 className="text-xl font-semibold text-foreground mb-2">
         Something went wrong
       </h2>
@@ -27,7 +28,7 @@ export default function Error({
         An error occurred. Please try again.
       </p>
       <Button onClick={reset} variant="outline">
-        Try again
+        Try Again
       </Button>
     </div>
   );

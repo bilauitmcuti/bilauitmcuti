@@ -3,7 +3,8 @@
 import { Suspense, useState, useCallback, useRef, useEffect, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ChevronLeft } from 'lucide-react';
+import { HugeiconsIcon } from "@hugeicons/react";
+import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
 import { toast } from 'sonner';
 
 import { PwaInstallOverlay } from '@/components/download/pwa-install-overlay';
@@ -160,7 +161,7 @@ function PwaTabContent({
               className={cn(drawerPrimaryButtonClassName, 'w-fit')}
               onClick={onInstallClick}
             >
-              Install app
+              Install App
             </Button>
           </div>
         </>
@@ -426,9 +427,9 @@ function DownloadPageContent() {
             type="button"
             onClick={() => router.push('/')}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary hover:opacity-80"
-            aria-label="Back to home"
+            aria-label="Back To Home"
           >
-            <ChevronLeft className="h-5 w-5" />
+            <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="h-5 w-5" />
           </button>
         </header>
       </div>
@@ -443,7 +444,7 @@ function DownloadPageContent() {
             <TabsList className="grid h-10 w-full grid-cols-3">
               <TabsTrigger value="pwa">PWA</TabsTrigger>
               <TabsTrigger value="bookmark">Bookmark</TabsTrigger>
-              <TabsTrigger value="share-link">Share link</TabsTrigger>
+              <TabsTrigger value="share-link">Share Link</TabsTrigger>
             </TabsList>
 
             <TabsContent value="pwa" className="mt-0">

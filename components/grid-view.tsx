@@ -1,7 +1,8 @@
 'use client';
 
 import React, { memo } from "react"
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { HugeiconsIcon } from "@hugeicons/react"
+import { ArrowDown01Icon, ArrowUp01Icon } from "@hugeicons/core-free-icons"
 
 import { useState, useEffect, useLayoutEffect, useMemo, useSyncExternalStore, useRef, useCallback } from 'react';
 import { cn } from '@/lib/utils';
@@ -192,7 +193,7 @@ function TooltipActivityList({
               className="flex h-6 w-full items-center justify-center rounded-md text-muted-foreground md:hover:bg-accent md:hover:text-accent-foreground"
               aria-label="Show previous events"
             >
-              <ChevronUp className="h-4 w-4" />
+              <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} className="h-4 w-4" />
             </button>
           </div>
         ) : null}
@@ -271,7 +272,7 @@ function TooltipActivityList({
               className="flex h-6 w-full items-center justify-center rounded-md text-muted-foreground md:hover:bg-accent md:hover:text-accent-foreground"
               aria-label="Show next events"
             >
-              <ChevronDown className="h-4 w-4" />
+              <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} className="h-4 w-4" />
             </button>
           </div>
         ) : null}

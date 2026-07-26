@@ -2,7 +2,8 @@
 
 import type { Dispatch, SetStateAction } from "react";
 import { useRef } from "react";
-import { ArrowUp, ChevronDown, ChevronUp } from "lucide-react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { ArrowUp01Icon, ArrowDown01Icon } from "@hugeicons/core-free-icons";
 import type { SessionId } from "@/lib/data";
 import { getSessionOptionsForGroup } from "@/lib/data";
 import type { ProgramValue } from "@/lib/route-utils";
@@ -264,9 +265,9 @@ export function ChatComposer({
                       {currentProgramLabel}
                     </span>
                     {dropdownOpen ? (
-                      <ChevronUp className="opacity-50 shrink-0" />
+                      <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} className="opacity-50 shrink-0" />
                     ) : (
-                      <ChevronDown className="opacity-50 shrink-0" />
+                      <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} className="opacity-50 shrink-0" />
                     )}
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
@@ -466,7 +467,7 @@ export function ChatComposer({
                 className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-30"
                 aria-label="Send message"
               >
-                <ArrowUp />
+                <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} />
               </InputGroupButton>
             </InputGroupAddon>
           </InputGroup>

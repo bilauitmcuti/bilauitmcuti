@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, type ReactNode } from "react";
-import { Share } from "lucide-react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Share01Icon } from "@hugeicons/core-free-icons";
 
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
@@ -22,7 +23,7 @@ interface PwaInstallOverlayProps {
 function ShareButtonLabel() {
   return (
     <div className="inline-flex items-center gap-1 align-middle font-semibold leading-none">
-      <Share className="size-3.5 shrink-0" aria-hidden />
+      <HugeiconsIcon icon={Share01Icon} strokeWidth={2} className="size-3.5 shrink-0" aria-hidden />
       <span>Share</span>
     </div>
   );

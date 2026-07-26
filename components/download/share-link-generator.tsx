@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronDown, ChevronUp, Copy } from 'lucide-react';
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Tick02Icon, ArrowDown01Icon, ArrowUp01Icon, Copy01Icon } from "@hugeicons/core-free-icons"
 import { toast } from 'sonner';
 
 import { SessionSubmenuItemLabel } from '@/components/session-submenu-item-label';
@@ -367,9 +368,9 @@ export function ShareLinkGenerator() {
           >
             <span className="truncate">{currentProgramLabel}</span>
             {programMenuOpen ? (
-              <ChevronUp className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+              <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} className="size-4 shrink-0" aria-hidden />
             ) : (
-              <ChevronDown className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+              <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} className="size-4 shrink-0" aria-hidden />
             )}
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -576,9 +577,9 @@ export function ShareLinkGenerator() {
           >
             <span className="truncate">{filterTriggerLabel}</span>
             {filterMenuOpen ? (
-              <ChevronUp className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+              <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} className="size-4 shrink-0" aria-hidden />
             ) : (
-              <ChevronDown className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+              <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} className="size-4 shrink-0" aria-hidden />
             )}
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -632,7 +633,7 @@ export function ShareLinkGenerator() {
           className="h-9 shrink-0 gap-2"
           onClick={() => void handleCopy()}
         >
-          {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+          {copied ? <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="size-4" /> : <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} className="size-4" />}
           {copied ? 'Copied' : 'Copy'}
         </Button>
       </div>

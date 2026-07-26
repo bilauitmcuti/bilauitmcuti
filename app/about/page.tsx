@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft } from 'lucide-react';
+import { HugeiconsIcon } from "@hugeicons/react";
+import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
 
 import { Badge } from '@/components/ui/badge';
 import { BrandName } from '@/components/brand-name';
@@ -48,9 +49,9 @@ export default function AboutPage() {
             type="button"
             onClick={() => router.push('/')}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary hover:opacity-80"
-            aria-label="Back to home"
+            aria-label="Back To Home"
           >
-            <ChevronLeft className="h-5 w-5" />
+            <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="h-5 w-5" />
           </button>
         </header>
       </div>

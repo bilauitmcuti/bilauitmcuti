@@ -9,7 +9,8 @@ import {
 const nextConfig = {
   experimental: {
     optimizePackageImports: [
-      'lucide-react',
+      '@hugeicons/react',
+      '@hugeicons/core-free-icons',
       '@base-ui/react',
       'streamdown',
     ],

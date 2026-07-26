@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -35,7 +34,7 @@ export default function NotFound() {
         </div>
 
         <Button render={<Link href="/" />} nativeButton={false} variant="outline">
-          Back to calendar
+          Back To Calendar
         </Button>
       </div>
     </main>
