@@ -48,7 +48,6 @@ export async function generateMetadata({
 
 function ProgramListJsonLd({ program }: { program: string }) {
   const programName = getProgramDisplayName(program);
-  const title = getProgramPageTitle(program);
   const description = getProgramListSeoDescription(program);
   const canonical = getProgramListCanonicalUrl(program);
   return (
@@ -67,7 +66,7 @@ function ProgramListJsonLd({ program }: { program: string }) {
             },
             {
               "@type": "WebPage",
-              "name": title,
+              "name": programName,
               "url": canonical,
               "description": description,
               "isPartOf": { "@type": "WebSite", "name": "Bila UiTM Cuti", "url": "https://bilauitmcuti.com" },

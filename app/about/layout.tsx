@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     locale: 'ms_MY',
     images: [
       {
-        url: 'https://bilauitmcuti.com/all-cover.png',
+        url: 'https://bilauitmcuti.com/og/main.png',
         width: 1200,
         height: 630,
         alt: 'About Bila UiTM Cuti',
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'About',
     description: 'Latest Bila UiTM Cuti web app information and feature overview.',
-    images: ['https://bilauitmcuti.com/all-cover.png'],
+    images: ['https://bilauitmcuti.com/og/main.png'],
   },
 };
 

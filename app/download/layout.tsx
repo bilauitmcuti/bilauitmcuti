@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     locale: 'ms_MY',
     images: [
       {
-        url: 'https://bilauitmcuti.com/download-cover.png',
+        url: 'https://bilauitmcuti.com/og/download.png',
         width: 1200,
         height: 630,
         alt: 'Plan It. Save It. Share It. — Bila UiTM Cuti',
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     title: 'Download',
     description:
       'Install as a PWA or bookmark bilauitmcuti.com for faster access to the UiTM academic calendar.',
-    images: ['https://bilauitmcuti.com/download-cover.png'],
+    images: ['https://bilauitmcuti.com/og/download.png'],
   },
 };
 

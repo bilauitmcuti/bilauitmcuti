@@ -7,13 +7,13 @@ import {
 describe("resolveCalendarSeoFromPathname", () => {
   it("returns program title for grid program routes", () => {
     const seo = resolveCalendarSeoFromPathname("/bachelor");
-    expect(seo.title).toBe("Bachelor");
+    expect(seo.title).toBe("Bachelor - Kalendar Akademik");
     expect(seo.canonical).toBe("https://bilauitmcuti.com/bachelor");
   });
 
   it("returns program title for list program routes", () => {
     const seo = resolveCalendarSeoFromPathname("/diploma/list");
-    expect(seo.title).toBe("Diploma");
+    expect(seo.title).toBe("Diploma - Kalendar Akademik");
     expect(seo.canonical).toBe("https://bilauitmcuti.com/diploma/list");
   });
 
@@ -119,6 +119,6 @@ describe("buildCalendarPageMetadata list routes", () => {
     const imageUrl = Array.isArray(images) ? images[0] : images;
     expect(typeof imageUrl === "object" && imageUrl !== null && "url" in imageUrl
       ? imageUrl.url
-      : imageUrl).toContain("list-cover.png");
+      : imageUrl).toContain("og/list.png");
   });
 });

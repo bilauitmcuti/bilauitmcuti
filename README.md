@@ -1,4 +1,4 @@
-![Bila UiTM Cuti — academic calendar for UiTM](public/all-cover.png)
+![Bila UiTM Cuti — academic calendar for UiTM](public/og/main.png)
 
 # Bila UiTM Cuti
 
