@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     locale: "ms_MY",
     images: [
       {
-        url: "https://bilauitmcuti.com/chat-cover.png",
+        url: "https://bilauitmcuti.com/og/chat.png",
         width: 1200,
         height: 630,
         alt: CHAT_SEO_TITLE,
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: CHAT_SEO_TITLE,
     description: CHAT_SEO_DESCRIPTION,
-    images: ["https://bilauitmcuti.com/chat-cover.png"],
+    images: ["https://bilauitmcuti.com/og/chat.png"],
   },
 };
 

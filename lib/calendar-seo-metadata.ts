@@ -18,8 +18,8 @@ import {
   HOMEPAGE_SEO_TITLE,
   SITE_ORIGIN,
 } from "@/lib/page-seo";
-const GRID_COVER = `${SITE_ORIGIN}/all-cover.png`;
-const LIST_COVER = `${SITE_ORIGIN}/list-cover.png`;
+const GRID_COVER = `${SITE_ORIGIN}/og/main.png`;
+const LIST_COVER = `${SITE_ORIGIN}/og/list.png`;
 
 type SearchParamsInput =
   | URLSearchParams

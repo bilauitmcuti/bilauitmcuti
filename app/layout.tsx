@@ -57,7 +57,7 @@ export const metadata: Metadata = {
     locale: 'ms_MY',
     images: [
       {
-        url: 'https://bilauitmcuti.com/all-cover.png',
+        url: 'https://bilauitmcuti.com/og/main.png',
         width: 1200,
         height: 630,
         alt: 'Bila UiTM Cuti - Academic Calendar',
@@ -68,7 +68,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Bila UiTM Cuti',
     description: HOMEPAGE_SEO_DESCRIPTION,
-    images: ['https://bilauitmcuti.com/all-cover.png'],
+    images: ['https://bilauitmcuti.com/og/main.png'],
   },
   icons: {
     icon: [

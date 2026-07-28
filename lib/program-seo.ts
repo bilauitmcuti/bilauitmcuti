@@ -36,7 +36,7 @@ export function getProgramListSeoDescription(programSlug: string): string {
 }
 
 export function getProgramPageTitle(programSlug: string): string {
-  return getProgramDisplayName(programSlug)
+  return `${getProgramDisplayName(programSlug)} - Kalendar Akademik`
 }
 
 export function getProgramCanonicalUrl(programSlug: string): string {

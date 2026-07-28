@@ -16,14 +16,14 @@ export const metadata: Metadata = {
     type: 'website',
     url: 'https://bilauitmcuti.com/feedback',
     locale: 'ms_MY',
-    images: [{ url: 'https://bilauitmcuti.com/all-cover.png', width: 1200, height: 630, alt: 'Bila UiTM Cuti' }],
+    images: [{ url: 'https://bilauitmcuti.com/og/main.png', width: 1200, height: 630, alt: 'Bila UiTM Cuti' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Feedback',
     description:
       'Share feedback and suggestions to help improve the UiTM academic calendar on bilauitmcuti.com.',
-    images: ['https://bilauitmcuti.com/all-cover.png'],
+    images: ['https://bilauitmcuti.com/og/main.png'],
   },
 };
 
