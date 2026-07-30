@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = {
   title: 'About',
   description:
-    'About Bila UiTM Cuti — UiTM academic calendar views, KKT dates, PWA install, AI chat, feedback, and disclaimer.',
+    'About Bila UiTM Cuti — UiTM academic calendar views, KKT dates, PWA install, feedback, and disclaimer.',
   alternates: {
     canonical: 'https://bilauitmcuti.com/about',
   },

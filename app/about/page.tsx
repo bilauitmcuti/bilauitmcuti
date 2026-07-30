@@ -13,7 +13,7 @@ const programsText =
   'Foundation/Professional, Pre-Diploma, Diploma, Diploma (Part-Time), Bachelor, Bachelor (Part-Time), Master, and PhD.';
 
 const featuresText =
-  'Grid and list views, activity filters, Group A and Group B sessions, KKT regional dates, countdown to the next activity, light and dark themes, PWA install, and AI chat.';
+  'Grid and list views, activity filters, Group A and Group B sessions, KKT regional dates, countdown to the next activity, light and dark themes, and PWA install.';
 
 export default function AboutPage() {
   const router = useRouter();
@@ -75,22 +75,6 @@ export default function AboutPage() {
           <p>
             For feedback, bug reports, or suggestions, send them through the{' '}
             <Link href="/feedback">feedback page</Link>.
-          </p>
-
-          <h2>AI assistant</h2>
-          <p>Ask about dates, breaks, exams, and program context.</p>
-          <div className="not-typeset mt-[var(--typeset-flow)] flex flex-wrap gap-2">
-            <Badge variant="secondary">English</Badge>
-            <Badge variant="secondary">Malay</Badge>
-            <Badge variant="outline">Cloudflare Workers AI</Badge>
-          </div>
-          <p>
-            The chat assistant explains schedule context based on your selected program and can answer general UiTM
-            questions. Answers may be incomplete or outdated.
-          </p>
-          <p>
-            Always confirm critical dates and deadlines with official UiTM announcements before making academic
-            decisions.
           </p>
 
           <h2>Terms and conditions</h2>

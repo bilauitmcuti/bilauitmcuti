@@ -21,75 +21,6 @@ import {
 import { isSocialPreviewCrawler } from "@/lib/social-preview-crawler";
 import { applySecurityHeaders } from "@/lib/security-headers";
 
-/**
- * Bot patterns to block from accessing chat routes.
- * Blocks search engine crawlers, AI crawlers, HTTP tools, and scrapers.
- */
-const BOT_PATTERNS = [
-  // Search engine crawlers
-  "googlebot",
-  "bingbot",
-  "yandexbot",
-  "baiduspider",
-  "duckduckbot",
-  // AI crawlers
-  "gptbot",
-  "chatgpt-user",
-  "claudebot",
-  "anthropic",
-  "ccbot",
-  "bytespider",
-  // HTTP tools
-  "curl",
-  "wget",
-  "httpie",
-  "postman",
-  "insomnia",
-  // Scrapers / generic
-  "scrapy",
-  "python-requests",
-  "axios",
-  "node-fetch",
-  "go-http-client",
-  // Headless browsers
-  "headlesschrome",
-  "phantomjs",
-];
-
-function isBotUserAgent(ua: string): boolean {
-  const lower = ua.toLowerCase();
-  return BOT_PATTERNS.some((pattern) => lower.includes(pattern));
-}
-
-function hasBrowserHeaders(request: NextRequest): boolean {
-  const acceptLanguage = request.headers.get("accept-language");
-  const secFetchMode = request.headers.get("sec-fetch-mode");
-  const secFetchSite = request.headers.get("sec-fetch-site");
-  // Real browsers typically send Accept-Language and Sec-Fetch-* headers
-  return !!(acceptLanguage && (secFetchMode || secFetchSite));
-}
-
-function hasPageOrigin(request: NextRequest): boolean {
-  const referer = request.headers.get("referer");
-  const origin = request.headers.get("origin");
-  const base = "bilauitmcuti.com";
-  return !!(referer?.includes(base) || origin?.includes(base)); // matches apex and www
-}
-
-function isBot(request: NextRequest): boolean {
-  const ua = request.headers.get("user-agent") ?? "";
-  if (isBotUserAgent(ua)) return true;
-  // Empty or missing UA with no browser headers is suspicious
-  if (!ua.trim() && !hasBrowserHeaders(request)) return true;
-  return false;
-}
-
-function isLikelyRealBrowser(request: NextRequest, pathname: string): boolean {
-  if (pathname !== "/chat/api" && !pathname.startsWith("/chat/api/")) return false;
-  // POST from our page (Referer/Origin) is strong signal for real chat client
-  return request.method === "POST" && hasPageOrigin(request);
-}
-
 function handleCalendarQueryRedirect(request: NextRequest): NextResponse | null {
   const pathname = request.nextUrl.pathname;
   if (!isCalendarPath(pathname)) return null;
@@ -141,23 +72,8 @@ function handleCalendarQueryRedirect(request: NextRequest): NextResponse | null 
 }
 
 export function middleware(request: NextRequest) {
-  const pathname = request.nextUrl.pathname;
-  const isChatApiPath = pathname === "/chat/api" || pathname.startsWith("/chat/api/");
-
   const calendarRedirect = handleCalendarQueryRedirect(request);
   if (calendarRedirect) return calendarRedirect;
-
-  // Allow /chat/api POST from our page (Referer/Origin) to reduce mobile false-positives
-  if (isLikelyRealBrowser(request, pathname)) {
-    return applySecurityHeaders(NextResponse.next());
-  }
-  if (isBot(request)) {
-    if (isChatApiPath) {
-      return applySecurityHeaders(
-        NextResponse.json({ error: "Access denied" }, { status: 403 })
-      );
-    }
-  }
   return applySecurityHeaders(NextResponse.next());
 }
 

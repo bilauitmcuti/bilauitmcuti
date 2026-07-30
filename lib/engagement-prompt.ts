@@ -19,9 +19,7 @@ export type EngagementActionType =
   | "filter_toggle"
   | "settings_open"
   | "session_change"
-  | "program_change"
-  | "chat_send"
-  | "chat_mention_open";
+  | "program_change";
 
 /** Higher bar so the prompt does not interrupt early browsing. */
 const MIN_THRESHOLD = 20;

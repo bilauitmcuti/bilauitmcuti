@@ -5,7 +5,7 @@ import {
   normalizeDateString,
   toComparableDateValue,
   toPromptDate,
-} from "./dates";
+} from "./malaysia-dates";
 
 describe("getTodayISO", () => {
   afterEach(() => {

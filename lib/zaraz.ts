@@ -4,8 +4,6 @@ export const GA_MEASUREMENT_ID = "G-D94Q17TQ22";
 /** Event names sent via zaraz.track() → GA4 (enable Events automatic action). */
 export const ZARAZ_EVENTS = {
   pageview: "Pageview",
-  chatMessageSent: "chat_message_sent",
-  chatFeedback: "chat_feedback",
   engagementPromptShown: "engagement_prompt_shown",
   engagementRating: "engagement_rating",
   engagementShare: "engagement_share",

@@ -5,12 +5,10 @@ const DISCORD_EMBED_FIELD_NAME_MAX_LENGTH = 256;
 const DISCORD_EMBED_FIELD_VALUE_MAX_LENGTH = 1024;
 const DISCORD_EMBED_MAX_COUNT = 10;
 
-export type DiscordWebhookKind = "rate_feedback" | "chat_helpful" | "chat_not_helpful";
+export type DiscordWebhookKind = "rate_feedback";
 
 const WEBHOOK_ENV_KEYS: Record<DiscordWebhookKind, string> = {
   rate_feedback: "DISCORD_WEBHOOK_RATE_FEEDBACK",
-  chat_helpful: "DISCORD_WEBHOOK_CHAT_HELPFUL",
-  chat_not_helpful: "DISCORD_WEBHOOK_CHAT_NOT_HELPFUL",
 };
 
 const _discordWebhookUrls: Partial<Record<DiscordWebhookKind, string>> = {};
@@ -43,10 +41,6 @@ export function getDiscordWebhookUrl(kind: DiscordWebhookKind): string {
   }
   _discordWebhookUrls[kind] = url;
   return url;
-}
-
-export function chatFeedbackWebhookKind(rating: "up" | "down"): DiscordWebhookKind {
-  return rating === "up" ? "chat_helpful" : "chat_not_helpful";
 }
 
 function truncate(value: string, maxLength: number): string {
@@ -160,38 +154,3 @@ export function buildEngagementNotificationEmbed(params: {
   };
 }
 
-const CHAT_FEEDBACK_EXCERPT_CHARS = 800;
-
-function excerptForDiscord(text: string, max = CHAT_FEEDBACK_EXCERPT_CHARS): string {
-  const t = text.trim();
-  if (!t) return "(empty)";
-  if (t.length <= max) return t;
-  return t.slice(0, max - 3) + "...";
-}
-
-/** Simple embed for chat thumbs (no ISO timestamp field). */
-export function buildChatFeedbackEmbed(params: {
-  rating: "up" | "down";
-  userMessage: string;
-  assistantMessage: string;
-  time: string;
-  program?: string;
-  correlationId?: string;
-}): DiscordEmbed {
-  const isUp = params.rating === "up";
-  const program = params.program?.trim() || "—";
-  const ref = params.correlationId?.trim() || "—";
-
-  return {
-    title: isUp ? "Chat AI — helpful" : "Chat AI — not helpful",
-    color: isUp ? 0x57f287 : 0xed4245,
-    fields: [
-      { name: "Rating", value: isUp ? "Thumbs up" : "Thumbs down", inline: true },
-      { name: "Time", value: params.time, inline: true },
-      { name: "Program", value: program, inline: true },
-      { name: "Ref", value: ref, inline: true },
-      { name: "Question", value: excerptForDiscord(params.userMessage), inline: false },
-      { name: "Answer", value: excerptForDiscord(params.assistantMessage), inline: false },
-    ],
-  };
-}
