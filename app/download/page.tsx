@@ -28,7 +28,7 @@ import { cn } from '@/lib/utils';
 const pwaBenefits = [
   'Open the app from your home screen in one tap.',
   'Keep the UiTM academic calendar close at hand.',
-  'Use the in-app chat assistant without installing from an app store.',
+  'Works offline-friendly after install — no app store required.',
 ];
 
 const bookmarkBenefits = [
@@ -198,7 +198,7 @@ function BookmarkTabContent({ platform }: { platform: PwaInstallPlatform | null 
         Bookmark <BrandName />
       </h1>
       <p>
-        Save this site in your browser bookmarks or favorites so you can return to the calendar and chat
+        Save this site in your browser bookmarks or favorites so you can return to the calendar
         without searching again.
       </p>
 

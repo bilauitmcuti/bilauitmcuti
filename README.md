@@ -10,18 +10,18 @@ Academic calendar for UiTM students. **Live:** [bilauitmcuti.com](https://bilaui
 
 **Bila UiTM Cuti** is a web app that puts UiTM academic calendar dates in one place — semesters, lecture weeks, exams, breaks, and related holidays — so students do not have to dig through multiple PDFs on mobile. It is unofficial and not affiliated with UiTM.
 
-The product centers on a calendar (grid and list) for Foundation through PhD, Group A and Group B, with program filters, regional date variants (Kedah, Kelantan, Terengganu), and optional countdowns. An AI chat answers date and general UiTM questions in English or Malay. The site is installable as a PWA, supports light/dark theme, and includes feedback plus a link to internship discovery.
+The product centers on a calendar (grid and list) for Foundation through PhD, Group A and Group B, with program filters, regional date variants (Kedah, Kelantan, Terengganu), and optional countdowns. An AI chat at `/chat` (separate app, same site) answers date and general UiTM questions. The site is installable as a PWA, supports light/dark theme, and includes feedback plus a link to internship discovery.
 
-Calendar data comes from the Bila UiTM Cuti API (`api.bilauitmcuti.com`), served to the browser through same-origin routes. The app runs on Next.js and Cloudflare Pages with Workers AI for chat.
+Calendar data comes from the Bila UiTM Cuti API (`api.bilauitmcuti.com`), served to the browser through same-origin routes. This calendar app runs on Next.js and Cloudflare Pages.
 
 ## Features
 
 | Area | Highlights |
 |------|------------|
 | **Calendar** | Grid and list views; Foundation through PhD; Group A/B; regional dates (Kedah, Kelantan, Terengganu); filters and countdown |
-| **AI chat** | Ask about dates or general UiTM info (English or Malay); streaming replies; tool-calling agent in production |
+| **Chat** | Link to `/chat` (separate app) for date and UiTM questions |
 | **PWA** | Installable via `/download`, offline-friendly service worker, light/dark theme |
-| **Feedback** | [Feedback](/feedback) form; optional ratings and chat thumbs |
+| **Feedback** | [Feedback](/feedback) form; optional ratings |
 | **Internship** | Footer link to [Find My Internship](/internship) for opportunities across Malaysia |
 
 ## Why this exists

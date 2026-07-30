@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { SharedCalendarLayout } from './shared-calendar-layout';
 import { parseFiltersFromCookie } from '@/lib/cookie-utils';
 import { loadInitialCalendarSnapshot } from '@/lib/calendar-initial-server';
-import { getMalaysiaDateHeaderParts, getTodayISO } from '@/lib/chat/dates';
+import { getMalaysiaDateHeaderParts, getTodayISO } from '@/lib/malaysia-dates';
 import type { ViewMode } from '@/app/page';
 
 interface CalendarWrapperProps {

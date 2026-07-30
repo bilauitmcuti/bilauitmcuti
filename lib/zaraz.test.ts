@@ -24,14 +24,12 @@ describe("zaraz", () => {
     const track = vi.fn().mockResolvedValue(undefined);
     window.zaraz = { track };
 
-    trackZarazEvent(ZARAZ_EVENTS.chatMessageSent, {
-      program: "All",
-      sessionCount: 2,
+    trackZarazEvent(ZARAZ_EVENTS.engagementRating, {
+      rating: 5,
     });
 
-    expect(track).toHaveBeenCalledWith("chat_message_sent", {
-      program: "All",
-      sessionCount: 2,
+    expect(track).toHaveBeenCalledWith("engagement_rating", {
+      rating: 5,
     });
   });
 
@@ -39,20 +37,20 @@ describe("zaraz", () => {
     const track = vi.fn().mockResolvedValue(undefined);
     window.zaraz = { track };
 
-    trackZarazEvent(ZARAZ_EVENTS.chatFeedback, {
-      rating: "up",
+    trackZarazEvent(ZARAZ_EVENTS.engagementShare, {
+      method: "copy",
       correlationId: undefined,
     });
 
-    expect(track).toHaveBeenCalledWith("chat_feedback", { rating: "up" });
+    expect(track).toHaveBeenCalledWith("engagement_share", { method: "copy" });
   });
 
   it("tracks virtual pageviews for client navigations", () => {
     const track = vi.fn().mockResolvedValue(undefined);
     window.zaraz = { track };
 
-    trackZarazPageView("/chat");
+    trackZarazPageView("/about");
 
-    expect(track).toHaveBeenCalledWith("Pageview", { path: "/chat" });
+    expect(track).toHaveBeenCalledWith("Pageview", { path: "/about" });
   });
 });

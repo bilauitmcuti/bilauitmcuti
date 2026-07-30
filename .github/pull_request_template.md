@@ -11,7 +11,6 @@
 - [ ] Bug fix
 - [ ] Feature / enhancement
 - [ ] UI / design (shadcn / Base UI)
-- [ ] Chat / AI pipeline
 - [ ] API / edge runtime / Cloudflare Pages
 - [ ] Docs / repo housekeeping
 - [ ] Refactor (no intended user-facing change)
@@ -21,7 +20,6 @@
 <!-- Check all that apply — mirrors issue templates -->
 
 - [ ] Calendar / dates
-- [ ] Chat assistant
 - [ ] UI / layout / mobile
 - [ ] Performance
 - [ ] Other (describe in Summary)
@@ -45,13 +43,12 @@ CI runs on every PR (`.github/workflows/ci.yml`):
 **Local / manual checks** (check what you verified):
 
 - [ ] `pnpm dev` — calendar loads, program/session filters work
-- [ ] Chat — send a message, scroll transcript, thumbs feedback (if touched)
-- [ ] Mobile layout — drawer, dropdowns, composer keyboard behavior (if UI touched)
-- [ ] `pnpm preview` — edge runtime + Workers AI binding (if chat/API touched)
+- [ ] Mobile layout — drawer, dropdowns, keyboard behavior (if UI touched)
+- [ ] `pnpm preview` — edge runtime Pages preview (if API/routes touched)
 
 **Notes:**
 
-<!-- e.g. Tested semester dropdown on Android Chrome; verified /chat streams on localhost with Llama -->
+<!-- e.g. Tested semester dropdown on Android Chrome -->
 
 ## Cloudflare / security checklist
 
@@ -60,7 +57,7 @@ CI runs on every PR (`.github/workflows/ci.yml`):
 - [ ] No secrets, webhook URLs, or `.env` values committed
 - [ ] New/changed API routes export `export const runtime = 'edge'`
 - [ ] Calendar traffic stays same-origin (`/api/v1/*` or proxy) — no upstream URL in client bundles
-- [ ] Turnstile / rate-limit behavior considered for new user-facing forms or chat paths
+- [ ] Turnstile / rate-limit behavior considered for new user-facing forms
 
 ## Screenshots / recordings
 

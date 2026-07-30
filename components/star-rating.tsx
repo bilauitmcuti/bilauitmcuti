@@ -48,10 +48,9 @@ export function StarRating({
               icon={StarIcon}
               className={cn(
                 "size-7",
-                rating >= value
-                  ? "fill-amber-400 text-amber-400"
-                  : "fill-transparent text-muted-foreground"
+                rating >= value ? "text-amber-400" : "text-muted-foreground"
               )}
+              fill={rating >= value ? "currentColor" : "none"}
               strokeWidth={1.5}
             />
           </button>

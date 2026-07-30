@@ -31,8 +31,8 @@ async function main() {
   console.log(`Smoke base: ${baseUrl}\n`);
 
   await check("GET /api/health", "/api/health", async (res) => {
-    if (res.status !== 200 && res.status !== 503) {
-      throw new Error(`expected 200 or 503, got ${res.status}`);
+    if (res.status !== 200) {
+      throw new Error(`expected 200, got ${res.status}`);
     }
     const body = await res.json();
     if (typeof body.status !== "string") {

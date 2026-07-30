@@ -576,8 +576,9 @@ export function CalendarControls({
             <Button
               variant="ghost"
               size="icon"
-              onMouseEnter={() => router.prefetch('/chat')}
-              onClick={() => router.push('/chat')}
+              onClick={() => {
+                window.location.assign('/chat');
+              }}
               className={`${iconBaseClass} ${iconInactiveClass}`}
               title="Chat"
               suppressHydrationWarning

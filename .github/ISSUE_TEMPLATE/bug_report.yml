@@ -15,7 +15,7 @@ body:
     attributes:
       label: What went wrong?
       description: Clear description of the bug.
-      placeholder: The chat panel does not scroll on mobile after sending a message...
+      placeholder: The calendar grid does not update after changing program...
     validations:
       required: true
 
@@ -26,8 +26,8 @@ body:
       description: How can we see the same behavior?
       placeholder: |
         1. Open bilauitmcuti.com on Android Chrome
-        2. Open chat
-        3. Send a message
+        2. Open settings
+        3. Change program
         4. See error
     validations:
       required: true
@@ -52,7 +52,6 @@ body:
       label: Area
       options:
         - Calendar / dates
-        - Chat assistant
         - UI / layout
         - Performance
         - Other

@@ -16,7 +16,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "start": "next start",
-    "pages:dev": "wrangler pages dev .vercel/output/static --compatibility-flag=nodejs_compat --ai=AI",
+    "pages:dev": "wrangler pages dev .vercel/output/static --compatibility-flag=nodejs_compat",
     "preview": "pnpm run build:pages && pnpm run pages:dev"
   },
   "pnpm": {
@@ -33,23 +33,15 @@
     "@hugeicons/core-free-icons": "^4.2.3",
     "@hugeicons/react": "^1.1.9",
     "@shadcn/react": "^0.1.0",
-    "@streamdown/cjk": "^1.0.3",
-    "@streamdown/code": "^1.1.1",
-    "@streamdown/math": "^1.0.2",
-    "@streamdown/mermaid": "^1.0.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "embla-carousel-react": "8.5.1",
     "geist": "^1.7.2",
     "next": "^16.1.6",
     "next-themes": "^0.4.6",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1",
     "server-only": "^0.0.1",
     "sonner": "^1.7.4",
-    "streamdown": "^2.5.0",
     "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {

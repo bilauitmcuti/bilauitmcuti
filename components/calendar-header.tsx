@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { getMalaysiaDateHeaderParts, getTodayISO } from "@/lib/chat/dates";
+import { getMalaysiaDateHeaderParts, getTodayISO } from "@/lib/malaysia-dates";
 import {
   EMPTY_LECTURE_WEEK_BY_SESSION,
   getSnapshot,
