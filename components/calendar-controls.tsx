@@ -133,9 +133,20 @@ export function CalendarControls({
   const keepDropdownOpenRef = useRef(false);
   const submenuSwitchingRef = useRef(false);
   const overlayOpenScrollYRef = useRef(0);
+  const chatPrefetchedRef = useRef(false);
   const isPWAInstalled = usePwaInstalled();
   const [currentFooterText, setCurrentFooterText] = useState(0);
   const { recordEngagementAction } = useEngagementPrompt();
+
+  const prefetchChatDocument = useCallback(() => {
+    if (chatPrefetchedRef.current) return;
+    chatPrefetchedRef.current = true;
+    const link = document.createElement('link');
+    link.rel = 'prefetch';
+    link.href = '/chat';
+    link.as = 'document';
+    document.head.appendChild(link);
+  }, []);
 
   const onFilterToggle = useCallback(
     (checked: boolean, handler: (value: boolean) => void) => {
@@ -576,9 +587,10 @@ export function CalendarControls({
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => {
-                window.location.assign('/chat');
-              }}
+              render={<a href="/chat" />}
+              nativeButton={false}
+              onPointerEnter={prefetchChatDocument}
+              onFocus={prefetchChatDocument}
               className={`${iconBaseClass} ${iconInactiveClass}`}
               title="Chat"
               suppressHydrationWarning
