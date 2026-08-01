@@ -1,9 +1,13 @@
 const swUrl = new URL(self.location.href);
-const SW_VERSION = swUrl.searchParams.get('v') || 'v2026-07-16-01';
+const SW_VERSION = swUrl.searchParams.get('v') || 'v2026-08-01-01';
 const CACHE_NAME = `bilauitmcuti-${SW_VERSION}`;
 const PRECACHE_URLS = ['/', '/favicon.ico', '/manifest.json'];
 const TURNSTILE_HOST = 'challenges.cloudflare.com';
 const CLOUDFLARE_INSIGHTS_HOST = 'static.cloudflareinsights.com';
+
+function isChatPath(pathname) {
+  return pathname === '/chat' || pathname.startsWith('/chat/');
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -54,6 +58,9 @@ self.addEventListener('fetch', (event) => {
 
   // Never cache API routes.
   if (url.pathname.startsWith('/api/')) return;
+
+  // Chat Worker owns /chat* — do not intercept navigations or assets.
+  if (isChatPath(url.pathname)) return;
 
   // Never intercept hashed Next assets — let the edge serve correct MIME types.
   if (url.pathname.startsWith('/_next/static/')) return;
