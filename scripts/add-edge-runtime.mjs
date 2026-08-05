@@ -1,7 +1,7 @@
 /**
  * Add edge runtime to routes required by @cloudflare/next-on-pages (Cloudflare Pages).
  */
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const EDGE = "export const runtime = 'edge';\n";
@@ -12,8 +12,11 @@ const ROUTE_FILES = [
   "app/list/page.tsx",
   "app/[program]/page.tsx",
   "app/[program]/list/page.tsx",
+  "app/contact/page.tsx",
+  "app/feedback/page.tsx",
   "app/api/calendar-proxy/[...path]/route.ts",
   "app/api/health/route.ts",
+  "app/api/turnstile/config/route.ts",
   "app/api/v1/calendar/route.ts",
   "app/api/v1/meta/route.ts",
   "app/api/version/route.ts",
