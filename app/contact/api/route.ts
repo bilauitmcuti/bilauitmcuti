@@ -1,7 +1,11 @@
 export const runtime = 'edge';
 import { NextRequest, NextResponse } from "next/server";
 import { CONTACT_CATEGORY_OPTIONS, CONTACT_WHO_OPTIONS } from "@/lib/contact";
-import { buildContactNotificationEmbed, sendDiscordWebhook } from "@/lib/discord-webhook";
+import {
+  buildContactNotificationEmbed,
+  sendDiscordWebhook,
+  type DiscordWebhookFile,
+} from "@/lib/discord-webhook";
 import { logger } from "@/lib/logger";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
@@ -14,6 +18,10 @@ import { jsonError, getClientIp, formatNotificationTime } from "@/lib/api-respon
 
 
 const MAX_BODY_SIZE_BYTES = 10 * 1024;
+const MAX_UPLOAD_BYTES = 11 * 1024 * 1024;
+const MAX_ATTACHMENT_COUNT = 2;
+const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+const ALLOWED_ATTACHMENT_TYPES = new Set(["image/jpeg", "image/png"]);
 const MIN_SUBMIT_TIME_MS = 3000;
 const CONTACT_TURNSTILE_COOKIE = "contact_turnstile_verified";
 const CONTACT_TURNSTILE_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 12;
@@ -57,6 +65,27 @@ function parseContactRequest(raw: unknown): { success: true; data: ContactReques
   };
 }
 
+function isFileLike(value: FormDataEntryValue): value is File {
+  return typeof value === "object" && value !== null && "arrayBuffer" in value && "type" in value;
+}
+
+function sanitizeAttachmentFilename(name: string, index: number, contentType: string): string {
+  const base = name.replace(/[^\w.\-]+/g, "_").replace(/^\.+/, "").slice(0, 80);
+  const ext = contentType === "image/png" ? "png" : "jpg";
+  if (base && /\.(jpe?g|png)$/i.test(base)) return base;
+  return base ? `${base}.${ext}` : `attachment-${index + 1}.${ext}`;
+}
+
+function parseAttachmentFiles(formData: FormData): { success: true; files: File[] } | { success: false } {
+  const files = formData.getAll("files").filter(isFileLike);
+  if (files.length > MAX_ATTACHMENT_COUNT) return { success: false };
+  for (const file of files) {
+    if (!ALLOWED_ATTACHMENT_TYPES.has(file.type)) return { success: false };
+    if (file.size <= 0 || file.size > MAX_ATTACHMENT_BYTES) return { success: false };
+  }
+  return { success: true, files };
+}
+
 export async function POST(request: NextRequest) {
   const correlationId = `contact-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
   let shouldSetVerifiedCookie = false;
@@ -74,13 +103,16 @@ export async function POST(request: NextRequest) {
     return response;
   };
   try {
-    const contentType = request.headers.get("content-type");
-    if (!contentType?.includes("application/json")) {
-      return jsonError("Content-Type must be application/json", 415);
+    const contentType = request.headers.get("content-type") ?? "";
+    const isMultipart = contentType.includes("multipart/form-data");
+    const isJson = contentType.includes("application/json");
+    if (!isMultipart && !isJson) {
+      return jsonError("Content-Type must be application/json or multipart/form-data", 415);
     }
 
     const contentLength = request.headers.get("content-length");
-    if (contentLength && Number.parseInt(contentLength, 10) > MAX_BODY_SIZE_BYTES) {
+    const maxBody = isMultipart ? MAX_UPLOAD_BYTES : MAX_BODY_SIZE_BYTES;
+    if (contentLength && Number.parseInt(contentLength, 10) > maxBody) {
       return jsonError("Request body too large", 413);
     }
 
@@ -88,13 +120,34 @@ export async function POST(request: NextRequest) {
     const limitResult = checkRateLimit(ip, request);
     if (limitResult.limited) return jsonError(limitResult.message, 429);
 
-    const rawBody = await request.json();
-    const bodyStr = JSON.stringify(rawBody);
-    if (bodyStr.length > MAX_BODY_SIZE_BYTES) {
-      return jsonError("Request body too large", 413);
+    let parsed: { success: true; data: ContactRequest } | { success: false };
+    let attachmentFiles: File[] = [];
+
+    if (isMultipart) {
+      const formData = await request.formData();
+      const attachments = parseAttachmentFiles(formData);
+      if (!attachments.success) return jsonError("Invalid attachment.", 400);
+      attachmentFiles = attachments.files;
+
+      parsed = parseContactRequest({
+        who: formData.get("who"),
+        category: formData.get("category"),
+        message: formData.get("message"),
+        startedAt: formData.get("startedAt"),
+        website: formData.get("website") ?? undefined,
+        email: formData.get("email") ?? undefined,
+        turnstileToken: formData.get("turnstileToken") ?? undefined,
+        rating: formData.get("rating"),
+      });
+    } else {
+      const rawBody = await request.json();
+      const bodyStr = JSON.stringify(rawBody);
+      if (bodyStr.length > MAX_BODY_SIZE_BYTES) {
+        return jsonError("Request body too large", 413);
+      }
+      parsed = parseContactRequest(rawBody);
     }
 
-    const parsed = parseContactRequest(rawBody);
     if (!parsed.success) return jsonError("Invalid form values.", 400);
 
     const { who, category, message, startedAt, website, email, rating } = parsed.data;
@@ -137,7 +190,20 @@ export async function POST(request: NextRequest) {
       email,
       time: formatNotificationTime(new Date()),
     });
-    await sendDiscordWebhook({ kind: "rate_feedback", embeds: [embed] });
+
+    const files: DiscordWebhookFile[] = await Promise.all(
+      attachmentFiles.map(async (file, index) => ({
+        filename: sanitizeAttachmentFilename(file.name, index, file.type),
+        contentType: file.type,
+        data: await file.arrayBuffer(),
+      }))
+    );
+
+    await sendDiscordWebhook({
+      kind: "rate_feedback",
+      embeds: [embed],
+      ...(files.length > 0 ? { files } : {}),
+    });
 
     return withVerifiedCookie(NextResponse.json({ message: "Thanks! Your message has been submitted." }));
   } catch (error) {

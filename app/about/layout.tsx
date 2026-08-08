@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'About',
+  title: 'About Bila UiTM Cuti',
   description:
     'About Bila UiTM Cuti — UiTM academic calendar views, KKT dates, PWA install, feedback, and disclaimer.',
   alternates: {
@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     siteName: 'Bila UiTM Cuti',
-    title: 'About',
+    title: 'About Bila UiTM Cuti',
     description: 'Latest Bila UiTM Cuti web app information and feature overview.',
     type: 'website',
     url: 'https://bilauitmcuti.com/about',
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'About',
+    title: 'About Bila UiTM Cuti',
     description: 'Latest Bila UiTM Cuti web app information and feature overview.',
     images: ['https://bilauitmcuti.com/og/main.png'],
   },

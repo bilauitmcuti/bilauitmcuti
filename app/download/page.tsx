@@ -355,6 +355,12 @@ function downloadTabHref(tab: DownloadTab): string {
   return `/download?${tab}`;
 }
 
+function downloadTabDocumentTitle(tab: DownloadTab): string {
+  if (tab === 'bookmark') return 'Bookmark Bila UiTM Cuti';
+  if (tab === 'share-link') return 'Share Bila UiTM Cuti';
+  return 'Download Bila UiTM Cuti';
+}
+
 function DownloadPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -371,6 +377,10 @@ function DownloadPageContent() {
     if (hasDownloadTabParam(searchParams)) return;
     router.replace(downloadTabHref(activeTab), { scroll: false });
   }, [activeTab, router, searchParams]);
+
+  useEffect(() => {
+    document.title = downloadTabDocumentTitle(activeTab);
+  }, [activeTab]);
 
   const handleTabChange = useCallback(
     (value: string | number | null) => {

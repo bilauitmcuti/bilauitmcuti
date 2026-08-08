@@ -3,9 +3,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
+import { ArrowLeft01Icon, Cancel01Icon, ImageAdd01Icon, InformationCircleIcon } from "@hugeicons/core-free-icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  Attachment,
+  AttachmentAction,
+  AttachmentActions,
+  AttachmentContent,
+  AttachmentDescription,
+  AttachmentGroup,
+  AttachmentMedia,
+  AttachmentTitle,
+} from "@/components/ui/attachment";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -16,6 +26,12 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Toaster } from "@/components/ui/sonner";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { CONTACT_CATEGORY_OPTIONS, CONTACT_WHO_OPTIONS } from "@/lib/contact";
 import {
   TurnstileWidget,
@@ -25,7 +41,26 @@ import { StarRating } from "@/components/star-rating";
 import { useTurnstileSiteKey } from "@/hooks/use-turnstile-site-key";
 
 const MAX_MESSAGE_LENGTH = 400;
+const MAX_ATTACHMENTS = 2;
+const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+const ALLOWED_ATTACHMENT_TYPES = new Set(["image/jpeg", "image/png"]);
 const FEEDBACK_TURNSTILE_COOKIE = "contact_turnstile_verified";
+
+interface FeedbackAttachment {
+  id: string;
+  file: File;
+  url: string;
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function revokeAttachmentUrls(items: FeedbackAttachment[]) {
+  for (const item of items) URL.revokeObjectURL(item.url);
+}
 
 export function FeedbackFormPage({
   initialTurnstileSiteKey = "",
@@ -39,6 +74,7 @@ export function FeedbackFormPage({
   const [message, setMessage] = useState("");
   const [rating, setRating] = useState(0);
   const [email, setEmail] = useState("");
+  const [emailInfoOpen, setEmailInfoOpen] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
   const [turnstileNonce, setTurnstileNonce] = useState(0);
   const [isTurnstileSessionVerified, setIsTurnstileSessionVerified] = useState(false);
@@ -46,8 +82,12 @@ export function FeedbackFormPage({
   const [startedAt, setStartedAt] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingSubmit, setPendingSubmit] = useState(false);
+  const [attachments, setAttachments] = useState<FeedbackAttachment[]>([]);
   const lastScrollTop = useRef(0);
   const turnstileRef = useRef<TurnstileWidgetHandle>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const attachmentsRef = useRef<FeedbackAttachment[]>([]);
+  attachmentsRef.current = attachments;
 
   const { siteKey: turnstileSiteKey, isReady: isTurnstileConfigReady } =
     useTurnstileSiteKey(initialTurnstileSiteKey);
@@ -67,6 +107,58 @@ export function FeedbackFormPage({
     if (hasVerifiedCookie) setIsTurnstileSessionVerified(true);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      revokeAttachmentUrls(attachmentsRef.current);
+    };
+  }, []);
+
+  const clearAttachments = useCallback(() => {
+    setAttachments((prev) => {
+      revokeAttachmentUrls(prev);
+      return [];
+    });
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, []);
+
+  function handleAttachmentPick(event: React.ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    if (selected.length === 0) return;
+
+    setAttachments((prev) => {
+      const next = [...prev];
+      for (const file of selected) {
+        if (next.length >= MAX_ATTACHMENTS) {
+          toast.error(`You can attach up to ${MAX_ATTACHMENTS} images.`);
+          break;
+        }
+        if (!ALLOWED_ATTACHMENT_TYPES.has(file.type)) {
+          toast.error("Only JPEG and PNG images are allowed.");
+          continue;
+        }
+        if (file.size > MAX_ATTACHMENT_BYTES) {
+          toast.error("Each image must be 5 MB or smaller.");
+          continue;
+        }
+        next.push({
+          id: `${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).slice(2, 8)}`,
+          file,
+          url: URL.createObjectURL(file),
+        });
+      }
+      return next;
+    });
+  }
+
+  function handleRemoveAttachment(id: string) {
+    setAttachments((prev) => {
+      const target = prev.find((item) => item.id === id);
+      if (target) URL.revokeObjectURL(target.url);
+      return prev.filter((item) => item.id !== id);
+    });
+  }
+
   const messageLength = message.length;
   const isFormValid = useMemo(
     () =>
@@ -84,19 +176,22 @@ export function FeedbackFormPage({
     setIsSubmitting(true);
 
     try {
+      const formData = new FormData();
+      formData.append("who", who);
+      formData.append("category", category);
+      formData.append("message", message.trim());
+      formData.append("startedAt", String(startedAt));
+      formData.append("website", website);
+      formData.append("rating", String(rating));
+      if (email.trim().length > 0) formData.append("email", email.trim());
+      if (requiresTurnstile) formData.append("turnstileToken", turnstileToken);
+      for (const item of attachments) {
+        formData.append("files", item.file, item.file.name);
+      }
+
       const response = await fetch("/feedback/api", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          who,
-          category,
-          message: message.trim(),
-          startedAt,
-          website,
-          turnstileToken: requiresTurnstile ? turnstileToken : undefined,
-          rating,
-          ...(email.trim().length > 0 ? { email: email.trim() } : {}),
-        }),
+        body: formData,
       });
 
       const raw = (await response.json().catch(() => ({}))) as { message?: string; error?: string };
@@ -115,8 +210,10 @@ export function FeedbackFormPage({
       setMessage("");
       setCategory("");
       setWho("");
+      setEmail("");
       setRating(0);
       setWebsite("");
+      clearAttachments();
       setTurnstileToken("");
       setTurnstileNonce((prev) => prev + 1);
       setStartedAt(Date.now());
@@ -126,7 +223,9 @@ export function FeedbackFormPage({
       setIsSubmitting(false);
     }
   }, [
+    attachments,
     category,
+    clearAttachments,
     email,
     isFormValid,
     isSubmitting,
@@ -163,6 +262,7 @@ export function FeedbackFormPage({
     setEmail("");
     setRating(0);
     setWebsite("");
+    clearAttachments();
     setTurnstileToken("");
     setPendingSubmit(false);
     setTurnstileNonce((prev) => prev + 1);
@@ -210,7 +310,7 @@ export function FeedbackFormPage({
           <Card className="gap-0 rounded-[10px] shadow-none">
             <CardHeader className="space-y-1 pb-4 px-3 sm:px-6">
               <div>
-                <CardTitle className="text-2xl font-semibold">Feedback Form</CardTitle>
+                <CardTitle className="text-2xl font-semibold">Send Feedback</CardTitle>
                 <CardDescription className="mt-1 text-sm text-foreground">
                   We&apos;d love to hear what you think. Help us improve by sharing your feedback, or send an email to{" "}
                   <a
@@ -225,80 +325,98 @@ export function FeedbackFormPage({
 
             <CardContent className="px-3 sm:px-6">
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label htmlFor="who" className="mb-3 block text-sm font-semibold">
-                    Who are you
-                  </label>
-                  <Select value={who} onValueChange={(value) => setWho(value ?? "")}>
-                    <SelectTrigger id="who" className="h-11 w-full justify-between bg-background shadow-none">
-                      <SelectValue placeholder="Select your role" />
-                    </SelectTrigger>
-                    <SelectContent
-                      alignItemWithTrigger={false}
-                      sideOffset={6}
-                      align="start"
-                      className="w-[var(--anchor-width)]"
-                    >
-                      {CONTACT_WHO_OPTIONS.map((option) => (
-                        <SelectItem key={option} value={option}>
-                          {option}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div>
+                    <label htmlFor="who" className="mb-3 block text-sm font-semibold">
+                      Who are you
+                    </label>
+                    <Select value={who} onValueChange={(value) => setWho(value ?? "")}>
+                      <SelectTrigger id="who" className="h-11 w-full justify-between bg-background shadow-none">
+                        <SelectValue placeholder="Select your role" />
+                      </SelectTrigger>
+                      <SelectContent
+                        alignItemWithTrigger={false}
+                        sideOffset={6}
+                        align="start"
+                        className="w-[var(--anchor-width)]"
+                      >
+                        {CONTACT_WHO_OPTIONS.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                <div>
-                  <label htmlFor="email" className="mb-3 block text-sm font-semibold">
-                    Email address{" "}
-                    <span className="font-normal text-muted-foreground">(optional)</span>
-                  </label>
-                  <input
-                    id="email"
-                    type="email"
-                    inputMode="email"
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    autoComplete="email"
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm shadow-none outline-none transition-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#2A2A2A]"
-                  />
-                  <div className="mt-2 text-xs text-muted-foreground">
-                    Your email will only be used to follow up on your feedback. Leave it empty if you&apos;d prefer
-                    not to receive a reply.
+                  <div>
+                    <div className="mb-3 flex items-center gap-1.5">
+                      <label htmlFor="email" className="block text-sm font-semibold">
+                        Email address{" "}
+                        <span className="font-normal text-muted-foreground">(optional)</span>
+                      </label>
+                      <TooltipProvider delay={0}>
+                        <Tooltip open={emailInfoOpen} onOpenChange={setEmailInfoOpen}>
+                          <TooltipTrigger
+                            type="button"
+                            aria-label="Why we ask for your email"
+                            onClick={() => setEmailInfoOpen((prev) => !prev)}
+                            className="inline-flex size-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                          >
+                            <HugeiconsIcon icon={InformationCircleIcon} strokeWidth={2} className="size-4" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-[260px] text-center">
+                            Your email will only be used to follow up on your feedback. Leave it empty if you&apos;d
+                            prefer not to receive a reply.
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                    <input
+                      id="email"
+                      type="email"
+                      inputMode="email"
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      autoComplete="email"
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm shadow-none outline-none transition-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#2A2A2A]"
+                    />
                   </div>
                 </div>
 
-                <div>
-                  <label htmlFor="category" className="mb-3 block text-sm font-semibold">
-                    Category
-                  </label>
-                  <Select value={category} onValueChange={(value) => setCategory(value ?? "")}>
-                    <SelectTrigger id="category" className="h-11 w-full justify-between bg-background shadow-none">
-                      <SelectValue placeholder="Select a category" />
-                    </SelectTrigger>
-                    <SelectContent
-                      alignItemWithTrigger={false}
-                      sideOffset={6}
-                      align="start"
-                      className="w-[var(--anchor-width)]"
-                    >
-                      {CONTACT_CATEGORY_OPTIONS.map((option) => (
-                        <SelectItem key={option} value={option}>
-                          {option}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div>
+                    <label htmlFor="category" className="mb-3 block text-sm font-semibold">
+                      Category
+                    </label>
+                    <Select value={category} onValueChange={(value) => setCategory(value ?? "")}>
+                      <SelectTrigger id="category" className="h-11 w-full justify-between bg-background shadow-none">
+                        <SelectValue placeholder="Select a category" />
+                      </SelectTrigger>
+                      <SelectContent
+                        alignItemWithTrigger={false}
+                        sideOffset={6}
+                        align="start"
+                        className="w-[var(--anchor-width)]"
+                      >
+                        {CONTACT_CATEGORY_OPTIONS.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                <div>
-                  <label className="mb-3 block text-sm font-semibold">Rating</label>
-                  <StarRating
-                    rating={rating}
-                    onRatingChange={setRating}
-                    disabled={isSubmitting}
-                  />
+                  <div>
+                    <label className="mb-3 block text-sm font-semibold">Rating</label>
+                    <StarRating
+                      rating={rating}
+                      onRatingChange={setRating}
+                      disabled={isSubmitting}
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -316,6 +434,65 @@ export function FeedbackFormPage({
                   />
                   <div className="mt-2 text-xs text-muted-foreground">
                     {messageLength}/{MAX_MESSAGE_LENGTH} characters
+                  </div>
+
+                  <div className="mt-3 flex flex-col gap-3">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png"
+                      multiple
+                      className="hidden"
+                      onChange={handleAttachmentPick}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={isSubmitting || attachments.length >= MAX_ATTACHMENTS}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="h-[38px] w-fit"
+                    >
+                      <HugeiconsIcon icon={ImageAdd01Icon} strokeWidth={2} data-icon="inline-start" />
+                      Add image
+                      <span className="font-normal text-muted-foreground">
+                        ({attachments.length}/{MAX_ATTACHMENTS})
+                      </span>
+                    </Button>
+
+                    {attachments.length > 0 ? (
+                      <AttachmentGroup>
+                        {attachments.map((item) => (
+                          <Attachment
+                            key={item.id}
+                            state="done"
+                            orientation="vertical"
+                            className="w-36 rounded-md"
+                          >
+                            <AttachmentMedia variant="image" className="rounded-md">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={item.url} alt={item.file.name} />
+                            </AttachmentMedia>
+                            <AttachmentContent>
+                              <AttachmentTitle>{item.file.name}</AttachmentTitle>
+                              <AttachmentDescription>
+                                {item.file.type === "image/png" ? "PNG" : "JPEG"} ·{" "}
+                                {formatFileSize(item.file.size)}
+                              </AttachmentDescription>
+                            </AttachmentContent>
+                            <AttachmentActions>
+                              <AttachmentAction
+                                type="button"
+                                aria-label={`Remove ${item.file.name}`}
+                                disabled={isSubmitting}
+                                onClick={() => handleRemoveAttachment(item.id)}
+                              >
+                                <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
+                              </AttachmentAction>
+                            </AttachmentActions>
+                          </Attachment>
+                        ))}
+                      </AttachmentGroup>
+                    ) : null}
                   </div>
                 </div>
 
