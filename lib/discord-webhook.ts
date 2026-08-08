@@ -25,6 +25,13 @@ export interface DiscordEmbed {
   color?: number;
   timestamp?: string;
   fields?: DiscordEmbedField[];
+  image?: { url: string };
+}
+
+export interface DiscordWebhookFile {
+  filename: string;
+  contentType: string;
+  data: ArrayBuffer;
 }
 
 export function getDiscordWebhookUrl(kind: DiscordWebhookKind): string {
@@ -53,7 +60,7 @@ function truncateContent(content: string): string {
 }
 
 function normalizeEmbed(embed: DiscordEmbed): DiscordEmbed {
-  return {
+  const normalized: DiscordEmbed = {
     ...embed,
     title: embed.title ? truncate(embed.title, DISCORD_EMBED_TITLE_MAX_LENGTH) : undefined,
     description: embed.description
@@ -65,6 +72,10 @@ function normalizeEmbed(embed: DiscordEmbed): DiscordEmbed {
       value: truncate(field.value, DISCORD_EMBED_FIELD_VALUE_MAX_LENGTH),
     })),
   };
+  if (embed.image?.url) {
+    normalized.image = { url: embed.image.url };
+  }
+  return normalized;
 }
 
 function normalizeEmbeds(embeds: DiscordEmbed[]): DiscordEmbed[] {
@@ -81,19 +92,48 @@ export async function sendDiscordWebhook(params: {
   kind: DiscordWebhookKind;
   content?: string;
   embeds: DiscordEmbed[];
+  files?: DiscordWebhookFile[];
 }): Promise<void> {
   const url = getDiscordWebhookUrl(params.kind);
-  const payload: { content?: string; embeds: DiscordEmbed[] } = {
-    embeds: normalizeEmbeds(params.embeds),
-  };
+  const embeds = normalizeEmbeds(params.embeds);
+  const files = params.files?.slice(0, 10) ?? [];
+
+  if (files.length > 0 && embeds[0] && !embeds[0].image) {
+    embeds[0] = {
+      ...embeds[0],
+      image: { url: `attachment://${files[0].filename}` },
+    };
+  }
+
+  const payload: { content?: string; embeds: DiscordEmbed[] } = { embeds };
   if (params.content?.trim()) {
     payload.content = truncateContent(params.content.trim());
   }
 
+  if (files.length === 0) {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    await assertDiscordResponseOk(response);
+    return;
+  }
+
+  const form = new FormData();
+  form.append("payload_json", JSON.stringify(payload));
+  for (let i = 0; i < files.length; i += 1) {
+    const file = files[i];
+    form.append(
+      `files[${i}]`,
+      new Blob([file.data], { type: file.contentType }),
+      file.filename
+    );
+  }
+
   const response = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: form,
   });
   await assertDiscordResponseOk(response);
 }

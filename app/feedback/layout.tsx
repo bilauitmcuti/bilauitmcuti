@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Feedback',
+  title: 'Send Feedback',
   description:
     'Send feedback, bug reports, and suggestions for Bila UiTM Cuti — the interactive UiTM academic calendar.',
   robots: { index: false, follow: true },
@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     siteName: 'Bila UiTM Cuti',
-    title: 'Feedback',
+    title: 'Send Feedback',
     description:
       'Share feedback and suggestions to help improve the UiTM academic calendar on bilauitmcuti.com.',
     type: 'website',
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Feedback',
+    title: 'Send Feedback',
     description:
       'Share feedback and suggestions to help improve the UiTM academic calendar on bilauitmcuti.com.',
     images: ['https://bilauitmcuti.com/og/main.png'],
@@ -32,7 +32,7 @@ const feedbackBreadcrumbJsonLd = JSON.stringify({
   '@type': 'BreadcrumbList',
   itemListElement: [
     { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://bilauitmcuti.com' },
-    { '@type': 'ListItem', position: 2, name: 'Feedback', item: 'https://bilauitmcuti.com/feedback' },
+    { '@type': 'ListItem', position: 2, name: 'Send Feedback', item: 'https://bilauitmcuti.com/feedback' },
   ],
 });
 

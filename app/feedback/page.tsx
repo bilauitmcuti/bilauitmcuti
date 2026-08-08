@@ -1,3 +1,5 @@
+export const runtime = 'edge';
+
 import { FeedbackFormPage } from "@/components/feedback-form-page";
 import { getTurnstileSiteKey } from "@/lib/turnstile-config";
 

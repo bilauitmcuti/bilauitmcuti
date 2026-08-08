@@ -1,5 +1,9 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# macOS AppleDouble / Finder noise (esp. external volumes)
+._*
+.DS_Store
+
 # dependencies
 /node_modules
 package-lock.json

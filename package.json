@@ -16,7 +16,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "start": "next start",
-    "pages:dev": "wrangler pages dev .vercel/output/static --compatibility-flag=nodejs_compat",
+    "pages:dev": "wrangler pages dev .vercel/output/static --compatibility-flag=nodejs_compat --compatibility-flag=global_fetch_strictly_public",
     "preview": "pnpm run build:pages && pnpm run pages:dev"
   },
   "pnpm": {
