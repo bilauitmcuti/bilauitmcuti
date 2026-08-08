@@ -70,10 +70,10 @@ function isFileLike(value: FormDataEntryValue): value is File {
 }
 
 function sanitizeAttachmentFilename(name: string, index: number, contentType: string): string {
-  const base = name.replace(/[^\w.\-]+/g, "_").replace(/^\.+/, "").slice(0, 80);
   const ext = contentType === "image/png" ? "png" : "jpg";
-  if (base && /\.(jpe?g|png)$/i.test(base)) return base;
-  return base ? `${base}.${ext}` : `attachment-${index + 1}.${ext}`;
+  const sanitized = name.replace(/[^\w.\-]+/g, "_").replace(/^\.+/, "").slice(0, 80);
+  const stem = sanitized.replace(/\.(jpe?g|png)$/i, "").trim() || "attachment";
+  return `${stem}-${index + 1}.${ext}`;
 }
 
 function parseAttachmentFiles(formData: FormData): { success: true; files: File[] } | { success: false } {
