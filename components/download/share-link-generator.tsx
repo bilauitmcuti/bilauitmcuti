@@ -619,22 +619,23 @@ export function ShareLinkGenerator() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <div className="relative">
         <Input
           readOnly
           value={sharePath}
           aria-label="Shareable calendar path and query"
-          className="font-mono text-xs sm:text-sm"
+          className="pr-11 font-mono text-xs sm:text-sm"
           onFocus={(e) => e.currentTarget.select()}
         />
         <Button
           type="button"
-          variant="default"
-          className="h-9 shrink-0 gap-2"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={copied ? 'Copied' : 'Copy link'}
+          className="absolute top-1/2 right-0.5 -translate-y-1/2 text-muted-foreground"
           onClick={() => void handleCopy()}
         >
-          {copied ? <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="size-4" /> : <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} className="size-4" />}
-          {copied ? 'Copied' : 'Copy'}
+          <HugeiconsIcon icon={copied ? Tick02Icon : Copy01Icon} strokeWidth={2} className="size-4" />
         </Button>
       </div>
 

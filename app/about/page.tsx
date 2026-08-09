@@ -79,6 +79,11 @@ export default function AboutPage() {
             Ask Bila about your calendar in plain language — class days, breaks, exams, and what&apos;s coming up
             — without digging through the grid yourself.
           </p>
+          <h3>MCP Server</h3>
+          <p>
+            Connect Claude or other AI assistants to the <BrandName /> MCP server for read-only calendar and public
+            holiday data. See the <Link href="/mcp">MCP setup guide</Link> for how to add it in Claude.
+          </p>
           <h3>Internship portal</h3>
           <p>
             Find My Internship brings internship listings into one place so you can browse opportunities without
