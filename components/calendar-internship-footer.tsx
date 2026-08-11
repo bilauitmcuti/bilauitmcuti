@@ -20,7 +20,7 @@ export function CalendarInternshipFooter() {
           href={INTERNSHIP_URL}
           className="shrink-0 text-primary underline underline-offset-2 hover:underline"
         >
-          Try it now
+          Browse Now
         </Link>
       </p>
     </footer>
