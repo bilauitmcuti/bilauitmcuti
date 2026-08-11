@@ -3,6 +3,7 @@ import {
   getActivitiesForList,
   getActivitiesForMonth,
   getActivityListGroupMonthKey,
+  groupActivitiesByListStartDate,
   groupActivitiesByListStartMonth,
   matchesActivityDate,
 } from "./data";
@@ -81,5 +82,57 @@ describe("getActivitiesForList", () => {
     expect(grouped["November 2026"]?.map((a) => a.name)).toContain("Kuliah");
     expect(grouped["December 2026"]?.map((a) => a.name)).toContain("End of semester");
     expect(grouped["December 2026"]?.map((a) => a.name)).not.toContain("Kuliah");
+  });
+});
+
+describe("groupActivitiesByListStartDate", () => {
+  const sameDayA: Activity = {
+    name: "Registration A",
+    startDate: "2026-09-04",
+    endDate: "2026-09-18",
+    type: "registration",
+    group: "B",
+    programType: "Diploma",
+  };
+  const sameDayB: Activity = {
+    name: "Registration B",
+    startDate: "2026-09-04",
+    endDate: "2026-09-18",
+    type: "registration",
+    group: "B",
+    programType: "Diploma",
+  };
+  const otherDay: Activity = {
+    name: "Bachelor registration",
+    startDate: "2026-09-07",
+    endDate: "2026-09-13",
+    type: "registration",
+    group: "B",
+    programType: "Bachelor",
+  };
+  const kktActivity: Activity = {
+    name: "KKT lecture",
+    startDate: "2026-09-01",
+    endDate: "2026-09-30",
+    regionalStartDate: "2026-09-04",
+    regionalEndDate: "2026-09-28",
+    type: "lecture",
+    group: "B",
+  };
+
+  it("merges activities that share the same display start date", () => {
+    const grouped = groupActivitiesByListStartDate([sameDayA, sameDayB, otherDay], false);
+    expect(grouped).toHaveLength(2);
+    expect(grouped[0]?.dateStr).toBe("2026-09-04");
+    expect(grouped[0]?.activities.map((a) => a.name)).toEqual(["Registration A", "Registration B"]);
+    expect(grouped[1]?.dateStr).toBe("2026-09-07");
+    expect(grouped[1]?.activities.map((a) => a.name)).toEqual(["Bachelor registration"]);
+  });
+
+  it("uses regionalStartDate as group key when KKT is on", () => {
+    const grouped = groupActivitiesByListStartDate([kktActivity, sameDayA], true);
+    expect(grouped).toHaveLength(1);
+    expect(grouped[0]?.dateStr).toBe("2026-09-04");
+    expect(grouped[0]?.activities.map((a) => a.name)).toEqual(["KKT lecture", "Registration A"]);
   });
 });

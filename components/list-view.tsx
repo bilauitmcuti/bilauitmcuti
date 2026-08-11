@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import {
   getActivitiesForList,
   getActivityListDisplayAnchorDate,
+  groupActivitiesByListStartDate,
   groupActivitiesByListStartMonth,
   parseListMonthKey,
   formatDateRange,
@@ -17,6 +18,184 @@ import {
   type ProgramGroup,
   type SessionId,
 } from '@/lib/data';
+
+function formatListDate(dateStr: string) {
+  const [year, monthNum, day] = dateStr.split('-').map(Number);
+  const startDate = new Date(Date.UTC(year, monthNum - 1, day));
+  return {
+    dayName: startDate.toLocaleString('en-US', { weekday: 'short', timeZone: 'UTC' }),
+    dayNum: String(startDate.getUTCDate()),
+    monthShort: startDate.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' }),
+  };
+}
+
+interface ListDateColumnProps {
+  dateStr: string;
+  textClass: string;
+  mutedClass: string;
+  countdownLabel?: string | null;
+  className?: string;
+}
+
+function ListDateColumn({ dateStr, textClass, mutedClass, countdownLabel, className }: ListDateColumnProps) {
+  const formattedDate = formatListDate(dateStr);
+  return (
+    <div
+      className={cn(`flex w-20 flex-col items-start text-sm ${mutedClass} transition-none`, className)}
+      suppressHydrationWarning
+    >
+      <div className="transition-none" suppressHydrationWarning>
+        {formattedDate.dayName}
+      </div>
+      <div className={`text-base font-medium ${textClass} transition-none`} suppressHydrationWarning>
+        {formattedDate.monthShort
+          ? `${formattedDate.dayNum} ${formattedDate.monthShort}`
+          : formattedDate.dayNum}
+      </div>
+      {countdownLabel ? (
+        <div className={`text-sm ${mutedClass} mt-0.5 transition-none`} suppressHydrationWarning>
+          {countdownLabel}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+interface ListActivityDetailsProps {
+  activity: Activity;
+  selectedProgram: string;
+  showKKT: boolean;
+  textClass: string;
+  mutedClass: string;
+  getActivityColor: (activity: Activity) => string;
+  countdownLabel?: string | null;
+  className?: string;
+}
+
+function ListActivityDetails({
+  activity,
+  selectedProgram,
+  showKKT,
+  textClass,
+  mutedClass,
+  getActivityColor,
+  countdownLabel,
+  className,
+}: ListActivityDetailsProps) {
+  const badgeConfigs = getProgramBadgesConfig(activity, selectedProgram);
+  const singleBadgeConfig = getProgramBadgeConfig(activity);
+  const hasAnyProgramBadge = singleBadgeConfig || badgeConfigs.length > 0;
+  const hasThreeOrMoreBadgesOnAllList = selectedProgram === 'All' && badgeConfigs.length >= 3;
+  const hasKKTVariant = activity.regionalStartDate || activity.regionalEndDate;
+
+  return (
+    <div className={cn('flex flex-1 flex-col transition-none', className)} suppressHydrationWarning>
+      {hasAnyProgramBadge ? (
+        <div
+          className={cn(
+            'mb-1 flex w-fit flex-wrap gap-2 pl-0 transition-none md:pl-4',
+            hasThreeOrMoreBadgesOnAllList && 'flex-nowrap max-[375px]:gap-1.5 max-[320px]:gap-1',
+          )}
+          suppressHydrationWarning
+        >
+          {badgeConfigs.length > 0
+            ? badgeConfigs.map((cfg) => (
+                <div
+                  key={cfg.label}
+                  className={cn(
+                    'inline-block rounded-full font-medium transition-none',
+                    hasThreeOrMoreBadgesOnAllList
+                      ? 'py-1 px-3 text-xs leading-4 max-[375px]:py-0.5 max-[375px]:px-2 max-[375px]:text-[10px] max-[320px]:px-1.5 max-[320px]:text-[9px]'
+                      : 'py-1 px-3 text-xs',
+                    cfg.bgClass,
+                    cfg.textClass,
+                  )}
+                  suppressHydrationWarning
+                >
+                  {cfg.label}
+                </div>
+              ))
+            : singleBadgeConfig && (
+                <div
+                  className={cn(
+                    'inline-block rounded-full font-medium transition-none',
+                    hasThreeOrMoreBadgesOnAllList
+                      ? 'py-1 px-3 text-xs leading-4 max-[375px]:py-0.5 max-[375px]:px-2 max-[375px]:text-[10px] max-[320px]:px-1.5 max-[320px]:text-[9px]'
+                      : 'py-1 px-3 text-xs',
+                    singleBadgeConfig.bgClass,
+                    singleBadgeConfig.textClass,
+                  )}
+                  suppressHydrationWarning
+                >
+                  {singleBadgeConfig.label}
+                </div>
+              )}
+        </div>
+      ) : null}
+      <div className="mb-1 flex items-start gap-2 transition-none" suppressHydrationWarning>
+        <div className="flex h-[1lh] shrink-0 items-center text-base leading-6" suppressHydrationWarning>
+          <div
+            className={cn('h-2 w-2 shrink-0 rounded-full transition-none', getActivityColor(activity))}
+            aria-hidden
+            suppressHydrationWarning
+          />
+        </div>
+        <h3
+          className={cn(
+            'min-w-0 flex-1 font-medium break-words transition-none',
+            hasThreeOrMoreBadgesOnAllList
+              ? 'text-base leading-6 max-[375px]:text-sm max-[375px]:leading-5 max-[320px]:text-xs max-[320px]:leading-4'
+              : 'text-base leading-6',
+            textClass,
+          )}
+          suppressHydrationWarning
+        >
+          {activity.name}
+        </h3>
+      </div>
+      <div className="w-full transition-none" suppressHydrationWarning>
+        <p className={`text-sm leading-5 break-words ${mutedClass} transition-none`} suppressHydrationWarning>
+          {showKKT && activity.regionalStartDate
+            ? formatDateRange(activity.regionalStartDate, activity.regionalEndDate)
+            : formatDateRange(activity.startDate, activity.endDate)}
+        </p>
+        {activity.duration ? (
+          <p className={`mt-1 text-sm font-normal leading-4 break-words ${mutedClass}`} suppressHydrationWarning>
+            {activity.duration}
+          </p>
+        ) : null}
+        {activity.details ? (
+          <p className={`mt-1 text-sm font-normal leading-4 break-words ${mutedClass}`} suppressHydrationWarning>
+            {activity.details}
+          </p>
+        ) : null}
+        {hasKKTVariant && showKKT ? (
+          <p className="mt-1 text-xs leading-4 text-blue-500 italic" suppressHydrationWarning>
+            *Kedah, Kelantan & Terengganu
+          </p>
+        ) : null}
+        {countdownLabel ? (
+          <p className={`mt-1 text-sm break-words md:hidden ${mutedClass}`} suppressHydrationWarning>
+            {countdownLabel}
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function getActivityCountdownLabel(
+  activity: Activity,
+  todayStr: string,
+  showKKT: boolean,
+  showCountdown: boolean
+): string | null {
+  if (!showCountdown || !todayStr || !['lecture', 'examination', 'break'].includes(activity.type)) {
+    return null;
+  }
+  const days = getDaysUntilStart(activity, todayStr, showKKT);
+  return days != null ? formatCountdown(days) : null;
+}
 
 interface ListViewProps {
   selectedProgram: string;
@@ -77,17 +256,6 @@ export const ListView = memo(function ListView({
     return getMalaysiaTodayStr();
   }, [initialCurrentDate]);
 
-  // Helper function untuk format date - always calculates correctly
-  const formatDateSafe = (dateStr: string) => {
-    const [year, monthNum, day] = dateStr.split('-').map(Number);
-    const startDate = new Date(Date.UTC(year, monthNum - 1, day));
-    return {
-      dayName: startDate.toLocaleString('en-US', { weekday: 'short', timeZone: 'UTC' }),
-      dayNum: String(startDate.getUTCDate()),
-      monthShort: startDate.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' })
-    };
-  };
-  
   const getProgramGroup = (program: string): ProgramGroup => {
     if (program === 'Foundation/Professional' || program === 'Foundation' || program === 'Professional') return 'A';
     return 'B';
@@ -217,130 +385,52 @@ export const ListView = memo(function ListView({
           
           <div className="space-y-4 transition-none" suppressHydrationWarning>
             {groupedByMonth[month] && groupedByMonth[month].length > 0 ? (
-              groupedByMonth[month].map((activity) => {
-                const dateStr = getActivityListDisplayAnchorDate(activity, showKKT);
-                const badgeConfigs = getProgramBadgesConfig(activity, selectedProgram);
-                const singleBadgeConfig = getProgramBadgeConfig(activity);
-                const hasAnyProgramBadge = singleBadgeConfig || badgeConfigs.length > 0;
-                const hasThreeOrMoreBadgesOnAllList = selectedProgram === 'All' && badgeConfigs.length >= 3;
-                
-                // Format date using SSR-safe helper function
-                const formattedDate = formatDateSafe(dateStr);
-                
-                // Check if this activity has KKT-specific dates
-                const hasKKTVariant = activity.regionalStartDate || activity.regionalEndDate;
-
+              groupActivitiesByListStartDate(groupedByMonth[month], showKKT).map(({ dateStr, activities }) => {
                 return (
-                  <div key={`${activity.name}|${activity.startDate}|${activity.programType ?? ''}|${activity.endDate ?? ''}`} className="flex gap-4 p-3 rounded-lg px-0 transition-none" suppressHydrationWarning>
-                    {/* Date column */}
-                    <div className={`flex w-20 flex-col items-start text-xs ${mutedClass} transition-none`} suppressHydrationWarning>
-                      <div className="transition-none" suppressHydrationWarning>
-                        {formattedDate.dayName}
-                      </div>
-                      <div className={`text-sm font-medium ${textClass} transition-none`} suppressHydrationWarning>
-                        {formattedDate.monthShort 
-                          ? `${formattedDate.dayNum} ${formattedDate.monthShort}` 
-                          : formattedDate.dayNum}
-                      </div>
-                      {showCountdown && ['lecture', 'examination', 'break'].includes(activity.type) && todayStr && (() => {
-                        const days = getDaysUntilStart(activity, todayStr, showKKT);
-                        return days != null ? (
-                          <div className={`text-xs ${mutedClass} mt-0.5 transition-none`} suppressHydrationWarning>
-                            {formatCountdown(days)}
-                          </div>
-                        ) : null;
-                      })()}
-                    </div>
-                    
-                    {/* Activity info */}
-                    <div className="flex flex-1 flex-col transition-none" suppressHydrationWarning>
-                      {hasAnyProgramBadge ? (
-                        <div
-                          className={cn(
-                            'mb-1 flex w-fit flex-wrap gap-2 pl-4 transition-none',
-                            hasThreeOrMoreBadgesOnAllList && 'flex-nowrap max-[375px]:gap-1.5 max-[320px]:gap-1',
-                          )}
-                          suppressHydrationWarning
-                        >
-                          {badgeConfigs.length > 0
-                            ? badgeConfigs.map((cfg) => (
-                                <div
-                                  key={cfg.label}
-                                  className={cn(
-                                    'inline-block rounded-full font-medium transition-none',
-                                    hasThreeOrMoreBadgesOnAllList
-                                      ? 'py-1 px-3 text-xs leading-4 max-[375px]:py-0.5 max-[375px]:px-2 max-[375px]:text-[10px] max-[320px]:px-1.5 max-[320px]:text-[9px]'
-                                      : 'py-1 px-3 text-xs',
-                                    cfg.bgClass,
-                                    cfg.textClass,
-                                  )}
-                                  suppressHydrationWarning
-                                >
-                                  {cfg.label}
-                                </div>
-                              ))
-                            : singleBadgeConfig && (
-                                <div
-                                  className={cn(
-                                    'inline-block rounded-full font-medium transition-none',
-                                    hasThreeOrMoreBadgesOnAllList
-                                      ? 'py-1 px-3 text-xs leading-4 max-[375px]:py-0.5 max-[375px]:px-2 max-[375px]:text-[10px] max-[320px]:px-1.5 max-[320px]:text-[9px]'
-                                      : 'py-1 px-3 text-xs',
-                                    singleBadgeConfig.bgClass,
-                                    singleBadgeConfig.textClass,
-                                  )}
-                                  suppressHydrationWarning
-                                >
-                                  {singleBadgeConfig.label}
-                                </div>
-                              )}
-                        </div>
-                      ) : null}
-                      <div className="mb-1 flex items-start gap-2 transition-none" suppressHydrationWarning>
-                        <div className="flex h-[1lh] shrink-0 items-center text-base leading-6" suppressHydrationWarning>
+                  <div key={dateStr} className="space-y-2 md:space-y-4 transition-none" suppressHydrationWarning>
+                    <ListDateColumn
+                      dateStr={dateStr}
+                      textClass={textClass}
+                      mutedClass={mutedClass}
+                      className="md:hidden px-0"
+                    />
+
+                    <div className="space-y-4 transition-none" suppressHydrationWarning>
+                      {activities.map((activity) => {
+                        const activityDateStr = getActivityListDisplayAnchorDate(activity, showKKT);
+                        const activityCountdownLabel = getActivityCountdownLabel(
+                          activity,
+                          todayStr,
+                          showKKT,
+                          showCountdown
+                        );
+
+                        return (
                           <div
-                            className={cn('h-2 w-2 shrink-0 rounded-full transition-none', getActivityColor(activity))}
-                            aria-hidden
+                            key={`${activity.name}|${activity.startDate}|${activity.programType ?? ''}|${activity.endDate ?? ''}`}
+                            className="flex gap-4 rounded-lg p-3 px-0 transition-none md:flex-row"
                             suppressHydrationWarning
-                          />
-                        </div>
-                        <h3
-                          className={cn(
-                            'min-w-0 flex-1 font-medium break-words transition-none',
-                            hasThreeOrMoreBadgesOnAllList
-                              ? 'text-base leading-6 max-[375px]:text-sm max-[375px]:leading-5 max-[320px]:text-xs max-[320px]:leading-4'
-                              : 'text-base leading-6',
-                            textClass,
-                          )}
-                          suppressHydrationWarning
-                        >
-                          {activity.name}
-                        </h3>
-                      </div>
-                      
-                      {/* Date and other details */}
-                      <div className="w-full transition-none" suppressHydrationWarning>
-                        <p className={`text-sm leading-5 break-words ${mutedClass} transition-none`} suppressHydrationWarning>
-                          {showKKT && activity.regionalStartDate
-                            ? formatDateRange(activity.regionalStartDate, activity.regionalEndDate)
-                            : formatDateRange(activity.startDate, activity.endDate)}
-                        </p>
-                        {activity.duration ? (
-                          <p className={`mt-1 text-sm font-normal leading-4 break-words ${mutedClass}`} suppressHydrationWarning>
-                            {activity.duration}
-                          </p>
-                        ) : null}
-                        {activity.details ? (
-                          <p className={`mt-1 text-sm font-normal leading-4 break-words ${mutedClass}`} suppressHydrationWarning>
-                            {activity.details}
-                          </p>
-                        ) : null}
-                        {hasKKTVariant && showKKT ? (
-                          <p className="mt-1 text-xs leading-4 text-blue-500 italic" suppressHydrationWarning>
-                            *Kedah, Kelantan & Terengganu
-                          </p>
-                        ) : null}
-                      </div>
+                          >
+                            <ListDateColumn
+                              dateStr={activityDateStr}
+                              textClass={textClass}
+                              mutedClass={mutedClass}
+                              countdownLabel={activityCountdownLabel}
+                              className="hidden md:flex"
+                            />
+
+                            <ListActivityDetails
+                              activity={activity}
+                              selectedProgram={selectedProgram}
+                              showKKT={showKKT}
+                              textClass={textClass}
+                              mutedClass={mutedClass}
+                              getActivityColor={getActivityColor}
+                              countdownLabel={activityCountdownLabel}
+                            />
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 );

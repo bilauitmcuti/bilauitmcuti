@@ -717,8 +717,19 @@ export function CalendarControls({
                   <div className="text-left text-xs pt-0.5 space-y-3 text-muted-foreground transition-none">
                     {/* Buttons Container */}
                     <div className="flex flex-col gap-2 w-full transition-none">
-                      {/* Download PWA Button - Primary, only show if not already installed */}
-                      <PwaInstallButton isInstalled={isPWAInstalled} />
+                      <div className="flex w-full flex-col gap-2 md:flex-row">
+                        <PwaInstallButton isInstalled={isPWAInstalled} className="md:flex-1" />
+
+                        <Link href="/mcp" className="w-full md:flex-1">
+                          <Button
+                            size="default"
+                            variant="outline"
+                            className={drawerOutlineButtonClassName}
+                          >
+                            MCP Server
+                          </Button>
+                        </Link>
+                      </div>
 
                       {/* Submit Feedback Button - Secondary */}
                       <Link href="/feedback" className="w-full">

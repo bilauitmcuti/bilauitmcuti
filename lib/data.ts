@@ -944,6 +944,27 @@ export function groupActivitiesByListStartMonth(activities: Activity[]): Record<
   );
 }
 
+export interface ListStartDateGroup {
+  dateStr: string;
+  activities: Activity[];
+}
+
+/** Group list rows by display anchor date (YYYY-MM-DD), preserving activity order within each day. */
+export function groupActivitiesByListStartDate(
+  activities: Activity[],
+  showKKT: boolean
+): ListStartDateGroup[] {
+  const map = new Map<string, Activity[]>();
+  for (const activity of activities) {
+    const dateStr = getActivityListDisplayAnchorDate(activity, showKKT);
+    if (!map.has(dateStr)) map.set(dateStr, []);
+    map.get(dateStr)!.push(activity);
+  }
+  return [...map.entries()]
+    .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
+    .map(([dateStr, groupActivities]) => ({ dateStr, activities: groupActivities }));
+}
+
 /** Get activities for a date across multiple sessions (merged, deduped). */
 export function getActivitiesForDateMultiSessions(
   dateStr: string,
