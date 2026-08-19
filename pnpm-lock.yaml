@@ -7,7 +7,7 @@ settings:
 overrides:
   undici@>=4.5.0 <5.28.5: '>=5.28.5'
   esbuild@<=0.24.2: '>=0.25.0'
-  cookie@<0.7.0: '>=0.7.0'
+  cookie: 0.7.2
   undici@<6.23.0: '>=6.23.0'
   tar@<7.5.7: '>=7.5.7'
   undici@<5.29.0: '>=5.29.0'
@@ -2122,10 +2122,6 @@ packages:
   cookie@0.7.2:
     resolution: {integrity: sha512-yki5XnKuf750l50uGTllt6kKILY4nQ1eNIQatoXEByZ5dWgnKqbnqmTrBE5B4N7lrMJKQ2ytWMiTO2o0v6Ew/w==}
     engines: {node: '>= 0.6'}
-
-  cookie@1.1.1:
-    resolution: {integrity: sha512-ei8Aos7ja0weRpFzJnEA9UHJ/7XQmqglbRwnf2ATjcB9Wq874VKH9kfjjirM6UhU2/E5fFYadylyhFldcqSidQ==}
-    engines: {node: '>=18'}
 
   cors@2.8.6:
     resolution: {integrity: sha512-tJtZBBHA6vjIAaF6EnIaq6laBBP9aq/Y3ouVJjEfoHbRBcHBAHYcMh/w8LDrk2PvIMMq8gmopa5D4V8RmbrxGw==}
@@ -4922,7 +4918,7 @@ snapshots:
       chalk: 5.6.2
       chokidar: 3.6.0
       commander: 11.1.0
-      cookie: 1.1.1
+      cookie: 0.7.2
       esbuild: 0.28.1
       js-yaml: 5.3.0
       miniflare: 3.20250718.3
@@ -6510,8 +6506,6 @@ snapshots:
 
   cookie@0.7.2: {}
 
-  cookie@1.1.1: {}
-
   cors@2.8.6:
     dependencies:
       object-assign: 4.1.1
@@ -7888,7 +7882,7 @@ snapshots:
       '@mswjs/interceptors': 0.41.9
       '@open-draft/deferred-promise': 2.2.0
       '@types/statuses': 2.0.6
-      cookie: 1.1.1
+      cookie: 0.7.2
       graphql: 16.14.2
       headers-polyfill: 4.0.3
       is-node-process: 1.2.0
@@ -9300,7 +9294,7 @@ snapshots:
       '@poppinss/colors': 4.1.6
       '@poppinss/dumper': 0.6.5
       '@speed-highlight/core': 1.2.14
-      cookie: 1.1.1
+      cookie: 0.7.2
       youch-core: 0.3.3
 
   zod-to-json-schema@3.25.2(zod@3.25.76):

@@ -19,10 +19,6 @@
     "pages:dev": "wrangler pages dev .vercel/output/static --compatibility-flag=nodejs_compat --compatibility-flag=global_fetch_strictly_public",
     "preview": "pnpm run build:pages && pnpm run pages:dev"
   },
-  "overrides": {
-    "vite": ">=8.0.16",
-    "brace-expansion": ">=5.0.9"
-  },
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild",
@@ -34,7 +30,7 @@
     "overrides": {
       "undici@>=4.5.0 <5.28.5": ">=5.28.5",
       "esbuild@<=0.24.2": ">=0.25.0",
-      "cookie@<0.7.0": ">=0.7.0",
+      "cookie": "0.7.2",
       "undici@<6.23.0": ">=6.23.0",
       "tar@<7.5.7": ">=7.5.7",
       "undici@<5.29.0": ">=5.29.0",
