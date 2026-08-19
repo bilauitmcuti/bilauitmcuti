@@ -1,0 +1,13 @@
+packages:
+  - '.'
+
+# pnpm 10+ reads overrides here (package.json#pnpm.overrides is ignored).
+# Pin cookie to 0.7.2: patched for GHSA-pxg6-pf52-xh8x, still CJS so
+# @cloudflare/next-on-pages esbuild (platform:neutral) can resolve it.
+# cookie 1.x is ESM-only and breaks `pnpm run build:pages`.
+overrides:
+  cookie: 0.7.2
+  # Exact majors: `>=1.1.18` resolved to 5.0.9 and broke ESLint minimatch@3.
+  brace-expansion@<1.1.18: 1.1.18
+  brace-expansion@>=2.0.0 <2.1.4: 2.1.4
+  brace-expansion@>=4.0.0 <5.0.9: 5.0.9
